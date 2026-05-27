@@ -119,7 +119,7 @@ fn setup_writes_config_successfully() {
 }
 
 #[test]
-fn agent_success_stdout_empty() {
+fn agent_success_stdout_empty_via_setup() {
     let _g = env_guard();
     let dir = TempDir::new().expect("tempdir");
 

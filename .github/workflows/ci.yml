@@ -30,16 +30,10 @@ jobs:
       - name: Core lib without CLI deps
         run: cargo check --no-default-features --lib
 
-      - name: Release build
-        run: cargo build --release
-
       - name: CLI --help / --version (CONF-10)
-        shell: bash
         run: |
-          BIN=target/release/crud-cli
-          if [ "${{ runner.os }}" = "Windows" ]; then BIN=target/release/crud-cli.exe; fi
-          "$BIN" --help
-          "$BIN" --version
+          cargo run --quiet -- --help
+          cargo run --quiet -- --version
 
       - name: Core-only example (FOUND-03)
         run: cargo run --example library_usage --no-default-features
@@ -70,6 +64,14 @@ jobs:
       - name: Clippy deny policy (FOUND-07 / D-15)
         run: >-
           cargo clippy --all-targets
+          --
+          -D clippy::unwrap_used
+          -D clippy::expect_used
+          -D clippy::panic
+
+      - name: Clippy core-only (FOUND-03)
+        run: >-
+          cargo clippy --no-default-features --lib
           --
           -D clippy::unwrap_used
           -D clippy::expect_used
