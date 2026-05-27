@@ -60,10 +60,17 @@
   5. 模板中任一文件冲突（已存在且未 `--force`）触发整批不写（两阶段 plan/commit），退出码 3
 
 **Plans:** 3 plans
-
 Plans:
+**Wave 1**
+
 - [ ] 02-01-PLAN.md — End-to-end `gen` happy-path vertical slice (--fields DSL → render → fs_writer atomic write)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 02-02-PLAN.md — JSON --file input, front-matter, [templates.outputs] map, --type filter, --dry-run UX, atomic-batch contract test
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 02-03-PLAN.md — `validate` command: syntax + variable first-segment + synthetic-fixture render + aggregated TemplateError(2) envelope
 
 ### Phase 3: Community Templates

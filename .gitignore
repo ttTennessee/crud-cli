@@ -7,4 +7,5 @@ prd.html
 .DS_Store
 .mcp.json
 .crud/
+.codegraph/
 .temp/
