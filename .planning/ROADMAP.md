@@ -59,11 +59,11 @@
   4. `--agent` 模式下 `gen` 成功时 stdout 仅打印一行规范文案（含生成文件数），失败按退出码 + 结构化 stderr；`GenReport` 数据结构含写入路径/跳过项/冲突项，便于未来 `--json` 复用
   5. 模板中任一文件冲突（已存在且未 `--force`）触发整批不写（两阶段 plan/commit），退出码 3
 
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 Plans:
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — End-to-end `gen` happy-path vertical slice (--fields DSL → render → fs_writer atomic write)
+- [x] 02-01-PLAN.md — End-to-end `gen` happy-path vertical slice (--fields DSL → render → fs_writer atomic write)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -107,7 +107,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation + Setup | 4/4 | Complete   | 2026-05-27 |
-| 2. End-to-End Generation | 0/3 | Planned | - |
+| 2. End-to-End Generation | 1/3 | In Progress|  |
 | 3. Community Templates | 0/0 | Not started | - |
 | 4. Release | 0/0 | Not started | - |
 

@@ -1,7 +1,7 @@
 //! `crud-cli gen` command handler.
 
 use crate::cli::args::{exit_with_envelope, GenArgs};
-use crate::cli::output::emit_success;
+use crate::cli::output::{emit_dry_run_listing, emit_success};
 use crate::core::error::ErrorEnvelope;
 use crate::core::gen_pipeline;
 use crate::core::gen_run::GenRunParams;
@@ -12,6 +12,7 @@ pub fn run_gen(args: GenArgs) -> i32 {
         return exit_with_envelope(&envelope);
     }
 
+    let dry_run = args.dry_run;
     let params = match gen_run_params_from_args(args) {
         Ok(p) => p,
         Err(envelope) => return exit_with_envelope(&envelope),
@@ -19,8 +20,19 @@ pub fn run_gen(args: GenArgs) -> i32 {
 
     match gen_pipeline::run(params) {
         Ok(report) => {
-            let line = format!("生成 {} 个文件", report.written.len());
-            emit_success(Some(&line));
+            if dry_run {
+                emit_dry_run_listing(&report.dry_run_lines);
+                let conflict_n = report.conflicts.len();
+                let line = format!(
+                    "dry-run: {} 个待生成（{} 冲突）",
+                    report.skipped.len(),
+                    conflict_n
+                );
+                emit_success(Some(&line));
+            } else {
+                let line = format!("生成 {} 个文件", report.written.len());
+                emit_success(Some(&line));
+            }
             0
         }
         Err(envelope) => exit_with_envelope(&envelope),
@@ -28,6 +40,27 @@ pub fn run_gen(args: GenArgs) -> i32 {
 }
 
 fn gen_run_params_from_args(args: GenArgs) -> Result<GenRunParams, ErrorEnvelope> {
+    let type_filter = args.type_.map(|s| {
+        s.split(',')
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+            .map(str::to_string)
+            .collect()
+    });
+
+    if let Some(ref path) = args.file {
+        return Ok(GenRunParams {
+            name: args.name,
+            fields_src: None,
+            package: args.package,
+            table: args.table,
+            file: Some(path.clone()),
+            type_filter,
+            dry_run: args.dry_run,
+            force: args.force,
+        });
+    }
+
     let name = args
         .name
         .ok_or_else(|| missing_gen_flag("name", "missing_name"))?;
@@ -40,19 +73,12 @@ fn gen_run_params_from_args(args: GenArgs) -> Result<GenRunParams, ErrorEnvelope
     let table = args
         .table
         .ok_or_else(|| missing_gen_flag("table", "missing_table"))?;
-    let type_filter = args.type_.map(|s| {
-        s.split(',')
-            .map(str::trim)
-            .filter(|p| !p.is_empty())
-            .map(str::to_string)
-            .collect()
-    });
     Ok(GenRunParams {
-        name,
-        fields_src,
-        package,
-        table,
-        file: args.file,
+        name: Some(name),
+        fields_src: Some(fields_src),
+        package: Some(package),
+        table: Some(table),
+        file: None,
         type_filter,
         dry_run: args.dry_run,
         force: args.force,

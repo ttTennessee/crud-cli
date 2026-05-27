@@ -32,7 +32,14 @@ fn resolve_strips_hbs_suffix() {
     let dir = TempDir::new().expect("tempdir");
     let root = dir.path();
     let e = entry("Entity.java.hbs", root);
-    let out = resolve_output_path(&e, root).expect("ok");
+    let out = resolve_output_path(
+        &e,
+        &crud_cli::core::template_meta::TemplateMeta::default(),
+        &crud_cli::core::config::OutputsSection::default(),
+        &serde_json::json!({}),
+        root,
+    )
+    .expect("ok");
     assert_eq!(out, root.join("Entity.java"));
 }
 
@@ -41,7 +48,14 @@ fn resolve_nested_template_path() {
     let dir = TempDir::new().expect("tempdir");
     let root = dir.path();
     let e = entry("java/Entity.java.hbs", root);
-    let out = resolve_output_path(&e, root).expect("ok");
+    let out = resolve_output_path(
+        &e,
+        &crud_cli::core::template_meta::TemplateMeta::default(),
+        &crud_cli::core::config::OutputsSection::default(),
+        &serde_json::json!({}),
+        root,
+    )
+    .expect("ok");
     assert_eq!(out, root.join("java/Entity.java"));
 }
 
@@ -50,7 +64,14 @@ fn path_traversal_rejected() {
     let dir = TempDir::new().expect("tempdir");
     let root = dir.path();
     let e = entry("../escape.txt", root);
-    let err = resolve_output_path(&e, root).expect_err("traversal");
+    let err = resolve_output_path(
+        &e,
+        &crud_cli::core::template_meta::TemplateMeta::default(),
+        &crud_cli::core::config::OutputsSection::default(),
+        &serde_json::json!({}),
+        root,
+    )
+    .expect_err("traversal");
     assert_eq!(err.kind, Kind::UserError);
     assert_eq!(
         err.details.get("reason").and_then(|v| v.as_str()),
@@ -68,7 +89,14 @@ fn absolute_rel_path_rejected() {
         "/etc/passwd"
     };
     let e = entry(abs, root);
-    let err = resolve_output_path(&e, root).expect_err("absolute");
+    let err = resolve_output_path(
+        &e,
+        &crud_cli::core::template_meta::TemplateMeta::default(),
+        &crud_cli::core::config::OutputsSection::default(),
+        &serde_json::json!({}),
+        root,
+    )
+    .expect_err("absolute");
     assert_eq!(
         err.details.get("reason").and_then(|v| v.as_str()),
         Some("path_traversal")
@@ -80,7 +108,14 @@ fn resolve_preserves_non_hbs_extension() {
     let dir = TempDir::new().expect("tempdir");
     let root = dir.path();
     let e = entry("README.md", root);
-    let out = resolve_output_path(&e, root).expect("ok");
+    let out = resolve_output_path(
+        &e,
+        &crud_cli::core::template_meta::TemplateMeta::default(),
+        &crud_cli::core::config::OutputsSection::default(),
+        &serde_json::json!({}),
+        root,
+    )
+    .expect("ok");
     assert_eq!(out, root.join("README.md"));
 }
 
@@ -108,10 +143,10 @@ fn pipeline_run_writes_rendered_file() {
     let prev = std::env::current_dir().expect("cwd");
     std::env::set_current_dir(root).unwrap();
     let report = run(GenRunParams {
-        name: "User".into(),
-        fields_src: "id:Long,name:String".into(),
-        package: "com.acme.demo".into(),
-        table: "sys_user".into(),
+        name: Some("User".into()),
+        fields_src: Some("id:Long,name:String".into()),
+        package: Some("com.acme.demo".into()),
+        table: Some("sys_user".into()),
         file: None,
         type_filter: None,
         dry_run: false,
@@ -140,10 +175,10 @@ fn dry_run_writes_nothing() {
     let prev = std::env::current_dir().expect("cwd");
     std::env::set_current_dir(root).unwrap();
     let report = run(GenRunParams {
-        name: "User".into(),
-        fields_src: "id:Long".into(),
-        package: "com.x".into(),
-        table: "u".into(),
+        name: Some("User".into()),
+        fields_src: Some("id:Long".into()),
+        package: Some("com.x".into()),
+        table: Some("u".into()),
         file: None,
         type_filter: None,
         dry_run: true,

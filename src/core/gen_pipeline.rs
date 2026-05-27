@@ -2,46 +2,110 @@
 
 use std::path::{Component, Path, PathBuf};
 
-use crate::core::config::load_setup_file;
+use serde_json::Value;
+
+use crate::core::config::{load_setup_file, OutputsSection, OverwritePolicy, SetupConfig};
 use crate::core::gen_run::GenRunParams;
 use crate::core::error::ErrorEnvelope;
 use crate::core::field_dsl;
 use crate::core::fs_writer::{commit, plan, OverwriteContext, WriteTarget};
-use crate::core::gen_context;
-use crate::core::gen_input::GenInput;
-use crate::core::gen_report::GenReport;
+use crate::core::gen_context::{self, AsContextField};
+use crate::core::gen_input::{GenCliOverrides, GenInput};
+use crate::core::gen_report::{DryRunLine, GenReport};
 use crate::core::git_info;
 use crate::core::template_engine;
 use crate::core::template_loader::{self, TemplateEntry};
+use crate::core::template_meta::{self, TemplateMeta};
+
+struct ResolvedTarget {
+    path: PathBuf,
+    content: Vec<u8>,
+    meta: TemplateMeta,
+}
 
 /**
- * Resolves the on-disk output path for a template (D-G28 layer 3).
+ * Resolves the on-disk output path (D-G28 layers 1–3).
  *
- * Rejects `..`, absolute segments, and strips a trailing `.hbs` from the filename.
+ * Enforces path traversal rejection after Handlebars render.
  */
 pub fn resolve_output_path(
     entry: &TemplateEntry,
+    meta: &TemplateMeta,
+    outputs: &OutputsSection,
+    context: &Value,
     project_root: &Path,
 ) -> Result<PathBuf, ErrorEnvelope> {
+    if meta
+        .filename
+        .as_deref()
+        .is_some_and(|f| f.contains('/') || f.contains('\\'))
+    {
+        return Err(ErrorEnvelope::user_error_with_reason(
+            "filename contains path separator",
+            "filename_has_slash",
+            serde_json::Map::new(),
+            "use basePath for directories; filename must be a single segment",
+        ));
+    }
+
+    let rel_key = normalize_rel_path(&entry.rel_path);
     for component in entry.rel_path.components() {
         match component {
             Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
-                let mut details = serde_json::Map::new();
-                details.insert(
-                    "rel_path".into(),
-                    serde_json::Value::String(entry.rel_path.to_string_lossy().into_owned()),
-                );
-                return Err(ErrorEnvelope::user_error_with_reason(
-                    "path traversal in template output",
-                    "path_traversal",
-                    details,
-                    "remove .. or absolute path from template location",
-                ));
+                return Err(path_traversal_error(Some(&rel_key)));
             }
             Component::Normal(_) | Component::CurDir => {}
         }
     }
 
+    let rendered_rel: String = if meta.base_path.is_some() || meta.filename.is_some() {
+        let base = match &meta.base_path {
+            Some(bp) => template_engine::render_template(bp, context)?,
+            None => entry
+                .rel_path
+                .parent()
+                .map(normalize_rel_path)
+                .filter(|s| !s.is_empty())
+                .unwrap_or_default(),
+        };
+        let file = match &meta.filename {
+            Some(fn_tpl) => template_engine::render_template(fn_tpl, context)?,
+            None => {
+                let file_name = entry
+                    .rel_path
+                    .file_name()
+                    .map(|n| n.to_string_lossy())
+                    .unwrap_or_default();
+                file_name
+                    .strip_suffix(".hbs")
+                    .unwrap_or(&file_name)
+                    .to_string()
+            }
+        };
+        if base.is_empty() {
+            file
+        } else {
+            format!("{base}/{file}")
+        }
+    } else if let Some(template_str) = outputs.0.get(&rel_key) {
+        template_engine::render_template(template_str, context)?
+    } else {
+        source_mirror_rel(entry)
+    };
+
+    let rel_path = PathBuf::from(&rendered_rel);
+    assert_safe_output_path(&rel_path, project_root, Some(&rel_key))
+}
+
+fn source_mirror_rel(entry: &TemplateEntry) -> String {
+    for component in entry.rel_path.components() {
+        if matches!(
+            component,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+        ) {
+            return String::new();
+        }
+    }
     let parent = entry.rel_path.parent();
     let file_name = entry
         .rel_path
@@ -51,8 +115,59 @@ pub fn resolve_output_path(
     let stripped = file_name.strip_suffix(".hbs").unwrap_or(&file_name);
     let mut out_rel = parent.map(Path::to_path_buf).unwrap_or_default();
     out_rel.push(stripped);
+    normalize_rel_path(&out_rel)
+}
 
-    Ok(project_root.join(out_rel))
+fn normalize_rel_path(rel: &Path) -> String {
+    rel.to_string_lossy().replace('\\', "/")
+}
+
+fn assert_safe_output_path(
+    rel: &Path,
+    project_root: &Path,
+    rel_hint: Option<&str>,
+) -> Result<PathBuf, ErrorEnvelope> {
+    if rel.is_absolute() {
+        return Err(path_traversal_error(rel_hint));
+    }
+    for component in rel.components() {
+        match component {
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err(path_traversal_error(rel_hint));
+            }
+            Component::Normal(_) | Component::CurDir => {}
+        }
+    }
+    Ok(project_root.join(rel))
+}
+
+fn path_traversal_error(rel_hint: Option<&str>) -> ErrorEnvelope {
+    let mut details = serde_json::Map::new();
+    if let Some(r) = rel_hint {
+        details.insert("rel_path".into(), serde_json::Value::String(r.to_string()));
+    }
+    ErrorEnvelope::user_error_with_reason(
+        "path traversal in template output",
+        "path_traversal",
+        details,
+        "remove .. or absolute path from template location or front-matter",
+    )
+}
+
+fn effective_policy(meta: &TemplateMeta, setup: &SetupConfig) -> OverwritePolicy {
+    meta.overwrite
+        .unwrap_or(setup.overwrite.overwrite_policy)
+}
+
+fn allows_overwrite(policy: OverwritePolicy, force: bool, path: &Path) -> bool {
+    if !path.exists() {
+        return true;
+    }
+    match policy {
+        OverwritePolicy::Never => false,
+        OverwritePolicy::ForceOnly => force,
+        OverwritePolicy::Always => true,
+    }
 }
 
 /// Runs the generation pipeline end-to-end.
@@ -66,64 +181,151 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
         )
     })?;
 
-    if params.file.is_some() {
-        return Err(ErrorEnvelope::user_error_with_reason(
-            "--file not yet supported",
-            "file_input_not_yet_supported",
-            serde_json::Map::new(),
-            "--file lands in plan 02; use --fields for now",
-        ));
-    }
-
-    let fields = field_dsl::parse_fields(&params.fields_src)?;
-    let input = GenInput {
-        name: params.name,
-        table: params.table,
-        package: params.package,
-        fields,
-    };
-
     let setup = load_setup_file(&cwd.join(".crud/setup.toml"))?;
     let git = git_info::read();
-    let context = gen_context::build_context(&input, &setup, &git);
+
+    let context = if let Some(ref path) = params.file {
+        let loaded = super::gen_input::load_gen_input_with_specs_from_json(
+            path,
+            GenCliOverrides {
+                name: params.name.clone(),
+                package: params.package.clone(),
+                table: params.table.clone(),
+            },
+        )?;
+        let refs: Vec<&dyn AsContextField> = loaded
+            .field_specs
+            .iter()
+            .map(|s| s as &dyn AsContextField)
+            .collect();
+        gen_context::build_context(
+            &loaded.input.name,
+            &loaded.input.table,
+            &loaded.input.package,
+            &refs,
+            &setup,
+            &git,
+        )?
+    } else {
+        let fields = field_dsl::parse_fields(
+            params
+                .fields_src
+                .as_deref()
+                .ok_or_else(|| missing_pipeline_input("fields"))?,
+        )?;
+        let input = GenInput {
+            name: params
+                .name
+                .clone()
+                .ok_or_else(|| missing_pipeline_input("name"))?,
+            table: params
+                .table
+                .clone()
+                .ok_or_else(|| missing_pipeline_input("table"))?,
+            package: params
+                .package
+                .clone()
+                .ok_or_else(|| missing_pipeline_input("package"))?,
+            fields,
+        };
+        gen_context::build_context_from_input(&input, &setup, &git)?
+    };
 
     let entries =
         template_loader::discover_templates(&cwd, params.type_filter.as_deref())?;
 
-    let mut targets = Vec::new();
+    let mut resolved = Vec::new();
     for entry in &entries {
-        let body = std::fs::read_to_string(&entry.abs_path).map_err(|e| {
+        let raw = std::fs::read_to_string(&entry.abs_path).map_err(|e| {
             ErrorEnvelope::template_error(format!(
                 "read {}: {e}",
                 entry.abs_path.display()
             ))
         })?;
+        let (meta, body) = template_meta::split_front_matter(&raw)?;
         let rendered = template_engine::render_template(&body, &context)?;
-        let out = resolve_output_path(entry, &cwd)?;
-        targets.push(WriteTarget {
+        let out = resolve_output_path(
+            entry,
+            &meta,
+            &setup.templates.outputs,
+            &context,
+            &cwd,
+        )?;
+        resolved.push(ResolvedTarget {
             path: out,
             content: rendered.into_bytes(),
+            meta,
         });
     }
 
     if params.dry_run {
+        let mut conflicts = Vec::new();
+        let mut skipped = Vec::new();
+        let mut dry_run_lines = Vec::new();
+        for t in &resolved {
+            skipped.push(t.path.clone());
+            let policy = effective_policy(&t.meta, &setup);
+            let conflict = !allows_overwrite(policy, params.force, &t.path);
+            if conflict {
+                conflicts.push(t.path.clone());
+            }
+            let line_count = t.content.iter().filter(|&&b| b == b'\n').count() + 1;
+            dry_run_lines.push(DryRunLine {
+                path: t.path.clone(),
+                line_count,
+                conflict,
+            });
+        }
         return Ok(GenReport {
             written: vec![],
-            skipped: targets.into_iter().map(|t| t.path).collect(),
-            conflicts: vec![],
+            skipped,
+            conflicts,
+            dry_run_lines,
         });
     }
 
-    let ctx = OverwriteContext {
-        policy: setup.overwrite.overwrite_policy,
-        force: params.force,
-    };
-    let write_plan = plan(&targets, ctx)?;
+    let targets: Vec<WriteTarget> = resolved
+        .iter()
+        .map(|t| WriteTarget {
+            path: t.path.clone(),
+            content: t.content.clone(),
+        })
+        .collect();
+
+    for t in &resolved {
+        let policy = effective_policy(&t.meta, &setup);
+        if !allows_overwrite(policy, params.force, &t.path) {
+            return Err(ErrorEnvelope::file_conflict(
+                format!("file exists: {}", t.path.display()),
+                &t.path,
+            ));
+        }
+    }
+
+    let write_plan = plan(
+        &targets,
+        OverwriteContext {
+            policy: OverwritePolicy::Always,
+            force: true,
+        },
+    )?;
     commit(write_plan)?;
 
     Ok(GenReport {
-        written: targets.into_iter().map(|t| t.path).collect(),
+        written: resolved.into_iter().map(|t| t.path).collect(),
         skipped: vec![],
         conflicts: vec![],
+        dry_run_lines: vec![],
     })
+}
+
+fn missing_pipeline_input(flag: &'static str) -> ErrorEnvelope {
+    let mut details = serde_json::Map::new();
+    details.insert("flag".into(), serde_json::Value::String(flag.to_string()));
+    ErrorEnvelope::user_error_with_reason(
+        format!("missing {flag} for generation"),
+        "missing_field",
+        details,
+        format!("provide --{flag}"),
+    )
 }

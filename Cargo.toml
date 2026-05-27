@@ -125,3 +125,38 @@ required-features = ["cli"]
 name = "variables_blacklist_tests"
 path = "tests/variables_blacklist_tests.rs"
 required-features = ["cli"]
+
+[[test]]
+name = "template_meta_tests"
+path = "tests/template_meta_tests.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "gen_filter_tests"
+path = "tests/gen_filter_tests.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "gen_outputs_map_tests"
+path = "tests/gen_outputs_map_tests.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "gen_frontmatter_tests"
+path = "tests/gen_frontmatter_tests.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "gen_dry_run_tests"
+path = "tests/gen_dry_run_tests.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "gen_atomic_batch"
+path = "tests/contracts/gen_atomic_batch.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "gen_agent_stdout"
+path = "tests/contracts/gen_agent_stdout.rs"
+required-features = ["cli"]
