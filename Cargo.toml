@@ -160,3 +160,28 @@ required-features = ["cli"]
 name = "gen_agent_stdout"
 path = "tests/contracts/gen_agent_stdout.rs"
 required-features = ["cli"]
+
+[[test]]
+name = "validate_e2e_tests"
+path = "tests/validate_e2e_tests.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "validate_syntax_tests"
+path = "tests/validate_syntax_tests.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "validate_unknown_var_tests"
+path = "tests/validate_unknown_var_tests.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "validate_render_tests"
+path = "tests/validate_render_tests.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "validate_agent_stdout"
+path = "tests/contracts/validate_agent_stdout.rs"
+required-features = ["cli"]

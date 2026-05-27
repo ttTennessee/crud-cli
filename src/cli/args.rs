@@ -29,6 +29,8 @@ pub enum Commands {
     Setup(SetupArgs),
     /// Generate CRUD files from project templates.
     Gen(GenArgs),
+    /// Validate project templates before generation.
+    Validate(ValidateArgs),
 }
 
 /// `crud-cli setup` flags (D-08).
@@ -81,6 +83,14 @@ pub struct GenArgs {
 
     #[arg(long = "force", default_value_t = false)]
     pub force: bool,
+}
+
+/// `crud-cli validate` flags (parity with `gen --type`).
+#[derive(Parser, Debug, Default)]
+pub struct ValidateArgs {
+    /// Template directory prefix filter (comma-separated).
+    #[arg(long = "type")]
+    pub type_: Option<String>,
 }
 
 impl GenArgs {

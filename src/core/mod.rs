@@ -15,3 +15,4 @@ pub mod template_loader;
 pub mod template_meta;
 pub mod paths;
 pub mod template_engine;
+pub mod validator;

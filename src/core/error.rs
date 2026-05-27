@@ -155,6 +155,34 @@ impl ErrorEnvelope {
         }
     }
 
+    /// Aggregated validate issues (D-G23 / VAL-04).
+    #[must_use]
+    pub fn template_error_with_issues(
+        issues_json: Value,
+        summary_json: Value,
+    ) -> Self {
+        let issue_count = summary_json
+            .get("issue_count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let templates_with_issues = summary_json
+            .get("templates_with_issues")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let mut details = Map::new();
+        details.insert("summary".into(), summary_json);
+        details.insert("issues".into(), issues_json);
+        Self {
+            kind: Kind::TemplateError,
+            msg: format!(
+                "validate failed: {issue_count} issues across {templates_with_issues} templates"
+            ),
+            exit_code: Kind::TemplateError.exit_code(),
+            hint: "fix each entry in details.issues".into(),
+            details,
+        }
+    }
+
     /// Builds an `InternalPanic` envelope from panic hook data (D-04).
     #[must_use]
     pub fn internal_panic(

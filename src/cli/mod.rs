@@ -14,7 +14,8 @@ pub mod setup_wizard;
 pub use agent_mode::{init_agent_mode, is_agent_active};
 pub use args::{
     exit_with_envelope, try_parse_cli, try_parse_cli_or_help, Cli, Commands, GenArgs, SetupArgs,
+    ValidateArgs,
 };
-pub use commands::{run_gen, run_setup};
+pub use commands::{run_gen, run_setup, run_validate};
 pub use output::{emit_failure, emit_success, panic_hook_handler};
 pub use setup_wizard::{run_interactive_wizard, selections_from_answers};
