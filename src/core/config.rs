@@ -90,10 +90,12 @@ pub struct OverwriteSection {
 
 /// Free-form `[variables]` table (D-G27).
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[serde(transparent)]
 pub struct VariablesSection(pub BTreeMap<String, toml::Value>);
 
 /// `[templates.outputs]` keyed on template `rel_path` (D-G28 layer 2).
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(transparent)]
 pub struct OutputsSection(pub BTreeMap<String, String>);
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
