@@ -27,10 +27,29 @@ fn entry(rel: &str, root: &std::path::Path) -> TemplateEntry {
     }
 }
 
+fn setup_none() -> SetupConfig {
+    SetupConfig::from_selections(SetupSelections {
+        backend: Backend::None,
+        frontend: Frontend::None,
+        component_library: ComponentLibrary::None,
+        overwrite_policy: OverwritePolicy::Never,
+    })
+}
+
+fn setup_spring_boot() -> SetupConfig {
+    SetupConfig::from_selections(SetupSelections {
+        backend: Backend::SpringBoot,
+        frontend: Frontend::None,
+        component_library: ComponentLibrary::None,
+        overwrite_policy: OverwritePolicy::Never,
+    })
+}
+
 #[test]
 fn resolve_strips_hbs_suffix() {
     let dir = TempDir::new().expect("tempdir");
     let root = dir.path();
+    let setup = setup_none();
     let e = entry("Entity.java.hbs", root);
     let out = resolve_output_path(
         &e,
@@ -38,6 +57,8 @@ fn resolve_strips_hbs_suffix() {
         &crud_cli::core::config::OutputsSection::default(),
         &serde_json::json!({}),
         root,
+        None,
+        &setup,
     )
     .expect("ok");
     assert_eq!(out, root.join("Entity.java"));
@@ -47,6 +68,7 @@ fn resolve_strips_hbs_suffix() {
 fn resolve_nested_template_path() {
     let dir = TempDir::new().expect("tempdir");
     let root = dir.path();
+    let setup = setup_none();
     let e = entry("java/Entity.java.hbs", root);
     let out = resolve_output_path(
         &e,
@@ -54,9 +76,49 @@ fn resolve_nested_template_path() {
         &crud_cli::core::config::OutputsSection::default(),
         &serde_json::json!({}),
         root,
+        None,
+        &setup,
     )
     .expect("ok");
     assert_eq!(out, root.join("java/Entity.java"));
+}
+
+#[test]
+fn resolve_java_base_strips_prefix() {
+    let dir = TempDir::new().expect("tempdir");
+    let root = dir.path();
+    let setup = setup_spring_boot();
+    let e = entry("java/Entity.java.hbs", root);
+    let out = resolve_output_path(
+        &e,
+        &crud_cli::core::template_meta::TemplateMeta::default(),
+        &crud_cli::core::config::OutputsSection::default(),
+        &serde_json::json!({}),
+        root,
+        None,
+        &setup,
+    )
+    .expect("ok");
+    assert_eq!(out, root.join("src/main/java/Entity.java"));
+}
+
+#[test]
+fn resolve_output_override_root() {
+    let dir = TempDir::new().expect("tempdir");
+    let root = dir.path();
+    let setup = setup_none();
+    let e = entry("out.txt.hbs", root);
+    let out = resolve_output_path(
+        &e,
+        &crud_cli::core::template_meta::TemplateMeta::default(),
+        &crud_cli::core::config::OutputsSection::default(),
+        &serde_json::json!({}),
+        root,
+        Some(PathBuf::from("generated").as_path()),
+        &setup,
+    )
+    .expect("ok");
+    assert_eq!(out, root.join("generated/out.txt"));
 }
 
 #[test]
@@ -64,12 +126,15 @@ fn path_traversal_rejected() {
     let dir = TempDir::new().expect("tempdir");
     let root = dir.path();
     let e = entry("../escape.txt", root);
+    let setup = setup_none();
     let err = resolve_output_path(
         &e,
         &crud_cli::core::template_meta::TemplateMeta::default(),
         &crud_cli::core::config::OutputsSection::default(),
         &serde_json::json!({}),
         root,
+        None,
+        &setup,
     )
     .expect_err("traversal");
     assert_eq!(err.kind, Kind::UserError);
@@ -89,12 +154,15 @@ fn absolute_rel_path_rejected() {
         "/etc/passwd"
     };
     let e = entry(abs, root);
+    let setup = setup_none();
     let err = resolve_output_path(
         &e,
         &crud_cli::core::template_meta::TemplateMeta::default(),
         &crud_cli::core::config::OutputsSection::default(),
         &serde_json::json!({}),
         root,
+        None,
+        &setup,
     )
     .expect_err("absolute");
     assert_eq!(
@@ -108,12 +176,15 @@ fn resolve_preserves_non_hbs_extension() {
     let dir = TempDir::new().expect("tempdir");
     let root = dir.path();
     let e = entry("README.md", root);
+    let setup = setup_none();
     let out = resolve_output_path(
         &e,
         &crud_cli::core::template_meta::TemplateMeta::default(),
         &crud_cli::core::config::OutputsSection::default(),
         &serde_json::json!({}),
         root,
+        None,
+        &setup,
     )
     .expect("ok");
     assert_eq!(out, root.join("README.md"));
@@ -151,6 +222,7 @@ fn pipeline_run_writes_rendered_file() {
         type_filter: None,
         dry_run: false,
         force: false,
+        output_dir: None,
     })
     .expect("run");
     std::env::set_current_dir(&prev).unwrap();
@@ -183,6 +255,7 @@ fn dry_run_writes_nothing() {
         type_filter: None,
         dry_run: true,
         force: false,
+        output_dir: None,
     })
     .expect("dry-run");
     std::env::set_current_dir(&prev).unwrap();

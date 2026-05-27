@@ -58,6 +58,7 @@ fn gen_run_params_from_args(args: GenArgs) -> Result<GenRunParams, ErrorEnvelope
             type_filter,
             dry_run: args.dry_run,
             force: args.force,
+            output_dir: args.output,
         });
     }
 
@@ -82,6 +83,7 @@ fn gen_run_params_from_args(args: GenArgs) -> Result<GenRunParams, ErrorEnvelope
         type_filter,
         dry_run: args.dry_run,
         force: args.force,
+        output_dir: args.output,
     })
 }
 

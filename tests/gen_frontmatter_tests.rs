@@ -58,6 +58,7 @@ fn frontmatter_base_path_and_filename() {
         type_: None,
         dry_run: false,
         force: false,
+        output: None,
     });
     std::env::set_current_dir(prev).unwrap();
 
@@ -86,6 +87,7 @@ fn filename_with_slash_rejected() {
         type_filter: None,
         dry_run: false,
         force: false,
+        output_dir: None,
     })
     .expect_err("slash");
     std::env::set_current_dir(prev).unwrap();
@@ -117,6 +119,7 @@ fn frontmatter_path_traversal_rejected() {
         type_filter: None,
         dry_run: false,
         force: false,
+        output_dir: None,
     })
     .expect_err("traversal");
     std::env::set_current_dir(prev).unwrap();

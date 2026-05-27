@@ -57,6 +57,7 @@ fn dry_run_lists_paths_and_writes_nothing() {
         type_: None,
         dry_run: true,
         force: false,
+        output: None,
     });
     std::env::set_current_dir(prev).unwrap();
 

@@ -34,6 +34,8 @@ pub fn resolve_output_path(
     outputs: &OutputsSection,
     context: &Value,
     project_root: &Path,
+    output_override: Option<&Path>,
+    setup: &SetupConfig,
 ) -> Result<PathBuf, ErrorEnvelope> {
     if meta
         .filename
@@ -90,11 +92,64 @@ pub fn resolve_output_path(
     } else if let Some(template_str) = outputs.0.get(&rel_key) {
         template_engine::render_template(template_str, context)?
     } else {
-        source_mirror_rel(entry)
+        layer3_rendered_rel(entry, output_override, setup)
     };
 
     let rel_path = PathBuf::from(&rendered_rel);
     assert_safe_output_path(&rel_path, project_root, Some(&rel_key))
+}
+
+fn layer3_rendered_rel(
+    entry: &TemplateEntry,
+    output_override: Option<&Path>,
+    setup: &SetupConfig,
+) -> String {
+    let mirror = source_mirror_rel(entry);
+    if let Some(root) = output_override {
+        let root_rel = normalize_rel_path(root);
+        if mirror.is_empty() {
+            root_rel
+        } else {
+            format!("{root_rel}/{mirror}")
+        }
+    } else if let Some(fw) = framework_layer3_rel(setup, &mirror) {
+        fw
+    } else {
+        mirror
+    }
+}
+
+fn framework_layer3_rel(setup: &SetupConfig, mirror_rel: &str) -> Option<String> {
+    if mirror_rel.starts_with("java/") {
+        if let Some(base) = setup.paths.java_base.as_deref() {
+            return Some(join_base_strip_prefix(base, mirror_rel, "java/"));
+        }
+    }
+    if mirror_rel.starts_with("vue/") {
+        if let Some(base) = setup.paths.vue_base.as_deref() {
+            return Some(join_base_strip_prefix(base, mirror_rel, "vue/"));
+        }
+    }
+    if mirror_rel.starts_with("react/") {
+        if let Some(base) = setup.paths.react_base.as_deref() {
+            return Some(join_base_strip_prefix(base, mirror_rel, "react/"));
+        }
+    }
+    if mirror_rel.starts_with("nest/") {
+        if let Some(base) = setup.paths.nest_base.as_deref() {
+            return Some(join_base_strip_prefix(base, mirror_rel, "nest/"));
+        }
+    }
+    None
+}
+
+fn join_base_strip_prefix(base: &str, rel: &str, prefix: &str) -> String {
+    let rest = rel.strip_prefix(prefix).unwrap_or(rel).trim_start_matches('/');
+    if rest.is_empty() {
+        base.to_string()
+    } else {
+        format!("{base}/{rest}")
+    }
 }
 
 fn source_mirror_rel(entry: &TemplateEntry) -> String {
@@ -182,6 +237,9 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
     })?;
 
     let setup = load_setup_file(&cwd.join(".crud/setup.toml"))?;
+    if let Some(ref out) = params.output_dir {
+        assert_safe_output_path(out, &cwd, Some("output"))?;
+    }
     let git = git_info::read();
 
     let context = if let Some(ref path) = params.file {
@@ -250,6 +308,8 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
             &setup.templates.outputs,
             &context,
             &cwd,
+            params.output_dir.as_deref(),
+            &setup,
         )?;
         resolved.push(ResolvedTarget {
             path: out,

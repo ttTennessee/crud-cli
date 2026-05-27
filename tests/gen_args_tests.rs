@@ -30,6 +30,31 @@ fn gen_args_parses_minimal_dsl_form() {
     assert!(args.file.is_none());
     assert!(!args.dry_run);
     assert!(!args.force);
+    assert!(args.output.is_none());
+}
+
+#[test]
+fn gen_args_parses_output_flag() {
+    let cli = try_parse_cli([
+        "crud-cli",
+        "gen",
+        "User",
+        "--fields",
+        "id:Long",
+        "--package",
+        "com.x",
+        "--table",
+        "u",
+        "--output",
+        "generated",
+    ])
+    .expect("valid gen argv");
+
+    let args = match cli.command {
+        Some(Commands::Gen(g)) => g,
+        _ => panic!("expected gen subcommand"),
+    };
+    assert_eq!(args.output.as_deref(), Some(std::path::Path::new("generated")));
 }
 
 #[test]
@@ -43,6 +68,7 @@ fn gen_args_fields_file_mutex() {
         type_: None,
         dry_run: false,
         force: false,
+        output: None,
     };
     let err = args.validate_inputs().expect_err("mutex");
     assert_eq!(err.kind, Kind::UserError);

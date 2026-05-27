@@ -52,6 +52,7 @@ overwrite-policy = "never"
         type_: None,
         dry_run: false,
         force: false,
+        output: None,
     });
     std::env::set_current_dir(prev).unwrap();
 

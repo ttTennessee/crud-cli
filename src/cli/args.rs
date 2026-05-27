@@ -83,6 +83,10 @@ pub struct GenArgs {
 
     #[arg(long = "force", default_value_t = false)]
     pub force: bool,
+
+    /// Output root directory (layer-3 fallback when no front-matter or templates.outputs entry).
+    #[arg(long = "output")]
+    pub output: Option<std::path::PathBuf>,
 }
 
 /// `crud-cli validate` flags (parity with `gen --type`).

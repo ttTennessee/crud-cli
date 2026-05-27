@@ -90,6 +90,7 @@ overwrite-policy = "never"
         type_: None,
         dry_run: false,
         force: false,
+        output: None,
     });
     let out = root.join("src/main/java/com/x/User.java");
     let exists = out.is_file();

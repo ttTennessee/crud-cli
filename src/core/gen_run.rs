@@ -13,4 +13,5 @@ pub struct GenRunParams {
     pub type_filter: Option<Vec<String>>,
     pub dry_run: bool,
     pub force: bool,
+    pub output_dir: Option<PathBuf>,
 }
