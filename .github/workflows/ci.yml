@@ -46,6 +46,7 @@ jobs:
           agent_output_contract
           agent_output_no_ansi_contract
           agent_success_stdout_empty
+          gen_file_and_fields_outputs_byte_identical
           setup_byte_identical
           -q
 

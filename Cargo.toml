@@ -162,6 +162,11 @@ path = "tests/contracts/gen_agent_stdout.rs"
 required-features = ["cli"]
 
 [[test]]
+name = "gen_file_fields_byte_identical"
+path = "tests/contracts/gen_file_fields_byte_identical.rs"
+required-features = ["cli"]
+
+[[test]]
 name = "validate_e2e_tests"
 path = "tests/validate_e2e_tests.rs"
 required-features = ["cli"]
