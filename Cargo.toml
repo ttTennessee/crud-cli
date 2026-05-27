@@ -29,6 +29,7 @@ tempfile = "3.14"
 dirs = "6.0"
 handlebars = "6.0"
 convert_case = "0.6"
+ignore = "0.4"
 
 clap = { version = "4.6", features = ["derive"], optional = true }
 inquire = { version = "0.9", optional = true }
@@ -94,4 +95,14 @@ required-features = ["cli"]
 [[test]]
 name = "field_dsl_tests"
 path = "tests/field_dsl_tests.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "template_loader_tests"
+path = "tests/template_loader_tests.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "gen_context_tests"
+path = "tests/gen_context_tests.rs"
 required-features = ["cli"]
