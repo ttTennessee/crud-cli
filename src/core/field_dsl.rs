@@ -15,7 +15,8 @@ pub struct Field {
     pub nullable: bool,
 }
 
-const RESERVED: &[&str] = &[
+/// Reserved Handlebars / context names (D-G21); sync with setup `[variables]` blacklist.
+pub const RESERVED_VARIABLE_NAMES: &[&str] = &[
     "model",
     "table",
     "package",
@@ -85,7 +86,7 @@ pub fn parse_fields(src: &str) -> Result<Vec<Field>, ErrorEnvelope> {
             return Err(err_invalid_identifier());
         }
 
-        if RESERVED.contains(&name_part) {
+        if RESERVED_VARIABLE_NAMES.contains(&name_part) {
             return Err(err_reserved_field_name(name_part));
         }
 

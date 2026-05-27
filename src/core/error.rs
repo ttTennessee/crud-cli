@@ -113,15 +113,45 @@ impl ErrorEnvelope {
         }
     }
 
+    /// Config parse / validation with a closed-set `reason` in `details`.
+    #[must_use]
+    pub fn config_error_with_reason(
+        msg: impl Into<String>,
+        reason: &'static str,
+        mut details: Map<String, Value>,
+        hint: impl Into<String>,
+    ) -> Self {
+        details
+            .entry("reason".to_string())
+            .or_insert_with(|| Value::String(reason.to_string()));
+        Self {
+            kind: Kind::ConfigError,
+            msg: msg.into(),
+            exit_code: Kind::ConfigError.exit_code(),
+            hint: hint.into(),
+            details,
+        }
+    }
+
     /// Template render / schema failure (D-13).
     #[must_use]
     pub fn template_error(msg: impl Into<String>) -> Self {
+        Self::template_error_with_reason(msg, serde_json::Map::new(), "")
+    }
+
+    /// Template failure with structured `details` (e.g. `variable_shadows_builtin`).
+    #[must_use]
+    pub fn template_error_with_reason(
+        msg: impl Into<String>,
+        details: Map<String, Value>,
+        hint: impl Into<String>,
+    ) -> Self {
         Self {
             kind: Kind::TemplateError,
             msg: msg.into(),
             exit_code: Kind::TemplateError.exit_code(),
-            hint: String::new(),
-            details: Map::new(),
+            hint: hint.into(),
+            details,
         }
     }
 

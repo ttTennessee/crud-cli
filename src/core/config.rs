@@ -3,8 +3,11 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+use std::collections::BTreeMap;
+
 use super::default_paths::paths_for_frameworks;
-use super::error::{ErrorEnvelope, Kind};
+use super::error::ErrorEnvelope;
+use super::field_dsl::RESERVED_VARIABLE_NAMES;
 
 /// Closed-set backend (D-08).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -85,13 +88,44 @@ pub struct OverwriteSection {
     pub overwrite_policy: OverwritePolicy,
 }
 
+/// Free-form `[variables]` table (D-G27).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct VariablesSection(pub BTreeMap<String, toml::Value>);
+
+/// `[templates.outputs]` keyed on template `rel_path` (D-G28 layer 2).
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct OutputsSection(pub BTreeMap<String, String>);
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct TemplatesParent {
+    #[serde(default, skip_serializing_if = "is_empty_outputs")]
+    pub outputs: OutputsSection,
+}
+
+fn is_empty_variables(s: &VariablesSection) -> bool {
+    s.0.is_empty()
+}
+
+fn is_empty_outputs(s: &OutputsSection) -> bool {
+    s.0.is_empty()
+}
+
+fn is_empty_templates_parent(t: &TemplatesParent) -> bool {
+    t.outputs.0.is_empty()
+}
+
 /// Canonical setup.toml root — section order is contract (D-10).
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct SetupConfig {
     pub project: ProjectSection,
     pub paths: PathsSection,
     pub overwrite: OverwriteSection,
+    #[serde(default, skip_serializing_if = "is_empty_variables")]
+    pub variables: VariablesSection,
+    #[serde(default, skip_serializing_if = "is_empty_templates_parent")]
+    pub templates: TemplatesParent,
 }
 
 /// Flag layer applied after defaults and optional file (CONF-04).
@@ -128,6 +162,8 @@ impl SetupConfig {
             overwrite: OverwriteSection {
                 overwrite_policy: selections.overwrite_policy,
             },
+            variables: VariablesSection::default(),
+            templates: TemplatesParent::default(),
         }
     }
 
@@ -170,15 +206,23 @@ pub fn load_setup_file(path: &Path) -> Result<SetupConfig, ErrorEnvelope> {
     let raw = std::fs::read_to_string(path).map_err(|e| {
         config_error(format!("read {}: {e}", path.display()))
     })?;
-    toml::from_str(&raw).map_err(|e| config_error(format!("parse setup: {e}")))
+    let config: SetupConfig =
+        toml::from_str(&raw).map_err(|e| config_error(format!("parse setup: {e}")))?;
+    for key in config.variables.0.keys() {
+        if RESERVED_VARIABLE_NAMES.contains(&key.as_str()) {
+            let mut details = serde_json::Map::new();
+            details.insert("variable".into(), serde_json::Value::String(key.clone()));
+            return Err(ErrorEnvelope::config_error_with_reason(
+                format!("reserved variable name: {key}"),
+                "reserved_variable",
+                details,
+                "rename the variable; reserved: model, table, package, package_path, fields, model_*",
+            ));
+        }
+    }
+    Ok(config)
 }
 
 fn config_error(msg: impl Into<String>) -> ErrorEnvelope {
-    ErrorEnvelope {
-        kind: Kind::ConfigError,
-        msg: msg.into(),
-        exit_code: Kind::ConfigError.exit_code(),
-        hint: String::new(),
-        details: serde_json::Map::new(),
-    }
+    ErrorEnvelope::config_error_with_reason(msg, "config_error", serde_json::Map::new(), "")
 }
