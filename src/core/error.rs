@@ -2,6 +2,7 @@
 
 use serde::Serialize;
 use serde_json::{Map, Value};
+use std::path::Path;
 
 /// Process exit code contract (FOUND-05 / D-03).
 ///
@@ -71,6 +72,23 @@ impl ErrorEnvelope {
             msg: msg.into(),
             exit_code: Kind::UserError.exit_code(),
             hint: hint.into(),
+            details,
+        }
+    }
+
+    /// Target path already exists and overwrite is denied (D-14 / CONF-06).
+    #[must_use]
+    pub fn file_conflict(msg: impl Into<String>, path: impl AsRef<Path>) -> Self {
+        let mut details = Map::new();
+        details.insert(
+            "path".into(),
+            Value::String(path.as_ref().display().to_string()),
+        );
+        Self {
+            kind: Kind::FileConflict,
+            msg: msg.into(),
+            exit_code: Kind::FileConflict.exit_code(),
+            hint: "remove or rename the existing file, adjust overwrite-policy, or pass --force when policy allows".into(),
             details,
         }
     }
