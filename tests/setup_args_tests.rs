@@ -1,4 +1,5 @@
 //! Task 1: setup CLI flag surface (D-08, CONF-08, FOUND-04).
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use crud_cli::cli::args::try_parse_cli;
 use crud_cli::cli::args::{

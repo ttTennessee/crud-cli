@@ -1,4 +1,5 @@
 //! Task 3: interactive wizard → canonical SetupConfig (CONF-01, D-10).
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use crud_cli::cli::args::{
     SetupArgs, SetupBackend, SetupComponentLibrary, SetupFrontend, SetupOverwritePolicy,

@@ -5,3 +5,4 @@ pub mod default_paths;
 pub mod error;
 pub mod fs_writer;
 pub mod paths;
+pub mod template_engine;

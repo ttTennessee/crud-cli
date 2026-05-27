@@ -1,4 +1,5 @@
 //! Task 2: SetupConfig merge and serialization (D-10, CONF-03..05).
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use crud_cli::cli::args::{
     SetupArgs, SetupBackend, SetupComponentLibrary, SetupFrontend, SetupOverwritePolicy,

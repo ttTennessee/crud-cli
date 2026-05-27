@@ -1,4 +1,5 @@
 //! Task 2: setup command write path and overwrite gates (CONF-08, FOUND-09).
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use crud_cli::core::error::Kind;
 use std::fs;

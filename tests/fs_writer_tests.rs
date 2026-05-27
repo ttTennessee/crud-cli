@@ -1,4 +1,5 @@
 //! Task 1: fs_writer plan/commit transactional API (D-14, CONF-06/07).
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use crud_cli::core::config::OverwritePolicy;
 use crud_cli::core::error::Kind;

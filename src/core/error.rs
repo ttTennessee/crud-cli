@@ -93,6 +93,18 @@ impl ErrorEnvelope {
         }
     }
 
+    /// Template render / schema failure (D-13).
+    #[must_use]
+    pub fn template_error(msg: impl Into<String>) -> Self {
+        Self {
+            kind: Kind::TemplateError,
+            msg: msg.into(),
+            exit_code: Kind::TemplateError.exit_code(),
+            hint: String::new(),
+            details: Map::new(),
+        }
+    }
+
     /// Builds an `InternalPanic` envelope from panic hook data (D-04).
     #[must_use]
     pub fn internal_panic(

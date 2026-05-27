@@ -27,6 +27,7 @@ tracing = "0.1"
 anyhow = "1.0"
 tempfile = "3.14"
 dirs = "6.0"
+handlebars = "6.0"
 
 clap = { version = "4.6", features = ["derive"], optional = true }
 inquire = { version = "0.9", optional = true }
@@ -36,9 +37,24 @@ tracing-subscriber = { version = "0.3", optional = true }
 tempfile = "3.14"
 
 [[test]]
-name = "contract_tests"
-path = "tests/contract_tests.rs"
+name = "panic_contract"
+path = "tests/contracts/panic_contract.rs"
 required-features = ["cli"]
+
+[[test]]
+name = "agent_output_contract"
+path = "tests/contracts/agent_output_contract.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "setup_byte_identical"
+path = "tests/contracts/setup_byte_identical.rs"
+required-features = ["cli"]
+
+[[example]]
+name = "library_usage"
+path = "examples/library_usage.rs"
+required-features = []
 
 [[test]]
 name = "setup_args_tests"
