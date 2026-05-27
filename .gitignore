@@ -6,3 +6,5 @@ prd.html
 /target/
 .DS_Store
 .mcp.json
+.crud/
+.temp/
