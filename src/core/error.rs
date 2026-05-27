@@ -52,6 +52,26 @@ pub struct ErrorEnvelope {
 }
 
 impl ErrorEnvelope {
+    /// User input with a closed-set `reason` in `details` (D-G08 / D-G09).
+    #[must_use]
+    pub fn user_error_with_reason(
+        msg: impl Into<String>,
+        reason: &'static str,
+        mut details: Map<String, Value>,
+        hint: impl Into<String>,
+    ) -> Self {
+        details
+            .entry("reason".to_string())
+            .or_insert_with(|| Value::String(reason.to_string()));
+        Self {
+            kind: Kind::UserError,
+            msg: msg.into(),
+            exit_code: Kind::UserError.exit_code(),
+            hint: hint.into(),
+            details,
+        }
+    }
+
     /// User input / CLI validation failure (D-09).
     #[must_use]
     pub fn user_error(

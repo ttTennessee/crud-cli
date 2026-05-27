@@ -27,6 +27,8 @@ pub struct Cli {
 pub enum Commands {
     /// Create or refresh project setup configuration.
     Setup(SetupArgs),
+    /// Generate CRUD files from project templates.
+    Gen(GenArgs),
 }
 
 /// `crud-cli setup` flags (D-08).
@@ -47,6 +49,53 @@ pub struct SetupArgs {
     /// Allow writes when `overwrite-policy=force-only` and target exists (CONF-08).
     #[arg(long = "force", default_value_t = false)]
     pub force: bool,
+}
+
+/// `crud-cli gen` flags (D-G01, D-G10, D-G11).
+#[derive(Parser, Debug, Default)]
+pub struct GenArgs {
+    /// Entity / model name (positional).
+    pub name: Option<String>,
+
+    /// Micro-DSL field list (`name:Type`, comma-separated).
+    #[arg(long = "fields")]
+    pub fields: Option<String>,
+
+    /// JSON entity definition file (mutually exclusive with `--fields`).
+    #[arg(long = "file")]
+    pub file: Option<std::path::PathBuf>,
+
+    #[arg(long = "package")]
+    pub package: Option<String>,
+
+    #[arg(long = "table")]
+    pub table: Option<String>,
+
+    /// Template directory prefix filter (Plan 02 applies filtering).
+    #[arg(long = "type")]
+    pub type_: Option<String>,
+
+    /// List resolved outputs without writing (Wave 1: no fs_writer calls).
+    #[arg(long = "dry-run")]
+    pub dry_run: bool,
+
+    #[arg(long = "force", default_value_t = false)]
+    pub force: bool,
+}
+
+impl GenArgs {
+    /// Wave-1 validation: `--fields` and `--file` are mutually exclusive (D-G10).
+    pub fn validate_inputs(&self) -> Result<(), ErrorEnvelope> {
+        if self.fields.is_some() && self.file.is_some() {
+            return Err(ErrorEnvelope::user_error_with_reason(
+                "cannot use --fields and --file together",
+                "fields_file_mutex",
+                serde_json::Map::new(),
+                "provide either --fields or --file, not both",
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -228,6 +277,11 @@ fn clap_flag_value(err: &clap::Error) -> (Option<&'static str>, Option<String>) 
         "frontend",
         "component-library",
         "overwrite-policy",
+        "fields",
+        "file",
+        "package",
+        "table",
+        "type",
     ] {
         if s.contains(flag) {
             let value = s

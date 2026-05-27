@@ -79,3 +79,13 @@ path = "tests/fs_writer_tests.rs"
 name = "setup_write_tests"
 path = "tests/setup_write_tests.rs"
 required-features = ["cli"]
+
+[[test]]
+name = "gen_e2e_happy_path"
+path = "tests/gen_e2e_happy_path.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "gen_args_tests"
+path = "tests/gen_args_tests.rs"
+required-features = ["cli"]

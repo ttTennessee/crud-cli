@@ -1,6 +1,9 @@
 //! Binary entry — panic hook and global CLI flags (`cli` feature).
 
-use crud_cli::cli::{exit_with_envelope, init_agent_mode, panic_hook_handler, run_setup, try_parse_cli_or_help, Commands};
+use crud_cli::cli::{
+    exit_with_envelope, init_agent_mode, panic_hook_handler, run_gen, run_setup,
+    try_parse_cli_or_help, Commands,
+};
 
 fn main() {
     std::panic::set_hook(Box::new(panic_hook_handler));
@@ -16,6 +19,7 @@ fn main() {
     let code = match cli.command {
         None => 0,
         Some(Commands::Setup(setup)) => run_setup(setup),
+        Some(Commands::Gen(args)) => run_gen(args),
     };
     std::process::exit(code);
 }
