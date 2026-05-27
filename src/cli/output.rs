@@ -52,6 +52,25 @@ pub fn emit_failure(envelope: &ErrorEnvelope) {
     }
 }
 
+/// `--dry-run` listing: stdout in non-agent mode, `tracing::info` under agent (GEN-08).
+pub fn emit_dry_run_listing(lines: &[crate::core::gen_report::DryRunLine]) {
+    for item in lines {
+        let marker = if item.conflict { "  [CONFLICT]" } else { "" };
+        let line = format!(
+            "{}  ({} lines){}",
+            item.path.display(),
+            item.line_count,
+            marker
+        );
+        if is_agent_active() {
+            tracing::info!("{line}");
+        } else {
+            let mut stdout = io::stdout().lock();
+            let _ = writeln!(stdout, "{line}");
+        }
+    }
+}
+
 /// Success path: agent mode keeps stdout empty (FOUND-09).
 pub fn emit_success(human_line: Option<&str>) {
     if is_agent_active() {

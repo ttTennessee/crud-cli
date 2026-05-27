@@ -3,6 +3,14 @@
 use serde::Serialize;
 use std::path::PathBuf;
 
+/// One resolved output line in `--dry-run` mode (GEN-08).
+#[derive(Debug, Clone, Serialize)]
+pub struct DryRunLine {
+    pub path: PathBuf,
+    pub line_count: usize,
+    pub conflict: bool,
+}
+
 /// Files written, skipped (dry-run), or conflicting during `gen`.
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct GenReport {
@@ -10,6 +18,9 @@ pub struct GenReport {
     pub written: Vec<PathBuf>,
     /// Paths that would be written but were skipped (e.g. dry-run).
     pub skipped: Vec<PathBuf>,
-    /// Reserved for conflict tracking (v1 aborts via `FileConflict` before populating).
+    /// Paths blocked by overwrite policy under dry-run.
     pub conflicts: Vec<PathBuf>,
+    /// Populated only when `dry_run` is true.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dry_run_lines: Vec<DryRunLine>,
 }
