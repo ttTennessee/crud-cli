@@ -1,4 +1,4 @@
-//! `gen` command agent-mode stdout contract (Phase 2 SC#4).
+//! `gen` command agent-mode stdout contract (FOUND-09: empty success stdout; gap 02-04 option-a).
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use crud_cli::core::config::SetupConfig;
@@ -92,6 +92,7 @@ fn gen_agent_success_stdout_empty() {
         .output()
         .expect("run");
 
+    // FOUND-09: agent success stdout is empty; file count lives in GenReport / future --json.
     assert!(output.stdout.is_empty(), "agent stdout must be empty");
     assert!(output.status.success());
     std::env::remove_var("CRUD_AGENT");
