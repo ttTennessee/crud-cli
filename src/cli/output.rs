@@ -82,7 +82,10 @@ pub fn envelope_from_panic_payload(
 /// Formats envelope the same way as [`emit_failure`] would for agent mode.
 #[must_use]
 pub fn format_failure_agent_json(envelope: &ErrorEnvelope) -> String {
-    serde_json::to_string(envelope).expect("envelope serializes")
+    serde_json::to_string(envelope).unwrap_or_else(|_| {
+        r#"{"kind":"InternalPanic","msg":"serialize error","exit_code":99,"hint":"","details":{}}"#
+            .to_string()
+    })
 }
 
 #[must_use]

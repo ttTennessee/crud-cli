@@ -113,13 +113,15 @@ mod tests {
 
     #[test]
     fn overwrite_gate_never_denies() {
-        assert!(!allows_overwrite(
-            OverwriteContext {
-                policy: OverwritePolicy::Never,
-                force: false,
-            },
-            Path::new("x")
-        )
-        .unwrap());
+        assert!(matches!(
+            allows_overwrite(
+                OverwriteContext {
+                    policy: OverwritePolicy::Never,
+                    force: false,
+                },
+                Path::new("x")
+            ),
+            Ok(false)
+        ));
     }
 }

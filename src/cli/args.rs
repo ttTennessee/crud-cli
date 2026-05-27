@@ -200,11 +200,11 @@ where
     match Cli::try_parse_from(args) {
         Ok(cli) => Ok(Some(cli)),
         Err(err) if err.kind() == clap::error::ErrorKind::DisplayHelp => {
-            err.print().expect("help");
+            let _ = err.print();
             Ok(None)
         }
         Err(err) if err.kind() == clap::error::ErrorKind::DisplayVersion => {
-            err.print().expect("version");
+            let _ = err.print();
             Ok(None)
         }
         Err(err) => Err(clap_to_user_error(err)),
