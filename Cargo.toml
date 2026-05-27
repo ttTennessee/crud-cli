@@ -37,3 +37,18 @@ tempfile = "3.14"
 name = "contract_tests"
 path = "tests/contract_tests.rs"
 required-features = ["cli"]
+
+[[test]]
+name = "setup_args_tests"
+path = "tests/setup_args_tests.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "setup_config_tests"
+path = "tests/setup_config_tests.rs"
+required-features = ["cli"]
+
+[[test]]
+name = "setup_wizard_tests"
+path = "tests/setup_wizard_tests.rs"
+required-features = ["cli"]

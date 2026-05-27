@@ -3,7 +3,13 @@
 #[cfg(feature = "cli")]
 pub mod agent_mode;
 #[cfg(feature = "cli")]
+pub mod args;
+#[cfg(feature = "cli")]
 pub mod output;
+#[cfg(feature = "cli")]
+pub mod setup_wizard;
 
 pub use agent_mode::{init_agent_mode, is_agent_active};
+pub use args::{exit_with_envelope, try_parse_cli, try_parse_cli_or_help, Cli, Commands, SetupArgs};
 pub use output::{emit_failure, emit_success, panic_hook_handler};
+pub use setup_wizard::{run_interactive_wizard, selections_from_answers};

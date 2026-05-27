@@ -51,6 +51,30 @@ pub struct ErrorEnvelope {
 }
 
 impl ErrorEnvelope {
+    /// User input / CLI validation failure (D-09).
+    #[must_use]
+    pub fn user_error(
+        msg: impl Into<String>,
+        flag: Option<&str>,
+        value: Option<&str>,
+        hint: impl Into<String>,
+    ) -> Self {
+        let mut details = Map::new();
+        if let Some(f) = flag {
+            details.insert("flag".into(), Value::String(f.to_string()));
+        }
+        if let Some(v) = value {
+            details.insert("value".into(), Value::String(v.to_string()));
+        }
+        Self {
+            kind: Kind::UserError,
+            msg: msg.into(),
+            exit_code: Kind::UserError.exit_code(),
+            hint: hint.into(),
+            details,
+        }
+    }
+
     /// Builds an `InternalPanic` envelope from panic hook data (D-04).
     #[must_use]
     pub fn internal_panic(

@@ -1,0 +1,94 @@
+//! Task 2: SetupConfig merge and serialization (D-10, CONF-03..05).
+
+use crud_cli::cli::args::{
+    SetupArgs, SetupBackend, SetupComponentLibrary, SetupFrontend, SetupOverwritePolicy,
+};
+use crud_cli::core::config::{
+    load_setup_file, Backend, ComponentLibrary, Frontend, OverwritePolicy, SetupConfig,
+    SetupFlagOverlay, SetupSelections,
+};
+use crud_cli::core::error::Kind;
+use tempfile::NamedTempFile;
+
+#[test]
+fn setup_config_flag_serialization() {
+    let args = SetupArgs {
+        backend: Some(SetupBackend::SpringBoot),
+        frontend: Some(SetupFrontend::Vue),
+        component_library: Some(SetupComponentLibrary::ElementPlus),
+        overwrite_policy: Some(SetupOverwritePolicy::Never),
+        force: false,
+    };
+    let cfg = args.to_setup_config().expect("config");
+    let toml = cfg.to_toml_pretty().expect("toml");
+    assert!(toml.contains("[project]"));
+    assert!(toml.contains("backend = \"spring-boot\""));
+    assert!(toml.contains("java_base = \"src/main/java\""));
+    assert!(toml.contains("vue_base = \"src/views\""));
+    assert!(toml.contains("overwrite-policy = \"never\""));
+}
+
+#[test]
+fn setup_config_merge_precedence() {
+    let file_cfg = SetupConfig::from_selections(SetupSelections {
+        backend: Backend::Nest,
+        frontend: Frontend::None,
+        component_library: ComponentLibrary::None,
+        overwrite_policy: OverwritePolicy::Always,
+    });
+    let merged = SetupConfig::merge(
+        SetupConfig::default_selections(),
+        Some(&file_cfg),
+        SetupFlagOverlay {
+            backend: Some(Backend::SpringBoot),
+            frontend: None,
+            component_library: None,
+            overwrite_policy: Some(OverwritePolicy::Never),
+        },
+    );
+    assert_eq!(merged.project.backend, Backend::SpringBoot);
+    assert_eq!(merged.project.frontend, Frontend::None);
+    assert_eq!(merged.overwrite.overwrite_policy, OverwritePolicy::Never);
+    assert_eq!(
+        merged.paths.java_base.as_deref(),
+        Some("src/main/java")
+    );
+}
+
+#[test]
+fn setup_config_reject_unknown_fields() {
+    let mut f = NamedTempFile::new().expect("temp");
+    use std::io::Write;
+    writeln!(
+        f,
+        r#"
+[project]
+backend = "none"
+frontend = "none"
+component-library = "none"
+
+[paths]
+
+[overwrite]
+overwrite-policy = "never"
+unknown_key = true
+"#
+    )
+    .expect("write");
+    let err = load_setup_file(f.path()).expect_err("unknown field");
+    assert_eq!(err.kind, Kind::ConfigError);
+}
+
+#[test]
+fn setup_config_framework_path_defaults() {
+    let cfg = SetupConfig::from_selections(SetupSelections {
+        backend: Backend::Nest,
+        frontend: Frontend::React,
+        component_library: ComponentLibrary::Antd,
+        overwrite_policy: OverwritePolicy::ForceOnly,
+    });
+    assert_eq!(cfg.paths.nest_base.as_deref(), Some("src"));
+    assert_eq!(cfg.paths.react_base.as_deref(), Some("src/views"));
+    assert!(cfg.paths.java_base.is_none());
+    assert!(cfg.paths.vue_base.is_none());
+}
