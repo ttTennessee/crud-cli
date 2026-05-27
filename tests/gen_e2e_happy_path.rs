@@ -7,7 +7,14 @@ use crud_cli::core::config::SetupConfig;
 use crud_cli::core::config::SetupSelections;
 use crud_cli::core::config::{Backend, ComponentLibrary, Frontend, OverwritePolicy};
 use std::fs;
+use std::sync::{Mutex, OnceLock};
 use tempfile::TempDir;
+
+static CWD_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn cwd_guard() -> std::sync::MutexGuard<'static, ()> {
+    CWD_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap()
+}
 
 fn seed_setup(root: &std::path::Path) {
     let crud = root.join(".crud");
@@ -41,6 +48,7 @@ fn gen_renders_single_template_to_disk() {
     seed_setup(root);
     seed_template(root);
 
+    let _lock = cwd_guard();
     let prev = std::env::current_dir().expect("cwd");
     std::env::set_current_dir(root).expect("chdir temp");
     let code = run_gen(GenArgs {
@@ -53,7 +61,7 @@ fn gen_renders_single_template_to_disk() {
         dry_run: false,
         force: false,
     });
-    std::env::set_current_dir(prev).expect("restore cwd");
+    std::env::set_current_dir(&prev).expect("restore cwd");
 
     assert_eq!(code, 0, "gen should succeed");
     let out = root.join("Entity.java");

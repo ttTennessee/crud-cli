@@ -106,3 +106,8 @@ required-features = ["cli"]
 name = "gen_context_tests"
 path = "tests/gen_context_tests.rs"
 required-features = ["cli"]
+
+[[test]]
+name = "gen_pipeline_tests"
+path = "tests/gen_pipeline_tests.rs"
+required-features = ["cli"]
