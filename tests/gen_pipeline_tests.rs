@@ -104,6 +104,56 @@ fn resolve_java_base_strips_prefix() {
 }
 
 #[test]
+fn resolve_java_base_applied_with_filename_front_matter() {
+    let dir = TempDir::new().expect("tempdir");
+    let root = dir.path();
+    let setup = setup_spring_boot();
+    let e = entry("java/Entity.java.hbs", root);
+    let meta = crud_cli::core::template_meta::TemplateMeta {
+        filename: Some("Renamed.java".into()),
+        ..Default::default()
+    };
+    let out = resolve_output_path(
+        &e,
+        &meta,
+        &crud_cli::core::config::OutputsSection::default(),
+        &serde_json::json!({}),
+        root,
+        None,
+        &setup,
+    )
+    .expect("ok");
+    assert_eq!(out, root.join("src/main/java/Renamed.java"));
+}
+
+#[test]
+fn resolve_java_base_applied_with_base_path_front_matter() {
+    let dir = TempDir::new().expect("tempdir");
+    let root = dir.path();
+    let setup = setup_spring_boot();
+    let e = entry("java/Entity.java.hbs", root);
+    let meta = crud_cli::core::template_meta::TemplateMeta {
+        base_path: Some("java/com/acme/controller".into()),
+        filename: Some("Entity.java".into()),
+        ..Default::default()
+    };
+    let out = resolve_output_path(
+        &e,
+        &meta,
+        &crud_cli::core::config::OutputsSection::default(),
+        &serde_json::json!({}),
+        root,
+        None,
+        &setup,
+    )
+    .expect("ok");
+    assert_eq!(
+        out,
+        root.join("src/main/java/com/acme/controller/Entity.java")
+    );
+}
+
+#[test]
 fn resolve_output_override_root() {
     let dir = TempDir::new().expect("tempdir");
     let root = dir.path();

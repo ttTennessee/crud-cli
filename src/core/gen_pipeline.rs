@@ -64,7 +64,7 @@ pub fn resolve_output_path(
     }
 
     let rendered_rel: String = if meta.base_path.is_some() || meta.filename.is_some() {
-        let base = match &meta.base_path {
+        let raw_base = match &meta.base_path {
             Some(bp) => template_engine::render_template(bp, context)?,
             None => entry
                 .rel_path
@@ -73,6 +73,7 @@ pub fn resolve_output_path(
                 .filter(|s| !s.is_empty())
                 .unwrap_or_default(),
         };
+        let base = rebase_framework_prefix(&raw_base, setup).unwrap_or(raw_base);
         let file = match &meta.filename {
             Some(fn_tpl) => template_engine::render_template(fn_tpl, context)?,
             None => {
@@ -120,6 +121,27 @@ fn layer3_rendered_rel(
     } else {
         mirror
     }
+}
+
+fn rebase_framework_prefix(rel: &str, setup: &SetupConfig) -> Option<String> {
+    for (prefix, base) in [
+        ("java/", setup.paths.java_base.as_deref()),
+        ("vue/", setup.paths.vue_base.as_deref()),
+        ("react/", setup.paths.react_base.as_deref()),
+        ("nest/", setup.paths.nest_base.as_deref()),
+    ] {
+        let bare = prefix.trim_end_matches('/');
+        if rel == bare {
+            return base.map(|b| b.to_string());
+        }
+        if rel.starts_with(prefix) {
+            if let Some(b) = base {
+                return Some(join_base_strip_prefix(b, rel, prefix));
+            }
+            return None;
+        }
+    }
+    None
 }
 
 fn framework_layer3_rel(setup: &SetupConfig, mirror_rel: &str) -> Option<String> {
