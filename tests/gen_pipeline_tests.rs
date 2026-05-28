@@ -16,7 +16,10 @@ use tempfile::TempDir;
 static CWD_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 fn cwd_guard() -> std::sync::MutexGuard<'static, ()> {
-    CWD_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap()
+    CWD_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
 }
 
 fn entry(rel: &str, root: &std::path::Path) -> TemplateEntry {
@@ -203,7 +206,8 @@ fn seed_project(root: &std::path::Path, template_body: &str) {
 #[test]
 fn pipeline_run_writes_rendered_file() {
     let dir = TempDir::new().expect("tempdir");
-    let root = dir.path();
+    let root = dir.path().canonicalize().expect("canonicalize");
+    let root = root.as_path();
     let body = "model={{model_pascal}} pkg={{package}} tbl={{table}}\n{{#each fields}}{{name}}:{{type}}\n{{/each}}List<String>\n";
     seed_project(root, body);
 
