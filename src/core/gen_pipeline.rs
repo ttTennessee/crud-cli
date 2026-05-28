@@ -127,6 +127,8 @@ fn layer3_rendered_rel(
 fn rebase_framework_prefix(rel: &str, setup: &SetupConfig) -> Option<String> {
     for (prefix, base) in [
         ("java/", setup.paths.java_base.as_deref()),
+        ("resources/", setup.paths.resources_base.as_deref()),
+        ("doc/", setup.paths.doc_base.as_deref()),
         ("vue/", setup.paths.vue_base.as_deref()),
         ("react/", setup.paths.react_base.as_deref()),
         ("nest/", setup.paths.nest_base.as_deref()),
@@ -149,6 +151,16 @@ fn framework_layer3_rel(setup: &SetupConfig, mirror_rel: &str) -> Option<String>
     if mirror_rel.starts_with("java/") {
         if let Some(base) = setup.paths.java_base.as_deref() {
             return Some(join_base_strip_prefix(base, mirror_rel, "java/"));
+        }
+    }
+    if mirror_rel.starts_with("resources/") {
+        if let Some(base) = setup.paths.resources_base.as_deref() {
+            return Some(join_base_strip_prefix(base, mirror_rel, "resources/"));
+        }
+    }
+    if mirror_rel.starts_with("doc/") {
+        if let Some(base) = setup.paths.doc_base.as_deref() {
+            return Some(join_base_strip_prefix(base, mirror_rel, "doc/"));
         }
     }
     if mirror_rel.starts_with("vue/") {
@@ -241,20 +253,20 @@ fn effective_policy(meta: &TemplateMeta, overwrite: OverwritePolicy) -> Overwrit
 
 /// Implicit `--type` prefixes derived from user.enabled-types and project stacks.
 fn implicit_type_prefixes(project: &SetupConfig, enabled: EnabledTypes) -> Option<Vec<String>> {
-    let backend_prefix = match project.project.backend {
-        Backend::SpringBoot => Some("java"),
-        Backend::Nest => Some("nest"),
-        Backend::None => None,
+    let backend_prefixes: &[&str] = match project.project.backend {
+        Backend::SpringBoot => &["java", "resources", "doc"],
+        Backend::Nest => &["nest", "doc"],
+        Backend::None => &[],
     };
-    let frontend_prefix = match project.project.frontend {
-        Frontend::Vue => Some("vue"),
-        Frontend::React => Some("react"),
-        Frontend::None => None,
+    let frontend_prefixes: &[&str] = match project.project.frontend {
+        Frontend::Vue => &["vue"],
+        Frontend::React => &["react"],
+        Frontend::None => &[],
     };
     let prefixes: Vec<String> = match enabled {
         EnabledTypes::All => return None,
-        EnabledTypes::Backend => backend_prefix.into_iter().map(String::from).collect(),
-        EnabledTypes::Frontend => frontend_prefix.into_iter().map(String::from).collect(),
+        EnabledTypes::Backend => backend_prefixes.iter().map(|s| (*s).to_string()).collect(),
+        EnabledTypes::Frontend => frontend_prefixes.iter().map(|s| (*s).to_string()).collect(),
     };
     if prefixes.is_empty() {
         None

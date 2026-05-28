@@ -236,20 +236,20 @@ fn normalize_rel_path(rel: &Path) -> String {
 }
 
 fn implicit_type_prefixes(project: &SetupConfig, enabled: EnabledTypes) -> Option<Vec<String>> {
-    let backend_prefix = match project.project.backend {
-        Backend::SpringBoot => Some("java"),
-        Backend::Nest => Some("nest"),
-        Backend::None => None,
+    let backend_prefixes: &[&str] = match project.project.backend {
+        Backend::SpringBoot => &["java", "resources", "doc"],
+        Backend::Nest => &["nest", "doc"],
+        Backend::None => &[],
     };
-    let frontend_prefix = match project.project.frontend {
-        Frontend::Vue => Some("vue"),
-        Frontend::React => Some("react"),
-        Frontend::None => None,
+    let frontend_prefixes: &[&str] = match project.project.frontend {
+        Frontend::Vue => &["vue"],
+        Frontend::React => &["react"],
+        Frontend::None => &[],
     };
     let prefixes: Vec<String> = match enabled {
         EnabledTypes::All => return None,
-        EnabledTypes::Backend => backend_prefix.into_iter().map(String::from).collect(),
-        EnabledTypes::Frontend => frontend_prefix.into_iter().map(String::from).collect(),
+        EnabledTypes::Backend => backend_prefixes.iter().map(|s| (*s).to_string()).collect(),
+        EnabledTypes::Frontend => frontend_prefixes.iter().map(|s| (*s).to_string()).collect(),
     };
     if prefixes.is_empty() {
         None

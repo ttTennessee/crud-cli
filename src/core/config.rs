@@ -96,6 +96,10 @@ pub struct PathsSection {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub java_base: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub resources_base: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub doc_base: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub nest_base: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vue_base: Option<String>,
