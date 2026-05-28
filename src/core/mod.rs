@@ -16,4 +16,5 @@ pub mod template_meta;
 pub mod template_variables;
 pub mod paths;
 pub mod template_engine;
+pub mod type_map;
 pub mod validator;

@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 use super::default_paths::paths_for_frameworks;
 use super::error::ErrorEnvelope;
 use super::field_dsl::RESERVED_VARIABLE_NAMES;
+use super::type_map::Fallback;
 
 /// Closed-set backend (D-08).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -178,6 +179,18 @@ fn is_empty_templates_parent(t: &TemplatesParent) -> bool {
     t.outputs.0.is_empty()
 }
 
+/// `[type_map]` — global fallback policy for unknown types.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct TypeMapSection {
+    #[serde(default)]
+    pub fallback: Fallback,
+}
+
+fn is_default_type_map(t: &TypeMapSection) -> bool {
+    matches!(t.fallback, Fallback::Passthrough)
+}
+
 /// Project setup.toml — shared / checked-in. Section order is contract (D-10).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -188,6 +201,8 @@ pub struct SetupConfig {
     pub variables: VariablesSection,
     #[serde(default, skip_serializing_if = "is_empty_templates_parent")]
     pub templates: TemplatesParent,
+    #[serde(rename = "type_map", default, skip_serializing_if = "is_default_type_map")]
+    pub type_map: TypeMapSection,
 }
 
 /// Per-developer setup.user.toml — gitignored.
@@ -233,6 +248,7 @@ impl SetupConfig {
             paths: paths_for_frameworks(selections.backend, selections.frontend),
             variables: VariablesSection::default(),
             templates: TemplatesParent::default(),
+            type_map: TypeMapSection::default(),
         }
     }
 

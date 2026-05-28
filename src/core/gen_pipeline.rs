@@ -16,10 +16,13 @@ use crate::core::gen_context::{self, AsContextField, UserIdentity};
 use crate::core::gen_input::{GenCliOverrides, GenInput};
 use crate::core::gen_report::{DryRunLine, GenReport};
 use crate::core::git_info;
-use crate::core::template_engine;
+use crate::core::template_engine::{self, TypeMapBinding};
 use crate::core::template_loader::{self, TemplateEntry};
 use crate::core::template_meta::{self, TemplateMeta};
 use crate::core::template_variables;
+use crate::core::type_map;
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 struct ResolvedTarget {
     path: PathBuf,
@@ -378,6 +381,10 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
     let entries =
         template_loader::discover_templates(&cwd, implicit_filter.as_deref())?;
 
+    let templates_root = cwd.join(".crud/templates");
+    let fallback = setup.type_map.fallback.clone();
+    let mut bundle_cache: BTreeMap<String, Option<Arc<BTreeMap<String, String>>>> = BTreeMap::new();
+
     let mut resolved = Vec::new();
     for entry in &entries {
         let raw = std::fs::read_to_string(&entry.abs_path).map_err(|e| {
@@ -387,7 +394,32 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
             ))
         })?;
         let (meta, body) = template_meta::split_front_matter(&raw)?;
-        let rendered = template_engine::render_template(&body, &context)?;
+        let bundle = entry
+            .rel_path
+            .components()
+            .next()
+            .and_then(|c| match c {
+                Component::Normal(s) => s.to_str().map(|s| s.to_string()),
+                _ => None,
+            });
+        let map = if let Some(name) = bundle.as_deref() {
+            if let Some(slot) = bundle_cache.get(name) {
+                slot.clone()
+            } else {
+                let loaded = type_map::load_for_bundle(&templates_root, name)?
+                    .map(Arc::new);
+                bundle_cache.insert(name.to_string(), loaded.clone());
+                loaded
+            }
+        } else {
+            None
+        };
+        let binding = TypeMapBinding {
+            bundle: bundle.clone(),
+            map,
+            fallback: fallback.clone(),
+        };
+        let rendered = template_engine::render_template_with_type_map(&body, &context, binding)?;
         let out = resolve_output_path(
             entry,
             &meta,

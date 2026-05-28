@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use super::error::ErrorEnvelope;
 use super::template_variables::SCHEMA_FILE_NAME;
+use super::type_map::TYPE_MAP_FILE_NAME;
 
 /// One template file under `.crud/templates/`.
 #[derive(Debug, Clone)]
@@ -51,6 +52,9 @@ pub fn discover_templates(
             .is_some_and(|n| n == SCHEMA_FILE_NAME)
             && rel.parent().map(|p| p.as_os_str().is_empty()).unwrap_or(true)
         {
+            continue;
+        }
+        if rel.file_name().is_some_and(|n| n == TYPE_MAP_FILE_NAME) {
             continue;
         }
         entries.push(TemplateEntry {
