@@ -14,7 +14,10 @@ use tempfile::TempDir;
 
 static CWD_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 fn cwd_guard() -> std::sync::MutexGuard<'static, ()> {
-    CWD_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap()
+    CWD_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
 }
 
 fn seed(root: &std::path::Path, enabled: EnabledTypes) {
@@ -44,6 +47,8 @@ fn seed(root: &std::path::Path, enabled: EnabledTypes) {
 }
 
 fn run_in(root: &std::path::Path, type_filter: Option<Vec<String>>) -> Vec<String> {
+    let root = root.canonicalize().unwrap();
+    let root = root.as_path();
     let _lock = cwd_guard();
     let prev = std::env::current_dir().unwrap();
     std::env::set_current_dir(root).unwrap();

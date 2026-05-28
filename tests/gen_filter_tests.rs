@@ -10,7 +10,10 @@ use tempfile::TempDir;
 static CWD_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 fn cwd_guard() -> std::sync::MutexGuard<'static, ()> {
-    CWD_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap()
+    CWD_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
 }
 
 fn seed_templates(root: &std::path::Path) {
@@ -32,7 +35,8 @@ fn type_filter_java_only() {
     let entries = discover_templates(dir.path(), Some(&["java".to_string()])).unwrap();
     std::env::set_current_dir(prev).unwrap();
     assert_eq!(entries.len(), 1);
-    assert!(entries[0].rel_path.to_string_lossy().contains("java/"));
+    let rp = entries[0].rel_path.to_string_lossy().replace('\\', "/");
+    assert!(rp.contains("java/"), "{rp}");
 }
 
 #[test]
