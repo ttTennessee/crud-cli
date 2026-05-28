@@ -15,6 +15,7 @@ use super::gen_context::{self, AsContextField, UserIdentity};
 use super::git_info::GitInfo;
 use super::template_engine;
 use super::template_loader;
+use super::template_meta;
 
 /// Issue category for structured validate output (VAL-04).
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -24,6 +25,9 @@ pub enum IssueKind {
     UnknownVariable,
     RenderError,
     MissingHelper,
+    FrontMatterError,
+    InvalidFilename,
+    PathTraversal,
 }
 
 /// One validate finding (VAL-04 field names).
@@ -159,6 +163,14 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
             ErrorEnvelope::template_error(format!("read {}: {e}", entry.abs_path.display()))
         })?;
 
+        let meta = match template_meta::split_front_matter(&body) {
+            Ok((m, _)) => Some(m),
+            Err(err) => {
+                issues.push(front_matter_issue(&rel, &err.msg));
+                None
+            }
+        };
+
         let template = match Template::compile(&body) {
             Ok(t) => t,
             Err(err) => {
@@ -175,6 +187,13 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
 
         if let Some(issue) = render_issue(&body, &fixture_ctx, &rel) {
             issues.push(issue);
+            continue;
+        }
+
+        if let Some(m) = meta {
+            for issue in meta_path_issues(&m, &fixture_ctx, &rel) {
+                issues.push(issue);
+            }
         }
     }
 
@@ -496,6 +515,67 @@ fn did_you_mean(seg: &str, pool: &[String]) -> Option<String> {
         }
     }
     best.map(|(name, _)| format!("did you mean '{name}'?"))
+}
+
+fn front_matter_issue(rel: &str, msg: &str) -> ValidateIssue {
+    ValidateIssue {
+        template_path: rel.to_string(),
+        line: None,
+        column: None,
+        kind: IssueKind::FrontMatterError,
+        variable: None,
+        suggestion: Some(msg.to_string()),
+    }
+}
+
+fn meta_path_issues(
+    meta: &template_meta::TemplateMeta,
+    ctx: &serde_json::Value,
+    rel: &str,
+) -> Vec<ValidateIssue> {
+    let mut out = Vec::new();
+    if let Some(tpl) = meta.filename.as_deref() {
+        if let Ok(rendered) = template_engine::render_template(tpl, ctx) {
+            if rendered.contains('/') || rendered.contains('\\') {
+                out.push(ValidateIssue {
+                    template_path: rel.to_string(),
+                    line: None,
+                    column: None,
+                    kind: IssueKind::InvalidFilename,
+                    variable: Some(rendered),
+                    suggestion: Some(
+                        "filename must be a single path segment; use basePath for directories"
+                            .into(),
+                    ),
+                });
+            }
+        }
+    }
+    if let Some(tpl) = meta.base_path.as_deref() {
+        if let Ok(rendered) = template_engine::render_template(tpl, ctx) {
+            if base_path_has_traversal(&rendered) {
+                out.push(ValidateIssue {
+                    template_path: rel.to_string(),
+                    line: None,
+                    column: None,
+                    kind: IssueKind::PathTraversal,
+                    variable: Some(rendered),
+                    suggestion: Some(
+                        "basePath must be a relative path with no '..' segments".into(),
+                    ),
+                });
+            }
+        }
+    }
+    out
+}
+
+fn base_path_has_traversal(rendered: &str) -> bool {
+    let normalized = rendered.replace('\\', "/");
+    if std::path::Path::new(&normalized).is_absolute() {
+        return true;
+    }
+    normalized.split('/').any(|seg| seg == "..")
 }
 
 fn render_issue(
