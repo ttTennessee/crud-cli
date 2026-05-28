@@ -1,4 +1,3 @@
-<!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
 **crud-cli**
@@ -6,6 +5,11 @@
 `crud-cli` 是一个用 Rust 编写的命令行工具，用于配合 AI Agent 高效生成后台管理系统的 CRUD 代码。通过把重复的模板本地化，让 Agent 只下发"命令 + 结构化数据"，由本地 CLI 渲染并落盘，从而把 Agent 的 Token 消耗降低约 40 倍（从 2000+ 降到 ~50）。面向使用 AI Agent（Cline、Copilot、Claude Code 等）进行后台管理系统开发的工程师。
 
 **Core Value:** 让 AI Agent 用一条几十字符的命令，瞬间在本地渲染出与项目代码风格一致的全套 CRUD 文件（前后端），彻底消除 Agent 输出模板代码带来的 Token 浪费和风格漂移。
+
+### Code Search Tools
+MCP tool usage:
+- `semble`: hybrid semantic + lexical search for code snippets. Use when the user asks a "what" or "how" question about code.
+- `codegraph`: knowledge graph of codebase structure, call graphs, and dependencies. Use when the user asks about relationships, callers, callees, or impact analysis.
 
 ### Constraints
 
@@ -15,9 +19,7 @@
 - **配置**：项目配置文件位于 `<项目根>/.crud/setup.toml`（TOML 格式）
 - **安全**：默认不覆盖已有文件 — 防止 Agent 误操作覆盖用户代码
 - **模板引擎**：PRD 示例使用 `.hbs` 后缀，倾向 Handlebars 风格语法
-<!-- GSD:project-end -->
 
-<!-- GSD:stack-start source:research/STACK.md -->
 ## Technology Stack
 
 ## TL;DR
@@ -148,44 +150,11 @@
 - [gitoxide discussion #1381](https://github.com/GitoxideLabs/gitoxide/discussions/1381) — confirms gix is not yet a drop-in for git2 for many workflows
 - [GitHub codeload URL pattern](https://docs.github.com/en/repositories/working-with-files/using-files/downloading-source-code-archives) — `codeload.github.com/{user}/{repo}/tar.gz/{ref}` is the stable, no-auth path
 - [fadeevab — Comparison of Rust CLI prompts](https://fadeevab.com/comparison-of-rust-cli-prompts/) — dialoguer vs inquire vs cliclack vs promptly side-by-side
-<!-- GSD:stack-end -->
 
-<!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
 
 Conventions not yet established. Will populate as patterns emerge during development.
-<!-- GSD:conventions-end -->
 
-<!-- GSD:architecture-start source:ARCHITECTURE.md -->
 ## Architecture
 
 Architecture not yet mapped. Follow existing patterns found in the codebase.
-<!-- GSD:architecture-end -->
-
-<!-- GSD:skills-start source:skills/ -->
-## Project Skills
-
-No project skills found. Add skills to any of: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, `.github/skills/`, or `.codex/skills/` with a `SKILL.md` index file.
-<!-- GSD:skills-end -->
-
-<!-- GSD:workflow-start source:GSD defaults -->
-## GSD Workflow Enforcement
-
-Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
-
-Use these entry points:
-- `/gsd-quick` for small fixes, doc updates, and ad-hoc tasks
-- `/gsd-debug` for investigation and bug fixing
-- `/gsd-execute-phase` for planned phase work
-
-Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
-<!-- GSD:workflow-end -->
-
-
-
-<!-- GSD:profile-start -->
-## Developer Profile
-
-> Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
-> This section is managed by `generate-claude-profile` -- do not edit manually.
-<!-- GSD:profile-end -->
