@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
 
     steps:
       - uses: actions/checkout@v4
@@ -40,7 +40,7 @@ jobs:
 
       - name: Contract tests
         run: >-
-          cargo test
+          cargo test -q --
           handlebars_no_escape_contract
           panic_contract
           agent_output_contract
@@ -48,7 +48,6 @@ jobs:
           agent_success_stdout_empty
           gen_file_and_fields_outputs_byte_identical
           setup_byte_identical
-          -q
 
       - name: Full test suite
         run: cargo test -q

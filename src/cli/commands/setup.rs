@@ -158,6 +158,7 @@ fn write_atomic(target: &Path, bytes: Vec<u8>) -> Result<(), ErrorEnvelope> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used)]
     use super::*;
     use crate::core::config::{
         Backend, ComponentLibrary, EnabledTypes, Frontend, OverwritePolicy, SetupConfig,

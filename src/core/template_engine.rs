@@ -25,6 +25,7 @@ pub fn new_engine() -> Handlebars<'static> {
 
 #[cfg(test)]
 mod case_helper_tests {
+    #![allow(clippy::expect_used)]
     use super::*;
 
     #[test]
