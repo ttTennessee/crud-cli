@@ -8,6 +8,7 @@ use crate::core::config::{
     SetupFlagOverlay, SetupSelections, SetupUserConfig, UserSelections,
 };
 use crate::core::error::ErrorEnvelope;
+use crate::core::type_map::Fallback;
 
 use super::output::emit_failure;
 
@@ -63,6 +64,12 @@ pub struct SetupArgs {
 
     #[arg(long = "user-email")]
     pub user_email: Option<String>,
+
+    /// Unknown-type fallback policy for [type_map]. Accepts
+    /// `passthrough`, `error`, or any other string (treated as a literal
+    /// replacement value).
+    #[arg(long = "type-map-fallback", value_name = "POLICY")]
+    pub type_map_fallback: Option<String>,
 
     /// Overwrite the target file without the interactive confirm.
     #[arg(long = "force", default_value_t = false)]
@@ -262,7 +269,19 @@ impl SetupArgs {
             component_library: self.component_library.map(Into::into),
             overwrite_policy: self.overwrite_policy.map(Into::into),
             enabled_types: self.enabled_types.map(Into::into),
+            type_map_fallback: self
+                .type_map_fallback
+                .as_deref()
+                .map(crate::core::config::parse_type_map_fallback),
         }
+    }
+
+    /// Returns the parsed fallback if `--type-map-fallback` was supplied.
+    #[must_use]
+    pub fn parsed_type_map_fallback(&self) -> Option<Fallback> {
+        self.type_map_fallback
+            .as_deref()
+            .map(crate::core::config::parse_type_map_fallback)
     }
 
     /// Validates the three project dimensions are present (flag mode).
@@ -313,7 +332,11 @@ impl SetupArgs {
     /// Materializes project config from flags only (no file merge).
     pub fn to_setup_config(&self) -> Result<SetupConfig, ErrorEnvelope> {
         let selections = self.require_project_non_interactive()?;
-        Ok(SetupConfig::from_selections(selections))
+        let mut cfg = SetupConfig::from_selections(selections);
+        if let Some(fb) = self.parsed_type_map_fallback() {
+            cfg.type_map.fallback = fb;
+        }
+        Ok(cfg)
     }
 
     /// Materializes user config from flags only.
@@ -390,6 +413,7 @@ fn clap_flag_value(err: &clap::Error) -> (Option<&'static str>, Option<String>) 
         "enabled-types",
         "user-name",
         "user-email",
+        "type-map-fallback",
         "fields",
         "file",
         "package",

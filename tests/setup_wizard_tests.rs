@@ -49,6 +49,7 @@ fn project_setup_byte_identical() {
         enabled_types: None,
         user_name: None,
         user_email: None,
+        type_map_fallback: None,
         force: false,
     };
     let from_flags = args.to_setup_config().expect("flags");

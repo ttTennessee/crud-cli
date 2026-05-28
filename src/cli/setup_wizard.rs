@@ -1,13 +1,14 @@
 //! Interactive `setup` wizards: project and user (CONF-01).
 
 use inquire::error::InquireError;
-use inquire::{Select, Text};
+use inquire::{Confirm, Select, Text};
 
 use crate::core::config::{
-    EnabledTypes, SetupConfig, SetupSelections, SetupUserConfig, UserSelections,
+    EnabledTypes, PathsSection, SetupConfig, SetupSelections, SetupUserConfig, UserSelections,
 };
 use crate::core::error::ErrorEnvelope;
 use crate::core::git_info;
+use crate::core::type_map::Fallback;
 
 use super::args::{
     SetupBackend, SetupComponentLibrary, SetupEnabledTypes, SetupFrontend, SetupOverwritePolicy,
@@ -16,7 +17,10 @@ use super::args::{
 /// Runs the project wizard and returns the canonical project config (D-10).
 pub fn run_project_wizard() -> Result<SetupConfig, ErrorEnvelope> {
     let selections = collect_project_selections()?;
-    Ok(SetupConfig::from_selections(selections))
+    let mut cfg = SetupConfig::from_selections(selections);
+    cfg.paths = prompt_paths(cfg.paths)?;
+    cfg.type_map.fallback = prompt_type_map_fallback()?;
+    Ok(cfg)
 }
 
 /// Runs the user wizard and returns the canonical user config.
@@ -228,6 +232,99 @@ fn enabled_types_label(t: SetupEnabledTypes) -> &'static str {
         SetupEnabledTypes::Backend => "backend",
         SetupEnabledTypes::Frontend => "frontend",
     }
+}
+
+fn prompt_paths(defaults: PathsSection) -> Result<PathsSection, ErrorEnvelope> {
+    let summary = summarize_paths(&defaults);
+    let help = if summary.is_empty() {
+        "No framework path keys for this stack".to_string()
+    } else {
+        format!("Defaults: {summary}")
+    };
+    let customize = Confirm::new("Customize paths?")
+        .with_default(false)
+        .with_help_message(&help)
+        .prompt()
+        .map_err(inquire_to_user_error)?;
+    if !customize {
+        return Ok(defaults);
+    }
+    let mut paths = defaults;
+    paths.java_base = prompt_optional_path("paths.java_base", paths.java_base)?;
+    paths.resources_base = prompt_optional_path("paths.resources_base", paths.resources_base)?;
+    paths.doc_base = prompt_optional_path("paths.doc_base", paths.doc_base)?;
+    paths.nest_base = prompt_optional_path("paths.nest_base", paths.nest_base)?;
+    paths.vue_base = prompt_optional_path("paths.vue_base", paths.vue_base)?;
+    paths.react_base = prompt_optional_path("paths.react_base", paths.react_base)?;
+    Ok(paths)
+}
+
+fn prompt_optional_path(
+    label: &str,
+    default: Option<String>,
+) -> Result<Option<String>, ErrorEnvelope> {
+    let Some(current) = default else {
+        return Ok(None);
+    };
+    let value = Text::new(label)
+        .with_default(&current)
+        .prompt()
+        .map_err(inquire_to_user_error)?;
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(trimmed.to_string()))
+    }
+}
+
+fn summarize_paths(p: &PathsSection) -> String {
+    let mut parts = Vec::new();
+    for (k, v) in [
+        ("java_base", &p.java_base),
+        ("resources_base", &p.resources_base),
+        ("doc_base", &p.doc_base),
+        ("nest_base", &p.nest_base),
+        ("vue_base", &p.vue_base),
+        ("react_base", &p.react_base),
+    ] {
+        if let Some(value) = v {
+            parts.push(format!("{k}={value}"));
+        }
+    }
+    parts.join(", ")
+}
+
+fn prompt_type_map_fallback() -> Result<Fallback, ErrorEnvelope> {
+    const PASSTHROUGH: &str = "passthrough (keep unmapped types as-is)";
+    const ERROR: &str = "error (abort render on unmapped types)";
+    const LITERAL: &str = "literal (replace unmapped types with a fixed string)";
+    let labels = [PASSTHROUGH, ERROR, LITERAL];
+    let choice = Select::new("type_map.fallback", labels.to_vec())
+        .with_help_message("Policy when a neutral DSL type has no per-bundle mapping")
+        .prompt()
+        .map_err(inquire_to_user_error)?;
+    Ok(match choice {
+        PASSTHROUGH => Fallback::Passthrough,
+        ERROR => Fallback::Error,
+        LITERAL => {
+            let literal = Text::new("type_map.fallback literal")
+                .with_default("any")
+                .with_help_message("Replacement value for unmapped types")
+                .with_validator(non_empty_validator())
+                .prompt()
+                .map_err(inquire_to_user_error)?;
+            Fallback::Literal(literal.trim().to_string())
+        }
+        other => {
+            return Err(ErrorEnvelope::user_error(
+                "invalid wizard selection",
+                None,
+                Some(other),
+                "choose a listed option",
+            ));
+        }
+    })
 }
 
 // Silence unused-import diagnostics when `EnabledTypes`/`git_info` are only

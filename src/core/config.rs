@@ -14,6 +14,17 @@ use super::error::ErrorEnvelope;
 use super::field_dsl::RESERVED_VARIABLE_NAMES;
 use super::type_map::Fallback;
 
+/// Parses the `--type-map-fallback` flag value mirroring `Fallback` deserialization:
+/// `passthrough` → Passthrough, `error` → Error, anything else → Literal(s).
+#[must_use]
+pub fn parse_type_map_fallback(s: &str) -> Fallback {
+    match s {
+        "passthrough" => Fallback::Passthrough,
+        "error" => Fallback::Error,
+        other => Fallback::Literal(other.to_string()),
+    }
+}
+
 /// Closed-set backend (D-08).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -216,13 +227,14 @@ pub struct SetupUserConfig {
 }
 
 /// Flag layer applied after defaults and optional file (CONF-04).
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct SetupFlagOverlay {
     pub backend: Option<Backend>,
     pub frontend: Option<Frontend>,
     pub component_library: Option<ComponentLibrary>,
     pub overwrite_policy: Option<OverwritePolicy>,
     pub enabled_types: Option<EnabledTypes>,
+    pub type_map_fallback: Option<Fallback>,
 }
 
 impl SetupConfig {
@@ -273,7 +285,11 @@ impl SetupConfig {
         if let Some(v) = flags.component_library {
             sel.component_library = v;
         }
-        Self::from_selections(sel)
+        let mut cfg = Self::from_selections(sel);
+        if let Some(fb) = flags.type_map_fallback {
+            cfg.type_map.fallback = fb;
+        }
+        cfg
     }
 
     /// Deterministic TOML bytes for `.crud/setup.toml` (D-10).

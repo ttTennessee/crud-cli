@@ -22,6 +22,7 @@ fn setup_config_flag_serialization() {
         enabled_types: None,
         user_name: None,
         user_email: None,
+        type_map_fallback: None,
         force: false,
     };
     let cfg = args.to_setup_config().expect("config");
@@ -50,6 +51,7 @@ fn setup_config_merge_precedence() {
             component_library: None,
             overwrite_policy: None,
             enabled_types: None,
+            type_map_fallback: None,
         },
     );
     assert_eq!(merged.project.backend, Backend::SpringBoot);
@@ -92,4 +94,62 @@ fn setup_config_framework_path_defaults() {
     assert_eq!(cfg.paths.react_base.as_deref(), Some("src/views"));
     assert!(cfg.paths.java_base.is_none());
     assert!(cfg.paths.vue_base.is_none());
+}
+
+#[test]
+fn type_map_fallback_flag_error_serializes() {
+    let args = SetupArgs {
+        project: true,
+        backend: Some(SetupBackend::SpringBoot),
+        frontend: Some(SetupFrontend::Vue),
+        component_library: Some(SetupComponentLibrary::ElementPlus),
+        overwrite_policy: None,
+        enabled_types: None,
+        user_name: None,
+        user_email: None,
+        type_map_fallback: Some("error".into()),
+        force: false,
+    };
+    let cfg = args.to_setup_config().expect("config");
+    let toml = cfg.to_toml_pretty().expect("toml");
+    assert!(toml.contains("[type_map]"));
+    assert!(toml.contains("fallback = \"error\""));
+}
+
+#[test]
+fn type_map_fallback_flag_literal_serializes() {
+    let args = SetupArgs {
+        project: true,
+        backend: Some(SetupBackend::Nest),
+        frontend: Some(SetupFrontend::React),
+        component_library: Some(SetupComponentLibrary::None),
+        overwrite_policy: None,
+        enabled_types: None,
+        user_name: None,
+        user_email: None,
+        type_map_fallback: Some("any".into()),
+        force: false,
+    };
+    let cfg = args.to_setup_config().expect("config");
+    let toml = cfg.to_toml_pretty().expect("toml");
+    assert!(toml.contains("fallback = \"any\""));
+}
+
+#[test]
+fn type_map_fallback_default_passthrough_omitted() {
+    let args = SetupArgs {
+        project: true,
+        backend: Some(SetupBackend::SpringBoot),
+        frontend: Some(SetupFrontend::Vue),
+        component_library: Some(SetupComponentLibrary::ElementPlus),
+        overwrite_policy: None,
+        enabled_types: None,
+        user_name: None,
+        user_email: None,
+        type_map_fallback: None,
+        force: false,
+    };
+    let cfg = args.to_setup_config().expect("config");
+    let toml = cfg.to_toml_pretty().expect("toml");
+    assert!(!toml.contains("[type_map]"));
 }
