@@ -23,7 +23,6 @@ fn seed_setup(root: &std::path::Path) {
         backend: Backend::SpringBoot,
         frontend: Frontend::Vue,
         component_library: ComponentLibrary::ElementPlus,
-        overwrite_policy: OverwritePolicy::Never,
     });
     let toml = cfg.to_toml_pretty().expect("serialize setup");
     fs::write(crud.join("setup.toml"), toml).expect("write setup.toml");

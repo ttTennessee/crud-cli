@@ -36,10 +36,9 @@ fn outputs_map_handlebars_template_renders() {
             backend: crud_cli::core::config::Backend::None,
             frontend: crud_cli::core::config::Frontend::None,
             component_library: crud_cli::core::config::ComponentLibrary::None,
-            overwrite_policy: crud_cli::core::config::OverwritePolicy::Never,
         },
     );
-    let ctx = build_context_from_input(&input, &setup, &GitInfo::default()).unwrap();
+    let ctx = build_context_from_input(&input, &setup, &GitInfo::default(), &crud_cli::core::gen_context::UserIdentity::default()).unwrap();
     let out = render_template(
         "src/main/java/{{package_path}}/{{model_pascal}}.java",
         &ctx,
@@ -70,8 +69,6 @@ component-library = "element-plus"
 java_base = "src/main/java"
 vue_base = "src/views"
 
-[overwrite]
-overwrite-policy = "never"
 
 [templates.outputs]
 "java/Entity.java.hbs" = "src/main/java/{{package_path}}/{{model_pascal}}.java"

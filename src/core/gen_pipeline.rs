@@ -4,12 +4,15 @@ use std::path::{Component, Path, PathBuf};
 
 use serde_json::Value;
 
-use crate::core::config::{load_setup_file, OutputsSection, OverwritePolicy, SetupConfig};
+use crate::core::config::{
+    Backend, EnabledTypes, Frontend, OutputsSection, OverwritePolicy, RuntimeConfig, SetupConfig,
+};
+use crate::core::paths::{project_setup_toml, project_setup_user_toml};
 use crate::core::gen_run::GenRunParams;
 use crate::core::error::ErrorEnvelope;
 use crate::core::field_dsl;
 use crate::core::fs_writer::{commit, plan, OverwriteContext, WriteTarget};
-use crate::core::gen_context::{self, AsContextField};
+use crate::core::gen_context::{self, AsContextField, UserIdentity};
 use crate::core::gen_input::{GenCliOverrides, GenInput};
 use crate::core::gen_report::{DryRunLine, GenReport};
 use crate::core::git_info;
@@ -209,9 +212,32 @@ fn path_traversal_error(rel_hint: Option<&str>) -> ErrorEnvelope {
     )
 }
 
-fn effective_policy(meta: &TemplateMeta, setup: &SetupConfig) -> OverwritePolicy {
-    meta.overwrite
-        .unwrap_or(setup.overwrite.overwrite_policy)
+fn effective_policy(meta: &TemplateMeta, overwrite: OverwritePolicy) -> OverwritePolicy {
+    meta.overwrite.unwrap_or(overwrite)
+}
+
+/// Implicit `--type` prefixes derived from user.enabled-types and project stacks.
+fn implicit_type_prefixes(project: &SetupConfig, enabled: EnabledTypes) -> Option<Vec<String>> {
+    let backend_prefix = match project.project.backend {
+        Backend::SpringBoot => Some("java"),
+        Backend::Nest => Some("nest"),
+        Backend::None => None,
+    };
+    let frontend_prefix = match project.project.frontend {
+        Frontend::Vue => Some("vue"),
+        Frontend::React => Some("react"),
+        Frontend::None => None,
+    };
+    let prefixes: Vec<String> = match enabled {
+        EnabledTypes::All => return None,
+        EnabledTypes::Backend => backend_prefix.into_iter().map(String::from).collect(),
+        EnabledTypes::Frontend => frontend_prefix.into_iter().map(String::from).collect(),
+    };
+    if prefixes.is_empty() {
+        None
+    } else {
+        Some(prefixes)
+    }
 }
 
 fn allows_overwrite(policy: OverwritePolicy, force: bool, path: &Path) -> bool {
@@ -236,11 +262,20 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
         )
     })?;
 
-    let setup = load_setup_file(&cwd.join(".crud/setup.toml"))?;
+    let runtime = RuntimeConfig::load(
+        &project_setup_toml(&cwd),
+        &project_setup_user_toml(&cwd),
+    )?;
+    let setup = &runtime.project;
+    let overwrite_policy = runtime.overwrite_policy();
     if let Some(ref out) = params.output_dir {
         assert_safe_output_path(out, &cwd, Some("output"))?;
     }
     let git = git_info::read();
+    let user = UserIdentity {
+        name: runtime.user.user.name.clone(),
+        email: runtime.user.user.email.clone(),
+    };
 
     let context = if let Some(ref path) = params.file {
         let loaded = super::gen_input::load_gen_input_with_specs_from_json(
@@ -261,8 +296,9 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
             &loaded.input.table,
             &loaded.input.package,
             &refs,
-            &setup,
+            setup,
             &git,
+            &user,
         )?
     } else {
         let fields = field_dsl::parse_fields(
@@ -286,11 +322,15 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
                 .ok_or_else(|| missing_pipeline_input("package"))?,
             fields,
         };
-        gen_context::build_context_from_input(&input, &setup, &git)?
+        gen_context::build_context_from_input(&input, setup, &git, &user)?
     };
 
+    let implicit_filter = params
+        .type_filter
+        .clone()
+        .or_else(|| implicit_type_prefixes(setup, runtime.enabled_types()));
     let entries =
-        template_loader::discover_templates(&cwd, params.type_filter.as_deref())?;
+        template_loader::discover_templates(&cwd, implicit_filter.as_deref())?;
 
     let mut resolved = Vec::new();
     for entry in &entries {
@@ -324,7 +364,7 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
         let mut dry_run_lines = Vec::new();
         for t in &resolved {
             skipped.push(t.path.clone());
-            let policy = effective_policy(&t.meta, &setup);
+            let policy = effective_policy(&t.meta, overwrite_policy);
             let conflict = !allows_overwrite(policy, params.force, &t.path);
             if conflict {
                 conflicts.push(t.path.clone());
@@ -353,7 +393,7 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
         .collect();
 
     for t in &resolved {
-        let policy = effective_policy(&t.meta, &setup);
+        let policy = effective_policy(&t.meta, overwrite_policy);
         if !allows_overwrite(policy, params.force, &t.path) {
             return Err(ErrorEnvelope::file_conflict(
                 format!("file exists: {}", t.path.display()),

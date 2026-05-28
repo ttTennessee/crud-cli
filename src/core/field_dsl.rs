@@ -26,6 +26,13 @@ pub const RESERVED_VARIABLE_NAMES: &[&str] = &[
     "model_pascal",
     "model_camel",
     "model_kebab",
+    "user_name",
+    "user_email",
+    "git_user_name",
+    "git_user_email",
+    "date",
+    "datetime",
+    "year",
 ];
 
 /**

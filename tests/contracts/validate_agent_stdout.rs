@@ -36,7 +36,6 @@ fn seed_valid_project(root: &std::path::Path) {
         backend: Backend::None,
         frontend: Frontend::None,
         component_library: ComponentLibrary::None,
-        overwrite_policy: OverwritePolicy::Never,
     });
     fs::write(crud.join("setup.toml"), cfg.to_toml_pretty().unwrap()).unwrap();
 }

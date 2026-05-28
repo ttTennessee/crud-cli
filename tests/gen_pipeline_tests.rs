@@ -32,7 +32,6 @@ fn setup_none() -> SetupConfig {
         backend: Backend::None,
         frontend: Frontend::None,
         component_library: ComponentLibrary::None,
-        overwrite_policy: OverwritePolicy::Never,
     })
 }
 
@@ -41,7 +40,6 @@ fn setup_spring_boot() -> SetupConfig {
         backend: Backend::SpringBoot,
         frontend: Frontend::None,
         component_library: ComponentLibrary::None,
-        overwrite_policy: OverwritePolicy::Never,
     })
 }
 
@@ -197,7 +195,6 @@ fn seed_project(root: &std::path::Path, template_body: &str) {
         backend: Backend::SpringBoot,
         frontend: Frontend::Vue,
         component_library: ComponentLibrary::ElementPlus,
-        overwrite_policy: OverwritePolicy::Never,
     });
     fs::write(crud.join("setup.toml"), cfg.to_toml_pretty().unwrap()).unwrap();
     fs::write(crud.join("templates/Entity.java.hbs"), template_body).unwrap();

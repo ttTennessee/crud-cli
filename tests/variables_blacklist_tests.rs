@@ -19,8 +19,6 @@ component-library = "none"
 
 [paths]
 
-[overwrite]
-overwrite-policy = "never"
 
 [variables]
 model = "shadow"

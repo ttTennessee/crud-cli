@@ -23,7 +23,6 @@ fn seed_setup(root: &std::path::Path) -> SetupConfig {
         backend: Backend::None,
         frontend: Frontend::None,
         component_library: ComponentLibrary::None,
-        overwrite_policy: OverwritePolicy::Never,
     });
     fs::write(crud.join("setup.toml"), cfg.to_toml_pretty().unwrap()).expect("setup.toml");
     cfg
@@ -50,7 +49,6 @@ fn unknown_first_segment_reported_with_didyoumean() {
         backend: Backend::None,
         frontend: Frontend::None,
         component_library: ComponentLibrary::None,
-        overwrite_policy: OverwritePolicy::Never,
     });
     cfg.variables
         .0
@@ -124,7 +122,6 @@ fn nested_path_only_first_segment_checked() {
         backend: Backend::None,
         frontend: Frontend::None,
         component_library: ComponentLibrary::None,
-        overwrite_policy: OverwritePolicy::Never,
     });
     let mut table = toml::map::Map::new();
     table.insert("email".into(), toml::Value::String("a@b.c".into()));

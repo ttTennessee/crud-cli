@@ -1,78 +1,191 @@
 //! `crud-cli setup` execution pipeline (D-10, CONF-08, FOUND-09).
+//!
+//! Defaults to writing the per-developer user file `.crud/setup.user.toml`.
+//! Pass `--project` to write the shared `.crud/setup.toml`.
 
 use std::env;
-use std::path::PathBuf;
+use std::io::IsTerminal;
+use std::path::{Path, PathBuf};
 
-use crate::core::config::SetupConfig;
-use crate::core::error::ErrorEnvelope;
+use inquire::Confirm;
+
+use crate::core::error::{ErrorEnvelope, Kind};
 use crate::core::fs_writer::{commit, plan, OverwriteContext, WriteTarget};
-use crate::core::paths::project_setup_toml;
+use crate::core::paths::{
+    ensure_gitignore_entry, project_crud_gitignore, project_setup_toml, project_setup_user_toml,
+};
 
+use crate::cli::agent_mode::is_agent_active;
 use crate::cli::args::{exit_with_envelope, SetupArgs};
 use crate::cli::output::emit_success;
-use crate::cli::setup_wizard::run_interactive_wizard;
+use crate::cli::setup_wizard::{run_project_wizard, run_user_wizard};
 
-/// Runs setup end-to-end: build config, preflight, atomic write.
+const SETUP_USER_FILE: &str = "setup.user.toml";
+
+/// Routes setup to either the project or the user file.
 pub fn run_setup(setup: SetupArgs) -> i32 {
-    let config_result = if setup.is_non_interactive() {
-        setup.to_setup_config()
-    } else {
-        run_interactive_wizard()
+    let project_root = match env::current_dir() {
+        Ok(p) => p,
+        Err(e) => {
+            let env = ErrorEnvelope {
+                kind: Kind::ConfigError,
+                msg: format!("resolve project root: {e}"),
+                exit_code: Kind::ConfigError.exit_code(),
+                hint: String::new(),
+                details: serde_json::Map::new(),
+            };
+            return exit_with_envelope(&env);
+        }
     };
 
-    match config_result {
-        Ok(cfg) => match write_setup_config(&cfg, setup.force) {
-            Ok(path) => {
-                let human = format!("Created {}", path.display());
-                emit_success(Some(&human));
-                0
-            }
-            Err(envelope) => exit_with_envelope(&envelope),
-        },
-        Err(envelope) => exit_with_envelope(&envelope),
+    if setup.writes_project() {
+        run_project_setup(&project_root, setup)
+    } else {
+        run_user_setup(&project_root, setup)
     }
 }
 
-fn write_setup_config(config: &SetupConfig, force: bool) -> Result<PathBuf, ErrorEnvelope> {
-    let project_root = env::current_dir().map_err(|e| {
-        ErrorEnvelope {
-            kind: crate::core::error::Kind::ConfigError,
-            msg: format!("resolve project root: {e}"),
-            exit_code: crate::core::error::Kind::ConfigError.exit_code(),
-            hint: String::new(),
-            details: serde_json::Map::new(),
-        }
-    })?;
-    let target = project_setup_toml(&project_root);
-    let content = config.to_toml_pretty()?;
-    let overwrite = OverwriteContext {
-        policy: config.overwrite.overwrite_policy,
-        force,
+fn run_project_setup(project_root: &Path, args: SetupArgs) -> i32 {
+    let target = project_setup_toml(project_root);
+    match check_overwrite_confirm(&target, args.force) {
+        Decision::Skip => return 0,
+        Decision::Block(env) => return exit_with_envelope(&env),
+        Decision::Proceed => {}
+    }
+    let config_result = if args.is_project_non_interactive() {
+        args.to_setup_config()
+    } else {
+        run_project_wizard()
     };
+    match config_result {
+        Ok(cfg) => match cfg.to_toml_pretty().and_then(|s| write_atomic(&target, s.into_bytes())) {
+            Ok(()) => {
+                emit_success(Some(&format!("Created {}", target.display())));
+                0
+            }
+            Err(env) => exit_with_envelope(&env),
+        },
+        Err(env) => exit_with_envelope(&env),
+    }
+}
+
+fn run_user_setup(project_root: &Path, args: SetupArgs) -> i32 {
+    let target = project_setup_user_toml(project_root);
+    match check_overwrite_confirm(&target, args.force) {
+        Decision::Skip => return 0,
+        Decision::Block(env) => return exit_with_envelope(&env),
+        Decision::Proceed => {}
+    }
+    let config_result = if args.is_user_non_interactive() {
+        args.to_user_config()
+    } else {
+        run_user_wizard()
+    };
+    let cfg = match config_result {
+        Ok(c) => c,
+        Err(env) => return exit_with_envelope(&env),
+    };
+
+    let toml_bytes = match cfg.to_toml_pretty() {
+        Ok(s) => s.into_bytes(),
+        Err(env) => return exit_with_envelope(&env),
+    };
+
+    if let Err(env) = write_atomic(&target, toml_bytes) {
+        return exit_with_envelope(&env);
+    }
+
+    let gitignore_path = project_crud_gitignore(project_root);
+    if let Err(env) = ensure_gitignore_entry(&gitignore_path, SETUP_USER_FILE) {
+        return exit_with_envelope(&env);
+    }
+
+    let mut human = format!("Created {}", target.display());
+    if !project_setup_toml(project_root).exists() {
+        human.push_str(" (project setup.toml not found — run `crud-cli setup --project` to create it)");
+    }
+    emit_success(Some(&human));
+    0
+}
+
+enum Decision {
+    Proceed,
+    Skip,
+    Block(ErrorEnvelope),
+}
+
+fn check_overwrite_confirm(target: &Path, force: bool) -> Decision {
+    if !target.exists() {
+        return Decision::Proceed;
+    }
+    if force {
+        return Decision::Proceed;
+    }
+    if is_agent_active() || !std::io::stdin().is_terminal() {
+        let mut details = serde_json::Map::new();
+        details.insert(
+            "path".into(),
+            serde_json::Value::String(target.display().to_string()),
+        );
+        return Decision::Block(ErrorEnvelope::user_error_with_reason(
+            format!("file exists: {}", target.display()),
+            "setup_exists_non_interactive",
+            details,
+            "pass --force to overwrite, or run setup interactively",
+        ));
+    }
+    let prompt = format!("Reconfigure and overwrite {}?", target.display());
+    match Confirm::new(&prompt).with_default(false).prompt() {
+        Ok(true) => Decision::Proceed,
+        Ok(false) => Decision::Skip,
+        Err(_) => Decision::Skip,
+    }
+}
+
+fn write_atomic(target: &Path, bytes: Vec<u8>) -> Result<(), ErrorEnvelope> {
     let write_plan = plan(
         &[WriteTarget {
-            path: target.clone(),
-            content: content.into_bytes(),
+            path: PathBuf::from(target),
+            content: bytes,
         }],
-        overwrite,
+        OverwriteContext {
+            policy: crate::core::config::OverwritePolicy::Always,
+            force: true,
+        },
     )?;
-    commit(write_plan)?;
-    Ok(target)
+    commit(write_plan)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::config::{Backend, ComponentLibrary, Frontend, OverwritePolicy, SetupSelections};
+    use crate::core::config::{
+        Backend, ComponentLibrary, EnabledTypes, Frontend, OverwritePolicy, SetupConfig,
+        SetupSelections, SetupUserConfig, UserSelections,
+    };
 
     #[test]
-    fn overwrite_context_from_config() {
+    fn project_config_roundtrip_has_no_overwrite() {
         let cfg = SetupConfig::from_selections(SetupSelections {
-            backend: Backend::None,
-            frontend: Frontend::None,
-            component_library: ComponentLibrary::None,
-            overwrite_policy: OverwritePolicy::ForceOnly,
+            backend: Backend::SpringBoot,
+            frontend: Frontend::Vue,
+            component_library: ComponentLibrary::ElementPlus,
         });
-        assert_eq!(cfg.overwrite.overwrite_policy, OverwritePolicy::ForceOnly);
+        let toml = cfg.to_toml_pretty().expect("serialize");
+        assert!(!toml.contains("[overwrite]"));
+    }
+
+    #[test]
+    fn user_config_serializes_required_sections() {
+        let cfg = SetupUserConfig::from_user_selections(UserSelections {
+            name: "Alice".into(),
+            email: "a@example.com".into(),
+            overwrite_policy: OverwritePolicy::ForceOnly,
+            enabled_types: EnabledTypes::Backend,
+        });
+        let toml = cfg.to_toml_pretty().expect("serialize");
+        assert!(toml.contains("[user]"));
+        assert!(toml.contains("[overwrite]"));
+        assert!(toml.contains("enabled-types = \"backend\""));
     }
 }

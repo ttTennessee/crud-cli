@@ -7,10 +7,11 @@ use handlebars::template::{HelperTemplate, Parameter, TemplateElement};
 use handlebars::{Path as HbPath, PathSeg, Template, TemplateError};
 use serde::Serialize;
 
-use super::config::{load_setup_file, SetupConfig};
+use super::config::{Backend, EnabledTypes, Frontend, RuntimeConfig, SetupConfig};
+use super::paths::{project_setup_toml, project_setup_user_toml};
 use super::error::ErrorEnvelope;
 use super::field_dsl::Field;
-use super::gen_context::{self, AsContextField};
+use super::gen_context::{self, AsContextField, UserIdentity};
 use super::git_info::GitInfo;
 use super::template_engine;
 use super::template_loader;
@@ -62,6 +63,11 @@ const BUILTINS: &[&str] = &[
     "model_kebab",
     "git_user_name",
     "git_user_email",
+    "user_name",
+    "user_email",
+    "date",
+    "datetime",
+    "year",
     "this",
     "@root",
 ];
@@ -93,14 +99,21 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
             "run validate from the project root",
         )
     })?;
-    let setup_path = cwd.join(".crud/setup.toml");
-    let setup = load_setup_file(&setup_path)?;
+    let runtime = RuntimeConfig::load(
+        &project_setup_toml(&cwd),
+        &project_setup_user_toml(&cwd),
+    )?;
+    let setup = &runtime.project;
 
+    let implicit_filter = params
+        .type_filter
+        .clone()
+        .or_else(|| implicit_type_prefixes(setup, runtime.enabled_types()));
     let entries =
-        template_loader::discover_templates(&cwd, params.type_filter.as_deref())?;
+        template_loader::discover_templates(&cwd, implicit_filter.as_deref())?;
     let templates_checked = entries.len();
 
-    let base_allow = build_base_allow_set(&setup);
+    let base_allow = build_base_allow_set(setup);
     let suggest_pool: Vec<String> = base_allow.iter().cloned().collect();
 
     let fixture_fields: [&dyn AsContextField; 3] = [
@@ -124,13 +137,18 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
         },
     ];
     let git = GitInfo::default();
+    let user = UserIdentity {
+        name: runtime.user.user.name.clone(),
+        email: runtime.user.user.email.clone(),
+    };
     let fixture_ctx = gen_context::build_context(
         "ValidateFixture",
         "validate_fixture",
         "com.example.validate",
         &fixture_fields,
-        &setup,
+        setup,
         &git,
+        &user,
     )?;
 
     let mut issues = Vec::new();
@@ -190,6 +208,29 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
 
 fn normalize_rel_path(rel: &Path) -> String {
     rel.to_string_lossy().replace('\\', "/")
+}
+
+fn implicit_type_prefixes(project: &SetupConfig, enabled: EnabledTypes) -> Option<Vec<String>> {
+    let backend_prefix = match project.project.backend {
+        Backend::SpringBoot => Some("java"),
+        Backend::Nest => Some("nest"),
+        Backend::None => None,
+    };
+    let frontend_prefix = match project.project.frontend {
+        Frontend::Vue => Some("vue"),
+        Frontend::React => Some("react"),
+        Frontend::None => None,
+    };
+    let prefixes: Vec<String> = match enabled {
+        EnabledTypes::All => return None,
+        EnabledTypes::Backend => backend_prefix.into_iter().map(String::from).collect(),
+        EnabledTypes::Frontend => frontend_prefix.into_iter().map(String::from).collect(),
+    };
+    if prefixes.is_empty() {
+        None
+    } else {
+        Some(prefixes)
+    }
 }
 
 fn build_base_allow_set(setup: &SetupConfig) -> BTreeSet<String> {

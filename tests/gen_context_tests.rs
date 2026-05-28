@@ -34,9 +34,8 @@ fn build_context_includes_model_and_field_case_keys() {
         backend: Backend::None,
         frontend: Frontend::None,
         component_library: ComponentLibrary::None,
-        overwrite_policy: OverwritePolicy::Never,
     });
-    let ctx = build_context_from_input(&input, &setup, &GitInfo::default()).expect("context");
+    let ctx = build_context_from_input(&input, &setup, &GitInfo::default(), &crud_cli::core::gen_context::UserIdentity::default()).expect("context");
     let obj = ctx.as_object().expect("object");
 
     assert_eq!(obj.get("model").and_then(|v| v.as_str()), Some("User"));

@@ -31,8 +31,6 @@ component-library = "none"
 
 [paths]
 
-[overwrite]
-overwrite-policy = "never"
 "#
     )
     .unwrap();

@@ -1,8 +1,8 @@
-//! D-10: flag and wizard paths produce byte-identical TOML.
+//! D-10: project flag and wizard paths produce byte-identical TOML.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use crud_cli::cli::args::{
-    SetupArgs, SetupBackend, SetupComponentLibrary, SetupFrontend, SetupOverwritePolicy,
+    SetupArgs, SetupBackend, SetupComponentLibrary, SetupFrontend,
 };
 use crud_cli::cli::setup_wizard::selections_from_answers;
 use crud_cli::core::config::SetupConfig;
@@ -10,10 +10,14 @@ use crud_cli::core::config::SetupConfig;
 #[test]
 fn setup_byte_identical() {
     let args = SetupArgs {
+        project: true,
         backend: Some(SetupBackend::SpringBoot),
         frontend: Some(SetupFrontend::Vue),
         component_library: Some(SetupComponentLibrary::ElementPlus),
-        overwrite_policy: Some(SetupOverwritePolicy::Never),
+        overwrite_policy: None,
+        enabled_types: None,
+        user_name: None,
+        user_email: None,
         force: false,
     };
     let from_flags = args.to_setup_config().expect("flags");
@@ -21,7 +25,6 @@ fn setup_byte_identical() {
         SetupBackend::SpringBoot,
         SetupFrontend::Vue,
         SetupComponentLibrary::ElementPlus,
-        SetupOverwritePolicy::Never,
     ));
     assert_eq!(
         from_flags.to_toml_pretty().expect("flags toml"),

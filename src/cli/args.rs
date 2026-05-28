@@ -4,8 +4,8 @@ use clap::{Parser, Subcommand, ValueEnum};
 use std::ffi::OsString;
 
 use crate::core::config::{
-    Backend, ComponentLibrary, Frontend, OverwritePolicy, SetupConfig, SetupFlagOverlay,
-    SetupSelections,
+    Backend, ComponentLibrary, EnabledTypes, Frontend, OverwritePolicy, SetupConfig,
+    SetupFlagOverlay, SetupSelections, SetupUserConfig, UserSelections,
 };
 use crate::core::error::ErrorEnvelope;
 
@@ -25,7 +25,7 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    /// Create or refresh project setup configuration.
+    /// Create or refresh project / user setup configuration.
     Setup(SetupArgs),
     /// Generate CRUD files from project templates.
     Gen(GenArgs),
@@ -33,9 +33,15 @@ pub enum Commands {
     Validate(ValidateArgs),
 }
 
-/// `crud-cli setup` flags (D-08).
+/// `crud-cli setup` flags. Default scope = user; `--project` switches target.
 #[derive(Parser, Debug, Default)]
 pub struct SetupArgs {
+    /// Write the shared project config (`.crud/setup.toml`) instead of the
+    /// per-developer user config (`.crud/setup.user.toml`).
+    #[arg(long = "project", default_value_t = false)]
+    pub project: bool,
+
+    // Project-scope flags
     #[arg(long = "backend", value_enum)]
     pub backend: Option<SetupBackend>,
 
@@ -45,10 +51,20 @@ pub struct SetupArgs {
     #[arg(long = "component-library", value_enum)]
     pub component_library: Option<SetupComponentLibrary>,
 
+    // User-scope flags
     #[arg(long = "overwrite-policy", value_enum)]
     pub overwrite_policy: Option<SetupOverwritePolicy>,
 
-    /// Allow writes when `overwrite-policy=force-only` and target exists (CONF-08).
+    #[arg(long = "enabled-types", value_enum)]
+    pub enabled_types: Option<SetupEnabledTypes>,
+
+    #[arg(long = "user-name")]
+    pub user_name: Option<String>,
+
+    #[arg(long = "user-email")]
+    pub user_email: Option<String>,
+
+    /// Overwrite the target file without the interactive confirm.
     #[arg(long = "force", default_value_t = false)]
     pub force: bool,
 }
@@ -149,6 +165,14 @@ pub enum SetupOverwritePolicy {
     Always,
 }
 
+#[derive(Clone, Copy, Debug, ValueEnum)]
+#[value(rename_all = "kebab-case")]
+pub enum SetupEnabledTypes {
+    All,
+    Backend,
+    Frontend,
+}
+
 impl From<SetupBackend> for Backend {
     fn from(v: SetupBackend) -> Self {
         match v {
@@ -190,49 +214,107 @@ impl From<SetupOverwritePolicy> for OverwritePolicy {
     }
 }
 
+impl From<SetupEnabledTypes> for EnabledTypes {
+    fn from(v: SetupEnabledTypes) -> Self {
+        match v {
+            SetupEnabledTypes::All => EnabledTypes::All,
+            SetupEnabledTypes::Backend => EnabledTypes::Backend,
+            SetupEnabledTypes::Frontend => EnabledTypes::Frontend,
+        }
+    }
+}
+
 impl SetupArgs {
-    /// True when any setup dimension flag was passed (non-interactive path).
+    /// True when the project scope has any dimension flag (skips wizard).
     #[must_use]
-    pub fn is_non_interactive(&self) -> bool {
+    pub fn is_project_non_interactive(&self) -> bool {
         self.backend.is_some()
             || self.frontend.is_some()
             || self.component_library.is_some()
-            || self.overwrite_policy.is_some()
     }
 
-    /// Builds flag overlay for merge pipeline.
+    /// True when the user scope has any dimension flag (skips wizard).
+    #[must_use]
+    pub fn is_user_non_interactive(&self) -> bool {
+        self.user_name.is_some()
+            || self.user_email.is_some()
+            || self.overwrite_policy.is_some()
+            || self.enabled_types.is_some()
+    }
+
+    /// True iff `--project` was passed.
+    #[must_use]
+    pub fn writes_project(&self) -> bool {
+        self.project
+    }
+
+    /// Builds flag overlay for runtime merge pipeline.
     #[must_use]
     pub fn flag_overlay(&self) -> SetupFlagOverlay {
         SetupFlagOverlay {
-            backend: self.backend.map(|v| v.into()),
-            frontend: self.frontend.map(|v| v.into()),
-            component_library: self.component_library.map(|v| v.into()),
-            overwrite_policy: self.overwrite_policy.map(|v| v.into()),
+            backend: self.backend.map(Into::into),
+            frontend: self.frontend.map(Into::into),
+            component_library: self.component_library.map(Into::into),
+            overwrite_policy: self.overwrite_policy.map(Into::into),
+            enabled_types: self.enabled_types.map(Into::into),
         }
     }
 
-    /// Validates all four dimensions are present for flag mode (D-09).
-    pub fn require_non_interactive_fields(&self) -> Result<SetupSelections, ErrorEnvelope> {
+    /// Validates the three project dimensions are present (flag mode).
+    pub fn require_project_non_interactive(&self) -> Result<SetupSelections, ErrorEnvelope> {
         let backend = self.backend.ok_or_else(|| missing_flag("backend"))?;
         let frontend = self.frontend.ok_or_else(|| missing_flag("frontend"))?;
         let component_library = self
             .component_library
             .ok_or_else(|| missing_flag("component-library"))?;
-        let overwrite_policy = self
-            .overwrite_policy
-            .ok_or_else(|| missing_flag("overwrite-policy"))?;
         Ok(SetupSelections {
             backend: backend.into(),
             frontend: frontend.into(),
             component_library: component_library.into(),
-            overwrite_policy: overwrite_policy.into(),
         })
     }
 
-    /// Materializes config from flags only (no file merge).
+    /// Validates required user dimensions for flag mode.
+    pub fn require_user_non_interactive(&self) -> Result<UserSelections, ErrorEnvelope> {
+        let name = self
+            .user_name
+            .clone()
+            .ok_or_else(|| missing_flag("user-name"))?;
+        let email = self
+            .user_email
+            .clone()
+            .ok_or_else(|| missing_flag("user-email"))?;
+        let overwrite_policy = self
+            .overwrite_policy
+            .ok_or_else(|| missing_flag("overwrite-policy"))?;
+        let enabled_types = self
+            .enabled_types
+            .map(Into::into)
+            .unwrap_or(EnabledTypes::All);
+        if name.trim().is_empty() {
+            return Err(empty_flag("user-name"));
+        }
+        if email.trim().is_empty() {
+            return Err(empty_flag("user-email"));
+        }
+        Ok(UserSelections {
+            name,
+            email,
+            overwrite_policy: overwrite_policy.into(),
+            enabled_types,
+        })
+    }
+
+    /// Materializes project config from flags only (no file merge).
     pub fn to_setup_config(&self) -> Result<SetupConfig, ErrorEnvelope> {
-        let selections = self.require_non_interactive_fields()?;
+        let selections = self.require_project_non_interactive()?;
         Ok(SetupConfig::from_selections(selections))
+    }
+
+    /// Materializes user config from flags only.
+    pub fn to_user_config(&self) -> Result<SetupUserConfig, ErrorEnvelope> {
+        let selections = self.require_user_non_interactive()?;
+        Ok(SetupUserConfig::from_user_selections(selections))
     }
 }
 
@@ -242,6 +324,15 @@ fn missing_flag(flag: &'static str) -> ErrorEnvelope {
         Some(flag),
         None,
         format!("provide --{flag} with a value from the locked enum set"),
+    )
+}
+
+fn empty_flag(flag: &'static str) -> ErrorEnvelope {
+    ErrorEnvelope::user_error(
+        format!("--{flag} must not be empty"),
+        Some(flag),
+        None,
+        format!("provide a non-empty value for --{flag}"),
     )
 }
 
@@ -291,6 +382,9 @@ fn clap_flag_value(err: &clap::Error) -> (Option<&'static str>, Option<String>) 
         "frontend",
         "component-library",
         "overwrite-policy",
+        "enabled-types",
+        "user-name",
+        "user-email",
         "fields",
         "file",
         "package",

@@ -18,4 +18,6 @@ pub use args::{
 };
 pub use commands::{run_gen, run_setup, run_validate};
 pub use output::{emit_failure, emit_success, panic_hook_handler};
-pub use setup_wizard::{run_interactive_wizard, selections_from_answers};
+pub use setup_wizard::{
+    run_project_wizard, run_user_wizard, selections_from_answers, user_selections_from_answers,
+};
