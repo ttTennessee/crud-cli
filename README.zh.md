@@ -1,5 +1,8 @@
 # crud-cli
 
+[![CI](https://github.com/ttTennessee/crud-cli/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ttTennessee/crud-cli/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 一个用 Rust 编写的命令行工具，配合 AI 编程 Agent（Claude Code、Cline、Copilot 等）
 生成后台管理系统的 CRUD 脚手架，**避免** Agent 在模板样板代码上浪费 Token。
 
@@ -7,7 +10,7 @@ Agent 只下发一条短命令 + 结构化数据，`crud-cli` 在本地完成模
 单次 CRUD 的 Token 成本可从 2000+ 降到 ~50，约 **40 倍** 缩减，
 同时保证产物与项目既有代码风格逐字节一致。
 
-> English: [README.md](./README.md)
+[English](./README.md)
 
 ## 当前状态
 

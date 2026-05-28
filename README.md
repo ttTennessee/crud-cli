@@ -1,5 +1,8 @@
 # crud-cli
 
+[![CI](https://github.com/ttTennessee/crud-cli/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ttTennessee/crud-cli/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 A Rust CLI that pairs with AI coding agents (Claude Code, Cline, Copilot, …) to
 generate admin/CRUD scaffolding **without** burning the agent's tokens on
 template boilerplate.
@@ -9,7 +12,7 @@ templates locally. In practice this drops per-CRUD token cost from ~2000+ to
 ~50 — roughly a 40× reduction — while keeping output byte-identical to your
 project's house style.
 
-> 中文版: [README.zh.md](./README.zh.md)
+[中文文档](./README.zh.md)
 
 ## Status
 
