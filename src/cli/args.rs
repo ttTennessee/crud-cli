@@ -103,6 +103,11 @@ pub struct GenArgs {
     /// Output root directory (layer-3 fallback when no front-matter or templates.outputs entry).
     #[arg(long = "output")]
     pub output: Option<std::path::PathBuf>,
+
+    /// Per-call variable override: `--var key=value` (repeatable). Keys must be
+    /// declared in `.crud/templates/_variables.toml`.
+    #[arg(long = "var", value_name = "KEY=VALUE")]
+    pub var: Vec<String>,
 }
 
 /// `crud-cli validate` flags (parity with `gen --type`).

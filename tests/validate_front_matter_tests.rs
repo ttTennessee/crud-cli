@@ -146,6 +146,56 @@ fn invalid_overwrite_policy_is_reported() {
 }
 
 #[test]
+fn schema_declared_variable_is_allowed_in_template() {
+    let dir = TempDir::new().unwrap();
+    let root = dir.path();
+    seed_setup(root);
+    let templates = root.join(".crud/templates");
+    fs::create_dir_all(&templates).unwrap();
+    fs::write(
+        templates.join("_variables.toml"),
+        "[has_import]\ndescription = \"toggle import button\"\ntype = \"bool\"\ndefault = false\n",
+    )
+    .unwrap();
+    fs::write(templates.join("Good.hbs"), "{{#if has_import}}IMPORT{{/if}}\n").unwrap();
+
+    let report = run_validate_in(root).expect("should pass");
+    assert_eq!(report.templates_checked, 1);
+    assert_eq!(report.templates_with_issues, 0);
+}
+
+#[test]
+fn undeclared_variable_in_template_is_unknown_var() {
+    let dir = TempDir::new().unwrap();
+    let root = dir.path();
+    seed_setup(root);
+    let templates = root.join(".crud/templates");
+    fs::create_dir_all(&templates).unwrap();
+    fs::write(templates.join("Bad.hbs"), "{{not_declared}}\n").unwrap();
+
+    let err = run_validate_in(root).expect_err("should fail");
+    let issues = err.details.get("issues").and_then(|v| v.as_array()).unwrap();
+    find_issue(issues, "unknown_variable").expect("unknown_variable issue");
+}
+
+#[test]
+fn schema_with_invalid_type_is_rejected() {
+    let dir = TempDir::new().unwrap();
+    let root = dir.path();
+    seed_setup(root);
+    let templates = root.join(".crud/templates");
+    fs::create_dir_all(&templates).unwrap();
+    fs::write(
+        templates.join("_variables.toml"),
+        "[x]\ndescription = \"x\"\ntype = \"floaty\"\n",
+    )
+    .unwrap();
+    fs::write(templates.join("Good.hbs"), "x\n").unwrap();
+
+    run_validate_in(root).expect_err("should fail for bad schema type");
+}
+
+#[test]
 fn well_formed_front_matter_passes() {
     let dir = TempDir::new().unwrap();
     let root = dir.path();

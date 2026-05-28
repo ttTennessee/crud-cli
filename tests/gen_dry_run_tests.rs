@@ -56,6 +56,7 @@ fn dry_run_lists_paths_and_writes_nothing() {
         dry_run: true,
         force: false,
         output: None,
+        var: vec![],
     });
     std::env::set_current_dir(prev).unwrap();
 

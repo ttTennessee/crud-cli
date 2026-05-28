@@ -1,5 +1,6 @@
 //! In-memory generation input (DSL and JSON `--file` loader).
 
+use std::collections::BTreeMap;
 use std::io::ErrorKind;
 use std::path::Path;
 
@@ -51,6 +52,9 @@ pub struct JsonInputFile {
     pub table: String,
     pub package: String,
     pub fields: Vec<FieldSpec>,
+    /// Per-call variable values declared in `.crud/templates/_variables.toml`.
+    #[serde(default)]
+    pub variables: BTreeMap<String, Value>,
 }
 
 /// CLI overrides for JSON input (D-G11); CLI wins over file values.
@@ -66,6 +70,7 @@ pub struct GenCliOverrides {
 pub struct JsonLoadResult {
     pub input: GenInput,
     pub field_specs: Vec<FieldSpec>,
+    pub variables: BTreeMap<String, Value>,
 }
 
 const FIELD_SPEC_KEYS: &[&str] = &[
@@ -147,6 +152,7 @@ pub fn load_gen_input_with_specs_from_json(
             fields,
         },
         field_specs: parsed.fields,
+        variables: parsed.variables,
     })
 }
 

@@ -16,6 +16,7 @@ use super::git_info::GitInfo;
 use super::template_engine;
 use super::template_loader;
 use super::template_meta;
+use super::template_variables;
 
 /// Issue category for structured validate output (VAL-04).
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -109,6 +110,8 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
     )?;
     let setup = &runtime.project;
 
+    let schema = template_variables::load_schema(&cwd)?;
+
     let implicit_filter = params
         .type_filter
         .clone()
@@ -117,7 +120,10 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
         template_loader::discover_templates(&cwd, implicit_filter.as_deref())?;
     let templates_checked = entries.len();
 
-    let base_allow = build_base_allow_set(setup);
+    let mut base_allow = build_base_allow_set(setup);
+    for name in schema.names() {
+        base_allow.insert(name.to_string());
+    }
     let suggest_pool: Vec<String> = base_allow.iter().cloned().collect();
 
     let fixture_fields: [&dyn AsContextField; 3] = [

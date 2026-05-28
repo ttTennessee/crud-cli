@@ -88,6 +88,7 @@ vue_base = "src/views"
         dry_run: false,
         force: false,
         output: None,
+        var: vec![],
     });
     let out = root.join("src/main/java/com/x/User.java");
     let exists = out.is_file();

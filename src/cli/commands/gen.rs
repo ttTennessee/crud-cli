@@ -1,10 +1,13 @@
 //! `crud-cli gen` command handler.
 
+use std::collections::BTreeMap;
+
 use crate::cli::args::{exit_with_envelope, GenArgs};
 use crate::cli::output::{emit_dry_run_listing, emit_success};
 use crate::core::error::ErrorEnvelope;
 use crate::core::gen_pipeline;
 use crate::core::gen_run::GenRunParams;
+use crate::core::template_variables::parse_var_arg;
 
 /// Runs `gen` end-to-end: validate args, pipeline, success line.
 pub fn run_gen(args: GenArgs) -> i32 {
@@ -48,6 +51,12 @@ fn gen_run_params_from_args(args: GenArgs) -> Result<GenRunParams, ErrorEnvelope
             .collect()
     });
 
+    let mut cli_vars = BTreeMap::new();
+    for raw in &args.var {
+        let (k, v) = parse_var_arg(raw)?;
+        cli_vars.insert(k, v);
+    }
+
     if let Some(ref path) = args.file {
         return Ok(GenRunParams {
             name: args.name,
@@ -59,6 +68,7 @@ fn gen_run_params_from_args(args: GenArgs) -> Result<GenRunParams, ErrorEnvelope
             dry_run: args.dry_run,
             force: args.force,
             output_dir: args.output,
+            cli_vars,
         });
     }
 
@@ -84,6 +94,7 @@ fn gen_run_params_from_args(args: GenArgs) -> Result<GenRunParams, ErrorEnvelope
         dry_run: args.dry_run,
         force: args.force,
         output_dir: args.output,
+        cli_vars,
     })
 }
 

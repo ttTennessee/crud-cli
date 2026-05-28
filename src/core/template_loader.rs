@@ -5,6 +5,7 @@ use ignore::WalkBuilder;
 use std::path::{Path, PathBuf};
 
 use super::error::ErrorEnvelope;
+use super::template_variables::SCHEMA_FILE_NAME;
 
 /// One template file under `.crud/templates/`.
 #[derive(Debug, Clone)]
@@ -45,6 +46,13 @@ pub fn discover_templates(
             .strip_prefix(&root)
             .map_err(|_| walk_error(&root, "path outside template root".into()))?
             .to_path_buf();
+        if rel
+            .file_name()
+            .is_some_and(|n| n == SCHEMA_FILE_NAME)
+            && rel.parent().map(|p| p.as_os_str().is_empty()).unwrap_or(true)
+        {
+            continue;
+        }
         entries.push(TemplateEntry {
             rel_path: rel,
             abs_path: abs,

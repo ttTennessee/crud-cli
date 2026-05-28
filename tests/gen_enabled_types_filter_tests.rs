@@ -62,6 +62,7 @@ fn run_in(root: &std::path::Path, type_filter: Option<Vec<String>>) -> Vec<Strin
         dry_run: false,
         force: true,
         output_dir: None,
+        cli_vars: std::collections::BTreeMap::new(),
     })
     .expect("gen run");
     std::env::set_current_dir(prev).unwrap();

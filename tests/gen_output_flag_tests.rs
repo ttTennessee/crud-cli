@@ -43,6 +43,7 @@ fn gen_output_flag_writes_under_override_root() {
         dry_run: false,
         force: false,
         output: Some(std::path::PathBuf::from("generated")),
+        var: vec![],
     });
     std::env::set_current_dir(prev).unwrap();
 
@@ -78,6 +79,7 @@ fn gen_java_base_fallback_without_output_flag() {
         dry_run: false,
         force: false,
         output: None,
+        var: vec![],
     });
     std::env::set_current_dir(prev).unwrap();
 

@@ -51,6 +51,7 @@ component-library = "none"
         dry_run: false,
         force: false,
         output: None,
+        var: vec![],
     });
     std::env::set_current_dir(prev).unwrap();
 

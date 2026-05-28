@@ -274,6 +274,7 @@ fn pipeline_run_writes_rendered_file() {
         dry_run: false,
         force: false,
         output_dir: None,
+        cli_vars: std::collections::BTreeMap::new(),
     })
     .expect("run");
     std::env::set_current_dir(&prev).unwrap();
@@ -307,6 +308,7 @@ fn dry_run_writes_nothing() {
         dry_run: true,
         force: false,
         output_dir: None,
+        cli_vars: std::collections::BTreeMap::new(),
     })
     .expect("dry-run");
     std::env::set_current_dir(&prev).unwrap();

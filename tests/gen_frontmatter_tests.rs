@@ -57,6 +57,7 @@ fn frontmatter_base_path_and_filename() {
         dry_run: false,
         force: false,
         output: None,
+        var: vec![],
     });
     std::env::set_current_dir(prev).unwrap();
 
@@ -86,6 +87,7 @@ fn filename_with_slash_rejected() {
         dry_run: false,
         force: false,
         output_dir: None,
+        cli_vars: std::collections::BTreeMap::new(),
     })
     .expect_err("slash");
     std::env::set_current_dir(prev).unwrap();
@@ -118,6 +120,7 @@ fn frontmatter_path_traversal_rejected() {
         dry_run: false,
         force: false,
         output_dir: None,
+        cli_vars: std::collections::BTreeMap::new(),
     })
     .expect_err("traversal");
     std::env::set_current_dir(prev).unwrap();

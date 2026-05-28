@@ -19,6 +19,7 @@ use crate::core::git_info;
 use crate::core::template_engine;
 use crate::core::template_loader::{self, TemplateEntry};
 use crate::core::template_meta::{self, TemplateMeta};
+use crate::core::template_variables;
 
 struct ResolvedTarget {
     path: PathBuf,
@@ -299,7 +300,9 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
         email: runtime.user.user.email.clone(),
     };
 
-    let context = if let Some(ref path) = params.file {
+    let schema = template_variables::load_schema(&cwd)?;
+
+    let (mut context, json_vars) = if let Some(ref path) = params.file {
         let loaded = super::gen_input::load_gen_input_with_specs_from_json(
             path,
             GenCliOverrides {
@@ -313,7 +316,7 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
             .iter()
             .map(|s| s as &dyn AsContextField)
             .collect();
-        gen_context::build_context(
+        let ctx = gen_context::build_context(
             &loaded.input.name,
             &loaded.input.table,
             &loaded.input.package,
@@ -321,7 +324,8 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
             setup,
             &git,
             &user,
-        )?
+        )?;
+        (ctx, loaded.variables)
     } else {
         let fields = field_dsl::parse_fields(
             params
@@ -344,8 +348,16 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
                 .ok_or_else(|| missing_pipeline_input("package"))?,
             fields,
         };
-        gen_context::build_context_from_input(&input, setup, &git, &user)?
+        let ctx = gen_context::build_context_from_input(&input, setup, &git, &user)?;
+        (ctx, std::collections::BTreeMap::new())
     };
+
+    let resolved_vars = template_variables::merge_values(&schema, &params.cli_vars, &json_vars)?;
+    if let Some(obj) = context.as_object_mut() {
+        for (k, v) in resolved_vars {
+            obj.insert(k, v);
+        }
+    }
 
     let implicit_filter = params
         .type_filter

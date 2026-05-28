@@ -60,6 +60,7 @@ fn gen_renders_single_template_to_disk() {
         dry_run: false,
         force: false,
         output: None,
+        var: vec![],
     });
     std::env::set_current_dir(&prev).expect("restore cwd");
 
