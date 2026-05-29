@@ -86,6 +86,7 @@ vue = "src/views"
         file: None,
         type_: None,
         dry_run: false,
+        stdout: false,
         force: false,
         output: None,
         var: vec![],

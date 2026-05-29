@@ -67,6 +67,7 @@ fn gen_args_fields_file_mutex() {
         table: Some("u".into()),
         type_: None,
         dry_run: false,
+        stdout: false,
         force: false,
         output: None,
         var: vec![],

@@ -30,6 +30,26 @@ fn no_front_matter_returns_defaults_and_full_body() {
 }
 
 #[test]
+fn front_matter_parses_generate_when_and_skip_when_aliases() {
+    let camel = "---\ngenerateWhen: has_import\n---\nbody\n";
+    let (meta, _) = split_front_matter(camel).expect("ok");
+    assert_eq!(meta.generate_when.as_deref(), Some("has_import"));
+    assert!(meta.skip_when.is_none());
+
+    let snake = "---\nskip_when: \"(eq mode \\\"slim\\\")\"\n---\nbody\n";
+    let (meta, _) = split_front_matter(snake).expect("ok");
+    assert_eq!(meta.skip_when.as_deref(), Some("(eq mode \"slim\")"));
+    assert!(meta.generate_when.is_none());
+}
+
+#[test]
+fn front_matter_rejects_both_generate_when_and_skip_when() {
+    let src = "---\ngenerateWhen: has_import\nskipWhen: legacy\n---\nbody\n";
+    let result = split_front_matter(src);
+    assert!(result.is_err(), "both conditions set must error");
+}
+
+#[test]
 fn malformed_yaml_rejected() {
     let src = "---\n: invalid\n[\n---\nbody\n";
     let result = split_front_matter(src);

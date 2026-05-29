@@ -114,6 +114,11 @@ pub struct GenArgs {
     #[arg(long = "dry-run")]
     pub dry_run: bool,
 
+    /// Render to stdout instead of writing files (preview, e.g. confirm DDL
+    /// before generating). Combine with `--type` to scope to one template set.
+    #[arg(long = "stdout")]
+    pub stdout: bool,
+
     #[arg(long = "force", default_value_t = false)]
     pub force: bool,
 

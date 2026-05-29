@@ -15,6 +15,8 @@ pub struct GenRunParams {
     pub file: Option<PathBuf>,
     pub type_filter: Option<Vec<String>>,
     pub dry_run: bool,
+    /// Render to stdout instead of writing to disk (preview mode).
+    pub stdout: bool,
     pub force: bool,
     pub output_dir: Option<PathBuf>,
     /// Parsed `--var key=value` entries. Declared in `_variables.toml`.
@@ -31,6 +33,7 @@ impl Default for GenRunParams {
             file: None,
             type_filter: None,
             dry_run: false,
+            stdout: false,
             force: false,
             output_dir: None,
             cli_vars: BTreeMap::new(),

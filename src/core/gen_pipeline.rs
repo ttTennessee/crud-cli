@@ -15,7 +15,7 @@ use crate::core::field_dsl;
 use crate::core::fs_writer::{commit, plan, OverwriteContext, WriteTarget};
 use crate::core::gen_context::{self, AsContextField, UserIdentity};
 use crate::core::gen_input::{GenCliOverrides, GenInput};
-use crate::core::gen_report::{DryRunLine, GenReport};
+use crate::core::gen_report::{DryRunLine, GenReport, RenderedFile};
 use crate::core::git_info;
 use crate::core::template_engine::{self, TypeMapBinding};
 use crate::core::template_loader::{self, TemplateEntry};
@@ -361,6 +361,7 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
     let mut bundle_cache: BTreeMap<String, Option<Arc<BTreeMap<String, String>>>> = BTreeMap::new();
 
     let mut resolved = Vec::new();
+    let mut skipped_by_condition: Vec<PathBuf> = Vec::new();
     for entry in &entries {
         let raw = std::fs::read_to_string(&entry.abs_path).map_err(|e| {
             ErrorEnvelope::template_error(format!(
@@ -369,6 +370,24 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
             ))
         })?;
         let (meta, body) = template_meta::split_front_matter(&raw)?;
+
+        if condition_skips(&meta, &context)? {
+            // Best-effort path for reporting; a path bug in a skipped template
+            // should not fail the whole run, so fall back to the rel path.
+            let out = resolve_output_path(
+                entry,
+                &meta,
+                &setup.templates.outputs,
+                &context,
+                &cwd,
+                params.output_dir.as_deref(),
+                &setup,
+            )
+            .unwrap_or_else(|_| entry.rel_path.clone());
+            skipped_by_condition.push(out);
+            continue;
+        }
+
         let bundle = entry
             .rel_path
             .components()
@@ -411,6 +430,25 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
         });
     }
 
+    if params.stdout {
+        // Preview mode: render to stdout, write nothing, skip conflict checks.
+        let rendered = resolved
+            .into_iter()
+            .map(|t| RenderedFile {
+                path: t.path,
+                content: String::from_utf8_lossy(&t.content).into_owned(),
+            })
+            .collect();
+        return Ok(GenReport {
+            written: vec![],
+            skipped: vec![],
+            conflicts: vec![],
+            skipped_by_condition,
+            dry_run_lines: vec![],
+            rendered,
+        });
+    }
+
     if params.dry_run {
         let mut conflicts = Vec::new();
         let mut skipped = Vec::new();
@@ -433,7 +471,9 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
             written: vec![],
             skipped,
             conflicts,
+            skipped_by_condition,
             dry_run_lines,
+            rendered: vec![],
         });
     }
 
@@ -468,8 +508,34 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
         written: resolved.into_iter().map(|t| t.path).collect(),
         skipped: vec![],
         conflicts: vec![],
+        skipped_by_condition,
         dry_run_lines: vec![],
+        rendered: vec![],
     })
+}
+
+/// Decides whether a template is skipped by its `generateWhen`/`skipWhen`
+/// front-matter condition. The two keys are mutually exclusive (enforced in
+/// [`template_meta::split_front_matter`]).
+fn condition_skips(meta: &TemplateMeta, context: &Value) -> Result<bool, ErrorEnvelope> {
+    if let Some(expr) = &meta.generate_when {
+        return Ok(!eval_condition_truthy(expr, context)?);
+    }
+    if let Some(expr) = &meta.skip_when {
+        return Ok(eval_condition_truthy(expr, context)?);
+    }
+    Ok(false)
+}
+
+/// Evaluates a front-matter condition via Handlebars `{{#if}}` truthiness.
+///
+/// The stored value is the inside of an `{{#if ...}}` (e.g. `has_import` or
+/// `(eq mode "full")`), so `false` / missing / empty-string / 0 / empty-array
+/// all evaluate to "not truthy" without bespoke string matching.
+fn eval_condition_truthy(expr: &str, context: &Value) -> Result<bool, ErrorEnvelope> {
+    let wrapped = format!("{{{{#if {expr}}}}}1{{{{/if}}}}");
+    let rendered = template_engine::render_template(&wrapped, context)?;
+    Ok(!rendered.trim().is_empty())
 }
 
 fn missing_pipeline_input(flag: &'static str) -> ErrorEnvelope {

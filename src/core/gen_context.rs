@@ -36,11 +36,18 @@ pub struct UserIdentity {
 }
 
 /// Common field surface for DSL [`Field`] and JSON [`FieldSpec`].
+///
+/// `comment`/`length`/`unique`/`default` originate in the JSON [`FieldSpec`];
+/// the DSL [`Field`] has no syntax for them and returns neutral defaults.
 pub trait AsContextField {
     fn name(&self) -> &str;
     fn ty(&self) -> &str;
     fn is_pk(&self) -> bool;
     fn nullable(&self) -> bool;
+    fn comment(&self) -> &str;
+    fn length(&self) -> Option<u32>;
+    fn unique(&self) -> bool;
+    fn default_value(&self) -> Option<&Value>;
     fn extra(&self) -> &Map<String, Value>;
 }
 
@@ -56,6 +63,18 @@ impl AsContextField for Field {
     }
     fn nullable(&self) -> bool {
         self.nullable
+    }
+    fn comment(&self) -> &str {
+        ""
+    }
+    fn length(&self) -> Option<u32> {
+        None
+    }
+    fn unique(&self) -> bool {
+        false
+    }
+    fn default_value(&self) -> Option<&Value> {
+        None
     }
     fn extra(&self) -> &Map<String, Value> {
         empty_extra()
@@ -74,6 +93,18 @@ impl AsContextField for super::gen_input::FieldSpec {
     }
     fn nullable(&self) -> bool {
         self.nullable
+    }
+    fn comment(&self) -> &str {
+        &self.comment
+    }
+    fn length(&self) -> Option<u32> {
+        self.length
+    }
+    fn unique(&self) -> bool {
+        self.unique
+    }
+    fn default_value(&self) -> Option<&Value> {
+        self.default.as_ref()
     }
     fn extra(&self) -> &Map<String, Value> {
         &self.extra
@@ -225,6 +256,19 @@ fn field_to_json(field: &dyn AsContextField) -> Value {
     m.insert("type".into(), Value::String(field.ty().to_string()));
     m.insert("is_pk".into(), Value::Bool(field.is_pk()));
     m.insert("nullable".into(), Value::Bool(field.nullable()));
+    m.insert("comment".into(), Value::String(field.comment().to_string()));
+    m.insert(
+        "length".into(),
+        field
+            .length()
+            .map(|l| Value::Number(l.into()))
+            .unwrap_or(Value::Null),
+    );
+    m.insert("unique".into(), Value::Bool(field.unique()));
+    m.insert(
+        "default".into(),
+        field.default_value().cloned().unwrap_or(Value::Null),
+    );
     for (k, v) in field.extra() {
         m.insert(k.clone(), v.clone());
     }

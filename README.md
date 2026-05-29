@@ -23,6 +23,10 @@ Implemented:
   `.crud/setup.user.toml`.
 - `crud-cli gen` — render templates with field DSL or JSON entity file. Per-call
   variable injection via repeatable `--var key=value` or JSON `variables`.
+  `--dry-run` lists the files that would be written without touching disk;
+  `--stdout` prints rendered output to standard output instead of writing files
+  (with `--type sql`, lets an agent show the DDL for confirmation before the
+  real generation).
 - `crud-cli validate` — pre-flight check: handlebars syntax, unknown variables,
   YAML front-matter, `filename`/`basePath` safety, fixture render.
 - Front-matter `basePath` / `filename` / `overwrite` with framework-prefix
@@ -164,6 +168,32 @@ overwrite: force-only          # never | force-only | always
 `basePath` may reference any built-in or schema-declared variable. `filename`
 must be a single path segment (no `/`).
 
+**Conditional rendering** — `generateWhen` / `skipWhen` gate whether the file is
+generated at all (mutually exclusive; setting both errors). The value is the
+condition part of an `{{#if ...}}` (no surrounding `{{ }}`), evaluated with
+Handlebars truthiness: `false`, missing, empty string, `0`, and empty arrays all
+count as false. Pair it with a `_variables.toml` toggle to emit a file only when
+needed:
+
+```yaml
+---
+generateWhen: has_import          # generate only when has_import is truthy
+filename: "{{model_pascal}}ImportDTO.java"
+---
+```
+
+```yaml
+---
+skipWhen: is_readonly             # inverse of generateWhen: skip when truthy
+filename: "{{model_pascal}}Service.java"
+---
+```
+
+Condition-skipped files are reported separately as `[skipped: condition]`,
+distinct from "skipped because it exists". `validate` checks that variables
+referenced in a condition are declared — a typo'd variable evaluates falsy and
+**silently skips** the file at gen time, so validate first.
+
 ### Built-in context
 
 Always available in templates:
@@ -173,7 +203,10 @@ Always available in templates:
 - `{{table}}`, `{{package}}`, `{{package_path}}` (dots → slashes)
 - `{{fields}}` — iterate with `{{#each fields}}`; each item exposes `name`,
   `name_pascal`, `name_snake`, `name_camel`, `name_kebab`, `type`, `is_pk`,
-  `nullable`
+  `nullable`, `comment`, `length`, `unique`, `default`. The last four come from
+  the JSON `--file` FieldSpec (see below); the `--fields` DSL omits this
+  metadata, so `comment` is empty, `length`/`default` are `null`, and `unique`
+  is `false`. A DDL template emitting `CREATE TABLE` consumes exactly these.
 - `{{git_user_name}}`, `{{git_user_email}}`, `{{user_name}}`, `{{user_email}}`
 - `{{date}}`, `{{datetime}}`, `{{year}}`
 
@@ -215,7 +248,9 @@ The `description` field is the contract agents read to understand what to fill.
 
 ### JSON entity input
 
-For rich field metadata, use `--file`:
+For rich field metadata, use `--file`. Each field (FieldSpec) accepts `name`,
+`type`, `is_pk`, `nullable`, `length`, `unique`, `default`, `comment`, and a
+free-form `extra` map; all of them surface in the `{{#each fields}}` context.
 
 ```json
 {
@@ -223,8 +258,8 @@ For rich field metadata, use `--file`:
   "table": "sys_user",
   "package": "com.acme.demo",
   "fields": [
-    { "name": "id", "type": "Long", "is_pk": true },
-    { "name": "email", "type": "String", "extra": { "unique": true } }
+    { "name": "id", "type": "Long", "is_pk": true, "comment": "primary key" },
+    { "name": "email", "type": "String", "length": 128, "unique": true, "comment": "login email" }
   ],
   "variables": {
     "has_import": true,

@@ -20,6 +20,8 @@ Agent 只下发一条短命令 + 结构化数据，`crud-cli` 在本地完成模
   `.crud/setup.toml` 或开发者级 `.crud/setup.user.toml`。
 - `crud-cli gen` — 用字段 DSL 或 JSON 文件渲染模板。支持通过可重复的
   `--var key=value` 或 JSON 中的 `variables` 字段注入每次调用的变量。
+  `--dry-run` 只列出将写入的文件不落盘；`--stdout` 把渲染结果直接打到标准输出
+  而不写文件（配合 `--type sql` 可让 Agent 先把建表 SQL 给用户确认，再正式生成）。
 - `crud-cli validate` — 上线前体检：Handlebars 语法、未声明变量、
   YAML front-matter、`filename`/`basePath` 安全性、fixture 渲染。
 - Front-matter 三件套 `basePath` / `filename` / `overwrite`，且自动按
@@ -159,6 +161,29 @@ overwrite: force-only          # never | force-only | always
 `basePath` 里可以引用任何内置变量或 schema 声明的变量。`filename` 必须是
 单段（不能含 `/`）。
 
+**条件渲染** —— `generateWhen` / `skipWhen` 控制这个文件是否生成（二者互斥，
+同时出现会报错）。值是 `{{#if ...}}` 的判断部分（不带 `{{ }}`），按 Handlebars
+真值规则求值：`false`、缺失、空串、`0`、空数组都算假。典型用法是配合
+`_variables.toml` 里的开关，只在需要时才生成某个文件：
+
+```yaml
+---
+generateWhen: has_import          # has_import 为真才生成；为假则整个文件跳过
+filename: "{{model_pascal}}ImportDTO.java"
+---
+```
+
+```yaml
+---
+skipWhen: is_readonly             # generateWhen 的反向：为真则跳过
+filename: "{{model_pascal}}Service.java"
+---
+```
+
+被条件跳过的文件会在 `gen` 输出里单独标记 `[skipped: condition]`，与"已存在
+而跳过"区分开。`validate` 会检查条件里引用的变量是否声明 —— 拼错的变量在生成时
+会被当成假而**静默跳过**，所以务必先 `validate`。
+
 ### 内置上下文
 
 模板里永远可用：
@@ -168,7 +193,10 @@ overwrite: force-only          # never | force-only | always
 - `{{table}}`、`{{package}}`、`{{package_path}}`（点替换为斜杠）
 - `{{fields}}` —— 用 `{{#each fields}}` 遍历；每一项暴露 `name`、
   `name_pascal`、`name_snake`、`name_camel`、`name_kebab`、`type`、
-  `is_pk`、`nullable`
+  `is_pk`、`nullable`、`comment`、`length`、`unique`、`default`。后四项
+  来自 JSON `--file`（见下文 FieldSpec）；`--fields` DSL 不带这些元数据，
+  此时 `comment` 为空串、`length`/`default` 为 `null`、`unique` 为 `false`。
+  用 DDL 模板生成建表语句时正好用到 `comment`/`length`/`unique`。
 - `{{git_user_name}}`、`{{git_user_email}}`、`{{user_name}}`、`{{user_email}}`
 - `{{date}}`、`{{datetime}}`、`{{year}}`
 
@@ -211,7 +239,9 @@ crud-cli gen User --fields "..." --package ... --table ... \
 
 ### JSON 实体输入
 
-需要更丰富的字段元数据时用 `--file`：
+需要更丰富的字段元数据时用 `--file`。每个字段（FieldSpec）支持 `name`、
+`type`、`is_pk`、`nullable`、`length`、`unique`、`default`、`comment`，以及
+自由形式的 `extra`；这些都会进入 `{{#each fields}}` 上下文。
 
 ```json
 {
@@ -219,8 +249,8 @@ crud-cli gen User --fields "..." --package ... --table ... \
   "table": "sys_user",
   "package": "com.acme.demo",
   "fields": [
-    { "name": "id", "type": "Long", "is_pk": true },
-    { "name": "email", "type": "String", "extra": { "unique": true } }
+    { "name": "id", "type": "Long", "is_pk": true, "comment": "主键" },
+    { "name": "email", "type": "String", "length": 128, "unique": true, "comment": "登录邮箱" }
   ],
   "variables": {
     "has_import": true,

@@ -100,6 +100,7 @@ fn global_template_variables_schema_used_without_project_local_schema() {
         file: None,
         type_: None,
         dry_run: false,
+        stdout: false,
         force: false,
         output: None,
         var: vec![],

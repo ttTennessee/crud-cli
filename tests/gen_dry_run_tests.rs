@@ -54,6 +54,7 @@ fn dry_run_lists_paths_and_writes_nothing() {
         file: None,
         type_: None,
         dry_run: true,
+        stdout: false,
         force: false,
         output: None,
         var: vec![],

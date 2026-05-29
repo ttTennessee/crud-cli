@@ -11,6 +11,14 @@ pub struct TemplateMeta {
     pub base_path: Option<String>,
     pub filename: Option<String>,
     pub overwrite: Option<OverwritePolicy>,
+    /// Render only when this Handlebars condition is truthy (`generateWhen`).
+    /// The value is the inside of an `{{#if ...}}`, e.g. `has_import` or
+    /// `(eq mode "full")` — no surrounding `{{ }}`. Mutually exclusive with
+    /// [`Self::skip_when`].
+    pub generate_when: Option<String>,
+    /// Skip rendering when this Handlebars condition is truthy (`skipWhen`).
+    /// Inverse of [`Self::generate_when`]; the two cannot both be set.
+    pub skip_when: Option<String>,
 }
 
 /**
@@ -55,11 +63,21 @@ pub fn split_front_matter(src: &str) -> Result<(TemplateMeta, String), ErrorEnve
         .as_deref()
         .map(parse_overwrite_policy)
         .transpose()?;
+    let generate_when = pod_string(map, &["generateWhen", "generate_when"]);
+    let skip_when = pod_string(map, &["skipWhen", "skip_when"]);
+
+    if generate_when.is_some() && skip_when.is_some() {
+        return Err(ErrorEnvelope::template_error(
+            "front-matter sets both generateWhen and skipWhen; use only one",
+        ));
+    }
 
     let meta = TemplateMeta {
         base_path,
         filename,
         overwrite,
+        generate_when,
+        skip_when,
     };
 
     Ok((meta, parsed.content))

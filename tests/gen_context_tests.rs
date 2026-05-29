@@ -82,6 +82,64 @@ fn build_context_includes_model_and_field_case_keys() {
 }
 
 #[test]
+fn build_context_surfaces_field_comment_length_unique_default_from_json_spec() {
+    use crud_cli::core::gen_context::{build_context, AsContextField};
+    use crud_cli::core::gen_input::FieldSpec;
+
+    let id = FieldSpec {
+        name: "id".into(),
+        ty: "Long".into(),
+        is_pk: true,
+        nullable: false,
+        length: None,
+        unique: false,
+        default: None,
+        comment: "主键".into(),
+        extra: serde_json::Map::new(),
+    };
+    let email = FieldSpec {
+        name: "email".into(),
+        ty: "String".into(),
+        is_pk: false,
+        nullable: false,
+        length: Some(128),
+        unique: true,
+        default: Some(serde_json::json!("n/a")),
+        comment: "邮箱".into(),
+        extra: serde_json::Map::new(),
+    };
+    let refs: Vec<&dyn AsContextField> = vec![&id, &email];
+    let setup = SetupConfig::from_selections(SetupSelections {
+        backend: Backend::None,
+        frontend: Frontend::None,
+        template: None,
+    });
+    let ctx = build_context(
+        "User",
+        "sys_user",
+        "com.acme.demo",
+        &refs,
+        &setup,
+        &GitInfo::default(),
+        &crud_cli::core::gen_context::UserIdentity::default(),
+    )
+    .expect("context");
+    let obj = ctx.as_object().expect("object");
+
+    let fields = obj.get("fields").and_then(|v| v.as_array()).expect("fields");
+    let f0 = fields[0].as_object().expect("f0");
+    assert_eq!(f0.get("comment").and_then(|v| v.as_str()), Some("主键"));
+    assert_eq!(f0.get("length"), Some(&serde_json::Value::Null));
+    assert_eq!(f0.get("unique").and_then(|v| v.as_bool()), Some(false));
+
+    let f1 = fields[1].as_object().expect("f1");
+    assert_eq!(f1.get("comment").and_then(|v| v.as_str()), Some("邮箱"));
+    assert_eq!(f1.get("length").and_then(|v| v.as_u64()), Some(128));
+    assert_eq!(f1.get("unique").and_then(|v| v.as_bool()), Some(true));
+    assert_eq!(f1.get("default").and_then(|v| v.as_str()), Some("n/a"));
+}
+
+#[test]
 fn gen_report_serializes() {
     let report = crud_cli::core::gen_report::GenReport::default();
     let json = serde_json::to_string(&report).expect("serialize");

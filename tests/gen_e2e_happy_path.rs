@@ -58,6 +58,7 @@ fn gen_renders_single_template_to_disk() {
         file: None,
         type_: None,
         dry_run: false,
+        stdout: false,
         force: false,
         output: None,
         var: vec![],

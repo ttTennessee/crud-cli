@@ -89,6 +89,10 @@ const FIELD_EACH_EXTRA: &[&str] = &[
     "type",
     "is_pk",
     "nullable",
+    "comment",
+    "length",
+    "unique",
+    "default",
 ];
 
 /**
@@ -201,6 +205,9 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
 
         if let Some(m) = meta {
             for issue in meta_path_issues(&m, &fixture_ctx, &rel) {
+                issues.push(issue);
+            }
+            for issue in condition_issues(&m, &base_allow, &suggest_pool, &rel) {
                 issues.push(issue);
             }
         }
@@ -542,6 +549,35 @@ fn front_matter_issue(rel: &str, msg: &str) -> ValidateIssue {
         variable: None,
         suggestion: Some(msg.to_string()),
     }
+}
+
+/// Validates `generateWhen`/`skipWhen` conditions: a typo'd or undeclared
+/// variable would silently evaluate falsy at gen time (engine is non-strict),
+/// skipping the file with no error — so we catch unknown vars here.
+fn condition_issues(
+    meta: &template_meta::TemplateMeta,
+    base_allow: &BTreeSet<String>,
+    suggest_pool: &[String],
+    rel: &str,
+) -> Vec<ValidateIssue> {
+    let mut out = Vec::new();
+    for expr in [meta.generate_when.as_deref(), meta.skip_when.as_deref()]
+        .into_iter()
+        .flatten()
+    {
+        let wrapped = format!("{{{{#if {expr}}}}}1{{{{/if}}}}");
+        match Template::compile(&wrapped) {
+            Ok(template) => {
+                if let Some(issue) =
+                    first_unknown_variable_issue(&template, base_allow, suggest_pool, rel)
+                {
+                    out.push(issue);
+                }
+            }
+            Err(err) => out.push(front_matter_issue(rel, err.reason().to_string().as_str())),
+        }
+    }
+    out
 }
 
 fn meta_path_issues(
