@@ -11,6 +11,8 @@ pub mod gen_pipeline;
 pub mod gen_report;
 pub mod gen_run;
 pub mod git_info;
+pub mod global_config;
+pub mod i18n;
 pub mod template_loader;
 pub mod template_meta;
 pub mod template_variables;

@@ -5,6 +5,7 @@ use ignore::WalkBuilder;
 use std::path::{Path, PathBuf};
 
 use super::error::ErrorEnvelope;
+use super::i18n::{self, keys};
 use super::template_variables::SCHEMA_FILE_NAME;
 use super::type_map::TYPE_MAP_FILE_NAME;
 
@@ -87,7 +88,10 @@ pub fn discover_templates(
                             .collect(),
                     ),
                 );
-                let hint = format!("可用 type: {}", available.join(", "));
+                let hint = i18n::tf(
+                    keys::ERROR_TEMPLATE_TYPE_NOT_FOUND,
+                    &[("available", &available.join(", "))],
+                );
                 return Err(ErrorEnvelope::user_error_with_reason(
                     "template type not found",
                     "template_type_not_found",
@@ -139,7 +143,7 @@ fn glob_compile_err(e: globset::Error) -> ErrorEnvelope {
         format!("invalid --type glob: {e}"),
         Some("type"),
         None,
-        "use comma-separated prefixes like java,vue",
+        i18n::t(keys::ERROR_TEMPLATE_INVALID_TYPE_GLOB),
     )
 }
 
@@ -179,7 +183,7 @@ fn no_templates_found(root: &Path) -> ErrorEnvelope {
         "no templates in .crud/templates/",
         "no_templates_found",
         details,
-        "create .crud/templates/<name>.hbs or seed a template set",
+        i18n::t(keys::ERROR_TEMPLATE_NO_TEMPLATES),
     )
 }
 
@@ -194,6 +198,6 @@ fn walk_error(root: &Path, msg: String) -> ErrorEnvelope {
         "failed to walk templates directory",
         "template_walk_error",
         details,
-        "check .crud/templates permissions and .crudignore syntax",
+        i18n::t(keys::ERROR_TEMPLATE_WALK_ERROR),
     )
 }

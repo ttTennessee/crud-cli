@@ -1,0 +1,61 @@
+# English message catalog. Keys are defined in keys.rs.
+# Placeholders use named braces, e.g. {path}, {count}.
+# clap --help text is intentionally NOT routed through i18n (stays English).
+
+[setup]
+created = "Created {path}"
+created_no_project_hint = " (project setup.toml not found — run `crud-cli setup --project` to create it)"
+overwrite_confirm = "Reconfigure and overwrite {path}?"
+
+[wizard.help]
+backend = "Project backend stack (D-08)"
+enabled_types = "Implicit --type filter for gen/validate"
+name = "Used in generated headers"
+email = "Used in generated headers"
+
+[wizard.paths]
+customize = "Customize paths?"
+none = "No framework path keys for this stack"
+defaults = "Defaults: {summary}"
+
+[wizard.typemap]
+passthrough = "passthrough (keep unmapped types as-is)"
+error = "error (abort render on unmapped types)"
+literal = "literal (replace unmapped types with a fixed string)"
+help = "Policy when a neutral DSL type has no per-bundle mapping"
+literal_help = "Replacement value for unmapped types"
+
+[wizard]
+not_empty = "must not be empty"
+cancelled_msg = "setup wizard cancelled"
+cancelled_hint = "re-run setup or use flags"
+invalid_selection_msg = "invalid wizard selection"
+invalid_selection_hint = "choose a listed option"
+
+[gen.success]
+written = "Generated {count} files"
+dry_run = "dry-run: {count} to generate ({conflicts} conflicts)"
+
+[validate]
+success = "validate ok: {count} templates"
+
+[error.field]
+empty_type = "field needs a type: write name:Type (e.g. email:String)"
+empty_name = "field needs a name: write name:Type (e.g. email:String)"
+invalid_identifier = "field name must start with a letter and contain only letters, digits and underscores (e.g. first_name)"
+too_many_segments = "field format is name:Type with at most one colon (drop the extra :extra)"
+duplicate = "duplicate field name: each field must be unique"
+no_fields = "--fields must not be empty; provide at least one name:Type"
+reserved = "field name collides with a built-in variable: avoid model/table/package/package_path/fields/model_*"
+
+[error.type_map]
+read_failed = "check that type_map.toml is readable"
+parse_failed = "type_map.toml must contain only a top-level [map] of string keys and values"
+unmapped_bundle = "add {type} to the [map] in .crud/templates/{bundle}/type_map.toml, or set [type_map].fallback in setup.toml to passthrough"
+unmapped_global = "add {type} to the [map] in type_map.toml, or relax [type_map].fallback"
+
+[error.template]
+type_not_found = "available types: {available}"
+no_templates = "create .crud/templates/<name>.hbs or seed a template set"
+walk_error = "check .crud/templates permissions and .crudignore syntax"
+invalid_type_glob = "use comma-separated prefixes like java,vue"

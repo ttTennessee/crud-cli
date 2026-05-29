@@ -1,0 +1,61 @@
+# 简体中文消息目录。键定义见 keys.rs。
+# 占位符使用命名花括号，例如 {path}、{count}。
+# clap --help 文本不纳入 i18n（保持英文）。
+
+[setup]
+created = "已创建 {path}"
+created_no_project_hint = "（未找到项目 setup.toml —— 运行 `crud-cli setup --project` 创建）"
+overwrite_confirm = "重新配置并覆盖 {path}？"
+
+[wizard.help]
+backend = "项目后端技术栈 (D-08)"
+enabled_types = "gen/validate 的隐式 --type 过滤"
+name = "用于生成文件的头部信息"
+email = "用于生成文件的头部信息"
+
+[wizard.paths]
+customize = "自定义路径？"
+none = "当前技术栈没有框架路径键"
+defaults = "默认值：{summary}"
+
+[wizard.typemap]
+passthrough = "passthrough（未映射类型保持原样）"
+error = "error（遇到未映射类型则中止渲染）"
+literal = "literal（用固定字符串替换未映射类型）"
+help = "中性 DSL 类型在 bundle 中无映射时的处理策略"
+literal_help = "未映射类型的替换值"
+
+[wizard]
+not_empty = "不能为空"
+cancelled_msg = "已取消 setup 向导"
+cancelled_hint = "重新运行 setup，或改用命令行参数"
+invalid_selection_msg = "无效的向导选项"
+invalid_selection_hint = "请从列出的选项中选择"
+
+[gen.success]
+written = "已生成 {count} 个文件"
+dry_run = "dry-run：{count} 个待生成（{conflicts} 个冲突）"
+
+[validate]
+success = "校验通过：{count} 个模板"
+
+[error.field]
+empty_type = "字段缺类型：写成 name:Type（如 email:String）"
+empty_name = "字段缺名称：写成 name:Type（如 email:String）"
+invalid_identifier = "字段名必须以字母开头，且仅含字母、数字和下划线（如 first_name）"
+too_many_segments = "字段格式为 name:Type，最多一个冒号（去掉多余的 :extra）"
+duplicate = "字段名重复：每个字段必须唯一"
+no_fields = "--fields 不能为空，至少提供一个 name:Type"
+reserved = "字段名与内置变量冲突：避开 model/table/package/package_path/fields/model_*"
+
+[error.type_map]
+read_failed = "检查 type_map.toml 是否可读"
+parse_failed = "type_map.toml 顶层只能是 [map]，且键值均为字符串"
+unmapped_bundle = "在 .crud/templates/{bundle}/type_map.toml 的 [map] 段补充 {type}，或把 setup.toml 的 [type_map].fallback 改成 passthrough"
+unmapped_global = "在 type_map.toml 的 [map] 段补充 {type}，或放宽 [type_map].fallback"
+
+[error.template]
+type_not_found = "可用 type：{available}"
+no_templates = "创建 .crud/templates/<name>.hbs，或初始化一套模板"
+walk_error = "检查 .crud/templates 的权限与 .crudignore 语法"
+invalid_type_glob = "使用逗号分隔的前缀，如 java,vue"

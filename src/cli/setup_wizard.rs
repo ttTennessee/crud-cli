@@ -1,5 +1,7 @@
 //! Interactive `setup` wizards: project and user (CONF-01).
 
+use std::io::IsTerminal;
+
 use inquire::error::InquireError;
 use inquire::{Confirm, Select, Text};
 
@@ -8,11 +10,63 @@ use crate::core::config::{
 };
 use crate::core::error::ErrorEnvelope;
 use crate::core::git_info;
+use crate::core::global_config::{lang_env_override, GlobalConfig};
+use crate::core::i18n::{self, keys, Lang};
+use crate::core::paths::global_config_toml;
 use crate::core::type_map::Fallback;
 
+use super::agent_mode::is_agent_active;
 use super::args::{
     SetupBackend, SetupComponentLibrary, SetupEnabledTypes, SetupFrontend, SetupOverwritePolicy,
 };
+
+/// Ensures a UI language preference exists before running a wizard (first-run).
+///
+/// Resolution: agent / non-interactive → no prompt (locale already resolved by
+/// [`crate::cli::init_locale`]); `CRUD_LANG` set → honor it without persisting;
+/// stored preference → apply it; otherwise prompt the user once and persist the
+/// choice to `~/.crud/config.toml`.
+pub fn ensure_language_preference() {
+    if is_agent_active() || !std::io::stdin().is_terminal() {
+        return;
+    }
+    if let Some(lang) = lang_env_override() {
+        i18n::set(lang);
+        return;
+    }
+    let path = match global_config_toml() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    let mut cfg = GlobalConfig::load_or_default(&path);
+    if let Some(lang) = cfg.lang() {
+        i18n::set(lang);
+        return;
+    }
+    let lang = match prompt_language() {
+        Ok(l) => l,
+        // Cancelled selection: keep the default locale, do not persist.
+        Err(_) => return,
+    };
+    i18n::set(lang);
+    cfg.set_lang(lang);
+    // Best-effort persistence; a write failure must not block setup.
+    let _ = cfg.save(&path);
+}
+
+/// Prompts for a UI language. Labels stay language-neutral on purpose.
+pub fn prompt_language() -> Result<Lang, ErrorEnvelope> {
+    const EN_LABEL: &str = "English";
+    const ZH_LABEL: &str = "中文";
+    let choice = Select::new("Select language / 选择语言", vec![EN_LABEL, ZH_LABEL])
+        .prompt()
+        .map_err(inquire_to_user_error)?;
+    Ok(if choice == ZH_LABEL {
+        Lang::Zh
+    } else {
+        Lang::En
+    })
+}
 
 /// Runs the project wizard and returns the canonical project config .
 pub fn run_project_wizard() -> Result<SetupConfig, ErrorEnvelope> {
@@ -88,7 +142,7 @@ fn prompt_backend() -> Result<SetupBackend, ErrorEnvelope> {
     ];
     let labels: Vec<&str> = options.iter().map(|o| backend_label(*o)).collect();
     let choice = Select::new("backend", labels.clone())
-        .with_help_message("Project backend stack (D-08)")
+        .with_help_message(i18n::t(keys::WIZARD_HELP_BACKEND))
         .prompt()
         .map_err(inquire_to_user_error)?;
     Ok(options[label_index(&choice, &labels)?])
@@ -138,14 +192,14 @@ fn prompt_enabled_types() -> Result<SetupEnabledTypes, ErrorEnvelope> {
     ];
     let labels: Vec<&str> = options.iter().map(|o| enabled_types_label(*o)).collect();
     let choice = Select::new("enabled-types", labels.clone())
-        .with_help_message("Implicit --type filter for gen/validate")
+        .with_help_message(i18n::t(keys::WIZARD_HELP_ENABLED_TYPES))
         .prompt()
         .map_err(inquire_to_user_error)?;
     Ok(options[label_index(&choice, &labels)?])
 }
 
 fn prompt_name(default: &str) -> Result<String, ErrorEnvelope> {
-    let mut text = Text::new("name").with_help_message("Used in generated headers");
+    let mut text = Text::new("name").with_help_message(i18n::t(keys::WIZARD_HELP_NAME));
     if !default.is_empty() {
         text = text.with_default(default);
     }
@@ -157,7 +211,7 @@ fn prompt_name(default: &str) -> Result<String, ErrorEnvelope> {
 }
 
 fn prompt_email(default: &str) -> Result<String, ErrorEnvelope> {
-    let mut text = Text::new("email").with_help_message("Used in generated headers");
+    let mut text = Text::new("email").with_help_message(i18n::t(keys::WIZARD_HELP_EMAIL));
     if !default.is_empty() {
         text = text.with_default(default);
     }
@@ -169,16 +223,16 @@ fn prompt_email(default: &str) -> Result<String, ErrorEnvelope> {
 }
 
 fn non_empty_validator() -> inquire::validator::ValueRequiredValidator {
-    inquire::validator::ValueRequiredValidator::new("must not be empty")
+    inquire::validator::ValueRequiredValidator::new(i18n::t(keys::WIZARD_NOT_EMPTY))
 }
 
 fn label_index(choice: &str, labels: &[&str]) -> Result<usize, ErrorEnvelope> {
     labels.iter().position(|l| *l == choice).ok_or_else(|| {
         ErrorEnvelope::user_error(
-            "invalid wizard selection",
+            i18n::t(keys::WIZARD_INVALID_SELECTION_MSG),
             None,
             Some(choice),
-            "choose a listed option",
+            i18n::t(keys::WIZARD_INVALID_SELECTION_HINT),
         )
     })
 }
@@ -186,11 +240,16 @@ fn label_index(choice: &str, labels: &[&str]) -> Result<usize, ErrorEnvelope> {
 fn inquire_to_user_error(err: InquireError) -> ErrorEnvelope {
     let (msg, value) = match &err {
         InquireError::OperationCanceled | InquireError::OperationInterrupted => {
-            ("setup wizard cancelled".to_string(), None::<String>)
+            (i18n::t(keys::WIZARD_CANCELLED_MSG).to_string(), None::<String>)
         }
         other => (other.to_string(), None::<String>),
     };
-    ErrorEnvelope::user_error(msg, None, value.as_deref(), "re-run setup or use flags")
+    ErrorEnvelope::user_error(
+        msg,
+        None,
+        value.as_deref(),
+        i18n::t(keys::WIZARD_CANCELLED_HINT),
+    )
 }
 
 fn backend_label(b: SetupBackend) -> &'static str {
@@ -237,11 +296,11 @@ fn enabled_types_label(t: SetupEnabledTypes) -> &'static str {
 fn prompt_paths(defaults: PathsSection) -> Result<PathsSection, ErrorEnvelope> {
     let summary = summarize_paths(&defaults);
     let help = if summary.is_empty() {
-        "No framework path keys for this stack".to_string()
+        i18n::t(keys::WIZARD_PATHS_NONE).to_string()
     } else {
-        format!("Defaults: {summary}")
+        i18n::tf(keys::WIZARD_PATHS_DEFAULTS, &[("summary", &summary)])
     };
-    let customize = Confirm::new("Customize paths?")
+    let customize = Confirm::new(i18n::t(keys::WIZARD_PATHS_CUSTOMIZE))
         .with_default(false)
         .with_help_message(&help)
         .prompt()
@@ -296,34 +355,33 @@ fn summarize_paths(p: &PathsSection) -> String {
 }
 
 fn prompt_type_map_fallback() -> Result<Fallback, ErrorEnvelope> {
-    const PASSTHROUGH: &str = "passthrough (keep unmapped types as-is)";
-    const ERROR: &str = "error (abort render on unmapped types)";
-    const LITERAL: &str = "literal (replace unmapped types with a fixed string)";
-    let labels = [PASSTHROUGH, ERROR, LITERAL];
-    let choice = Select::new("type_map.fallback", labels.to_vec())
-        .with_help_message("Policy when a neutral DSL type has no per-bundle mapping")
+    let passthrough = i18n::t(keys::WIZARD_TYPEMAP_PASSTHROUGH);
+    let error = i18n::t(keys::WIZARD_TYPEMAP_ERROR);
+    let literal = i18n::t(keys::WIZARD_TYPEMAP_LITERAL);
+    let labels = vec![passthrough, error, literal];
+    let choice = Select::new("type_map.fallback", labels)
+        .with_help_message(i18n::t(keys::WIZARD_TYPEMAP_HELP))
         .prompt()
         .map_err(inquire_to_user_error)?;
-    Ok(match choice {
-        PASSTHROUGH => Fallback::Passthrough,
-        ERROR => Fallback::Error,
-        LITERAL => {
-            let literal = Text::new("type_map.fallback literal")
-                .with_default("any")
-                .with_help_message("Replacement value for unmapped types")
-                .with_validator(non_empty_validator())
-                .prompt()
-                .map_err(inquire_to_user_error)?;
-            Fallback::Literal(literal.trim().to_string())
-        }
-        other => {
-            return Err(ErrorEnvelope::user_error(
-                "invalid wizard selection",
-                None,
-                Some(other),
-                "choose a listed option",
-            ));
-        }
+    Ok(if choice == passthrough {
+        Fallback::Passthrough
+    } else if choice == error {
+        Fallback::Error
+    } else if choice == literal {
+        let value = Text::new("type_map.fallback literal")
+            .with_default("any")
+            .with_help_message(i18n::t(keys::WIZARD_TYPEMAP_LITERAL_HELP))
+            .with_validator(non_empty_validator())
+            .prompt()
+            .map_err(inquire_to_user_error)?;
+        Fallback::Literal(value.trim().to_string())
+    } else {
+        return Err(ErrorEnvelope::user_error(
+            i18n::t(keys::WIZARD_INVALID_SELECTION_MSG),
+            None,
+            Some(choice),
+            i18n::t(keys::WIZARD_INVALID_SELECTION_HINT),
+        ));
     })
 }
 

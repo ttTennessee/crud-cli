@@ -18,7 +18,8 @@ use crate::core::paths::{
 use crate::cli::agent_mode::is_agent_active;
 use crate::cli::args::{exit_with_envelope, SetupArgs};
 use crate::cli::output::emit_success;
-use crate::cli::setup_wizard::{run_project_wizard, run_user_wizard};
+use crate::cli::setup_wizard::{ensure_language_preference, run_project_wizard, run_user_wizard};
+use crate::core::i18n::{self, keys};
 
 const SETUP_USER_FILE: &str = "setup.user.toml";
 
@@ -55,12 +56,18 @@ fn run_project_setup(project_root: &Path, args: SetupArgs) -> i32 {
     let config_result = if args.is_project_non_interactive() {
         args.to_setup_config()
     } else {
+        // First-run language detection runs only before the interactive wizard.
+        ensure_language_preference();
         run_project_wizard()
     };
     match config_result {
         Ok(cfg) => match cfg.to_toml_pretty().and_then(|s| write_atomic(&target, s.into_bytes())) {
             Ok(()) => {
-                emit_success(Some(&format!("Created {}", target.display())));
+                let line = i18n::tf(
+                    keys::SETUP_CREATED,
+                    &[("path", &target.display().to_string())],
+                );
+                emit_success(Some(&line));
                 0
             }
             Err(env) => exit_with_envelope(&env),
@@ -79,6 +86,8 @@ fn run_user_setup(project_root: &Path, args: SetupArgs) -> i32 {
     let config_result = if args.is_user_non_interactive() {
         args.to_user_config()
     } else {
+        // First-run language detection runs only before the interactive wizard.
+        ensure_language_preference();
         run_user_wizard()
     };
     let cfg = match config_result {
@@ -100,9 +109,12 @@ fn run_user_setup(project_root: &Path, args: SetupArgs) -> i32 {
         return exit_with_envelope(&env);
     }
 
-    let mut human = format!("Created {}", target.display());
+    let mut human = i18n::tf(
+        keys::SETUP_CREATED,
+        &[("path", &target.display().to_string())],
+    );
     if !project_setup_toml(project_root).exists() {
-        human.push_str(" (project setup.toml not found — run `crud-cli setup --project` to create it)");
+        human.push_str(i18n::t(keys::SETUP_CREATED_NO_PROJECT_HINT));
     }
     emit_success(Some(&human));
     0
@@ -134,7 +146,10 @@ fn check_overwrite_confirm(target: &Path, force: bool) -> Decision {
             "pass --force to overwrite, or run setup interactively",
         ));
     }
-    let prompt = format!("Reconfigure and overwrite {}?", target.display());
+    let prompt = i18n::tf(
+        keys::SETUP_OVERWRITE_CONFIRM,
+        &[("path", &target.display().to_string())],
+    );
     match Confirm::new(&prompt).with_default(false).prompt() {
         Ok(true) => Decision::Proceed,
         Ok(false) => Decision::Skip,

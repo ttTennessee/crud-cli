@@ -19,6 +19,11 @@ pub fn global_crud_dir() -> Result<PathBuf, ErrorEnvelope> {
     Ok(home.join(".crud"))
 }
 
+/// Global per-user CLI preferences file (`~/.crud/config.toml`).
+pub fn global_config_toml() -> Result<PathBuf, ErrorEnvelope> {
+    Ok(global_crud_dir()?.join("config.toml"))
+}
+
 /// Project-local setup file relative to the given project root.
 #[must_use]
 pub fn project_setup_toml(project_root: &Path) -> PathBuf {

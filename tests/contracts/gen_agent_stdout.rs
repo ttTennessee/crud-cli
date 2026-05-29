@@ -43,8 +43,44 @@ fn gen_non_agent_success_stdout_line() {
     let dir = tempfile::TempDir::new().unwrap();
     seed_gen_project(dir.path());
 
+    // Pin the locale so the assertion is deterministic regardless of the
+    // developer's ~/.crud/config.toml preference.
     let output = Command::new(exe())
         .current_dir(dir.path())
+        .env("CRUD_LANG", "en")
+        .args([
+            "gen",
+            "User",
+            "--fields",
+            "id:Long",
+            "--package",
+            "com.x",
+            "--table",
+            "u",
+        ])
+        .output()
+        .expect("run");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success());
+    assert!(
+        stdout.contains("Generated"),
+        "stdout should contain success line: {stdout}"
+    );
+    assert!(stdout.contains('1'));
+}
+
+#[test]
+fn gen_non_agent_success_stdout_line_zh() {
+    let _eg = env_guard();
+    std::env::remove_var("CRUD_AGENT");
+
+    let dir = tempfile::TempDir::new().unwrap();
+    seed_gen_project(dir.path());
+
+    let output = Command::new(exe())
+        .current_dir(dir.path())
+        .env("CRUD_LANG", "zh")
         .args([
             "gen",
             "User",
@@ -62,9 +98,8 @@ fn gen_non_agent_success_stdout_line() {
     assert!(output.status.success());
     assert!(
         stdout.contains("生成"),
-        "stdout should contain success line: {stdout}"
+        "stdout should contain zh success line: {stdout}"
     );
-    assert!(stdout.contains('1') || stdout.contains('一'));
 }
 
 #[test]

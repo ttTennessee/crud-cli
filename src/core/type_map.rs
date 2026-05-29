@@ -10,6 +10,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use super::error::ErrorEnvelope;
+use super::i18n::{self, keys};
 
 /// Sentinel filename for per-bundle map; filtered from template walk.
 pub const TYPE_MAP_FILE_NAME: &str = "type_map.toml";
@@ -76,7 +77,7 @@ pub fn load_for_bundle(
             format!("read {}: {e}", path.display()),
             "type_map_read_failed",
             details_for(&path, bundle),
-            "检查 type_map.toml 是否可读",
+            i18n::t(keys::ERROR_TYPE_MAP_READ_FAILED),
         )
     })?;
     let parsed: TypeMapFile = toml::from_str(&raw).map_err(|e| {
@@ -84,7 +85,7 @@ pub fn load_for_bundle(
             format!("parse {}: {e}", path.display()),
             "type_map_parse_failed",
             details_for(&path, bundle),
-            "type_map.toml 顶层只能是 [map]，键值都是字符串",
+            i18n::t(keys::ERROR_TYPE_MAP_PARSE_FAILED),
         )
     })?;
     Ok(Some(parsed.map))
@@ -118,8 +119,11 @@ fn unmapped_type_error(bundle: Option<&str>, ty: &str) -> ErrorEnvelope {
         details.insert("bundle".into(), serde_json::Value::String(b.to_string()));
     }
     let hint = match bundle {
-        Some(b) => format!("在 .crud/templates/{b}/type_map.toml 的 [map] 段补充 {ty}，或把 setup.toml 的 [type_map].fallback 改成 passthrough"),
-        None => format!("补充 type_map.toml 的 [map] 段中 {ty}，或放宽 [type_map].fallback"),
+        Some(b) => i18n::tf(
+            keys::ERROR_TYPE_MAP_UNMAPPED_BUNDLE,
+            &[("bundle", b), ("type", ty)],
+        ),
+        None => i18n::tf(keys::ERROR_TYPE_MAP_UNMAPPED_GLOBAL, &[("type", ty)]),
     };
     ErrorEnvelope::user_error_with_reason(
         format!("unmapped type: {ty}"),

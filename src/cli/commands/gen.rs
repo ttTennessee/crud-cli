@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use crate::cli::args::{exit_with_envelope, GenArgs};
 use crate::cli::output::{emit_dry_run_listing, emit_success};
 use crate::core::error::ErrorEnvelope;
+use crate::core::i18n::{self, keys};
 use crate::core::gen_pipeline;
 use crate::core::gen_run::GenRunParams;
 use crate::core::template_variables::parse_var_arg;
@@ -25,15 +26,19 @@ pub fn run_gen(args: GenArgs) -> i32 {
         Ok(report) => {
             if dry_run {
                 emit_dry_run_listing(&report.dry_run_lines);
-                let conflict_n = report.conflicts.len();
-                let line = format!(
-                    "dry-run: {} 个待生成（{} 冲突）",
-                    report.skipped.len(),
-                    conflict_n
+                let line = i18n::tf(
+                    keys::GEN_SUCCESS_DRY_RUN,
+                    &[
+                        ("count", &report.skipped.len().to_string()),
+                        ("conflicts", &report.conflicts.len().to_string()),
+                    ],
                 );
                 emit_success(Some(&line));
             } else {
-                let line = format!("生成 {} 个文件", report.written.len());
+                let line = i18n::tf(
+                    keys::GEN_SUCCESS_WRITTEN,
+                    &[("count", &report.written.len().to_string())],
+                );
                 emit_success(Some(&line));
             }
             0
