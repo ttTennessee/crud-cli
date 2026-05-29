@@ -9,6 +9,7 @@ use super::config::{Backend, Frontend, PathsSection};
 #[must_use]
 pub fn paths_for_selections(backend: &Backend, frontend: &Frontend) -> PathsSection {
     let mut paths = PathsSection::default();
+    paths.aux.insert("sql".into(), "sql".into());
     match backend {
         Backend::Java => {
             paths.lang.insert("java".into(), "src/main/java".into());
