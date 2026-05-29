@@ -5,7 +5,7 @@ use std::env;
 use std::io::IsTerminal;
 use std::path::Path;
 
-use inquire::{Confirm, MultiSelect, Select};
+use inquire::{Confirm, Select};
 
 use crate::cli::agent_mode::is_agent_active;
 use crate::cli::args::{exit_with_envelope, TemplateArgs, TemplateCommand};
@@ -15,8 +15,10 @@ use crate::core::error::{ErrorEnvelope, Kind};
 use crate::core::global_config::GlobalConfig;
 use crate::core::i18n::{self, keys};
 use crate::core::paths::{global_config_toml, project_setup_toml};
-use crate::core::template_install_meta::{hash_dir, load_install_meta, record_doc_categories};
-use crate::core::template_installer::{install_from_snapshot, RepoSnapshot, RepoSpec};
+use crate::core::template_install_meta::{hash_dir, load_install_meta, record_bundle_categories};
+use crate::core::template_installer::{
+    install_from_snapshot, RepoSnapshot, RepoSpec, SHARED_BUNDLE_KINDS,
+};
 use crate::core::template_meta_global::{
     find_template, global_templates_root, list_installed_templates, InstalledTemplate,
 };
@@ -109,21 +111,32 @@ fn cmd_install(
         effective_force,
     )?;
 
-    // 5. Doc picker — only when the template doesn't bundle its own doc/
-    // (we never overwrite author-shipped doc) AND we're in an interactive
-    // session. Non-TTY installs land with no doc bundles by design; users
-    // can rerun `template install --force` interactively to add them.
-    let doc_cats =
-        pick_doc_categories(&snapshot, &installed.name, &installed.version, parsed.as_ref())?;
-    if !doc_cats.is_empty() {
-        snapshot.copy_shared_doc(&installed.path, &doc_cats)?;
-        record_doc_categories(&installed.path, &doc_cats).map_err(|e| ErrorEnvelope {
-            kind: Kind::ConfigError,
-            msg: format!("record doc categories: {e}"),
-            exit_code: Kind::ConfigError.exit_code(),
-            hint: String::new(),
-            details: serde_json::Map::new(),
-        })?;
+    // 5. Shared-bundle pickers (doc, sql) — for each kind, only when the
+    // template doesn't bundle its own `<kind>/` (we never overwrite
+    // author-shipped content) AND we're in an interactive session. Each picker
+    // is single-select; a project normally targets one doc format and one
+    // database. Non-TTY installs land with no bundles by design; users can
+    // rerun `template install --force` interactively to add them.
+    for kind in SHARED_BUNDLE_KINDS {
+        let picked = pick_bundle_category(
+            &snapshot,
+            &installed.name,
+            &installed.version,
+            kind,
+            parsed.as_ref(),
+        )?;
+        if let Some(cat) = picked {
+            snapshot.copy_shared_category(&installed.path, kind, &cat)?;
+            record_bundle_categories(&installed.path, kind, &[cat]).map_err(|e| {
+                ErrorEnvelope {
+                    kind: Kind::ConfigError,
+                    msg: format!("record {kind} category: {e}"),
+                    exit_code: Kind::ConfigError.exit_code(),
+                    hint: String::new(),
+                    details: serde_json::Map::new(),
+                }
+            })?;
+        }
     }
 
     let done = i18n::tf(
@@ -308,38 +321,57 @@ fn classify_version(
     }
 }
 
-/// Prompts the user to pick which subdirectories of the snapshot's shared
-/// `doc/` to layer. Returns `[]` when:
-/// * the template bundles its own `doc/` (we never overwrite author-shipped
-///   doc with the shared bundle);
+/// Prompts the user to pick one subdirectory of the snapshot's shared
+/// `<kind>/` (`doc`, `sql`) to layer. Single-select: a leading "(none)" option
+/// lets the user skip. Returns `None` when:
+/// * the template bundles its own `<kind>/` (we never overwrite author-shipped
+///   content with the shared bundle);
 /// * the shared bundle has no per-category subdirectories;
 /// * the session is non-interactive (agent / piped stdin);
 /// * the user passed both name and version on the CLI (treated as a scripted
-///   install — don't surprise the caller with a prompt).
-fn pick_doc_categories(
+///   install — don't surprise the caller with a prompt);
+/// * the user explicitly picks "(none)".
+fn pick_bundle_category(
     snapshot: &RepoSnapshot,
     name: &str,
     version: &str,
+    kind: &str,
     parsed: Option<&TemplateRef>,
-) -> Result<Vec<String>, ErrorEnvelope> {
-    if snapshot.template_has_doc(name, version) {
-        return Ok(Vec::new());
+) -> Result<Option<String>, ErrorEnvelope> {
+    if snapshot.template_has_bundle(name, version, kind) {
+        return Ok(None);
     }
-    let cats = snapshot.shared_doc_categories();
+    let cats = snapshot.shared_categories(kind);
     if cats.is_empty() {
-        return Ok(Vec::new());
+        return Ok(None);
     }
     if parsed.and_then(|t| t.version.as_ref()).is_some() {
-        return Ok(Vec::new());
+        return Ok(None);
     }
     if is_agent_active() || !std::io::stdin().is_terminal() {
-        return Ok(Vec::new());
+        return Ok(None);
     }
-    let picked = MultiSelect::new(&i18n::t(keys::TEMPLATE_INSTALL_PROMPT_DOC), cats)
-        .with_default(&[])
+    let none = i18n::t(keys::TEMPLATE_INSTALL_BUNDLE_NONE).to_string();
+    let mut options = Vec::with_capacity(cats.len() + 1);
+    options.push(none.clone());
+    options.extend(cats);
+    let prompt = bundle_prompt_key(kind);
+    let picked = Select::new(&i18n::t(prompt), options)
         .prompt()
         .map_err(prompt_to_user_error)?;
-    Ok(picked)
+    if picked == none {
+        Ok(None)
+    } else {
+        Ok(Some(picked))
+    }
+}
+
+/// Maps a shared-bundle kind to its picker prompt i18n key.
+fn bundle_prompt_key(kind: &str) -> &'static str {
+    match kind {
+        "sql" => keys::TEMPLATE_INSTALL_PROMPT_SQL,
+        _ => keys::TEMPLATE_INSTALL_PROMPT_DOC,
+    }
 }
 
 fn require_interactive(what: &'static str) -> Result<(), ErrorEnvelope> {
