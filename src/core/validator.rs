@@ -7,16 +7,19 @@ use handlebars::template::{HelperTemplate, Parameter, TemplateElement};
 use handlebars::{Path as HbPath, PathSeg, Template, TemplateError};
 use serde::Serialize;
 
-use super::config::{Backend, EnabledTypes, Frontend, RuntimeConfig, SetupConfig};
+use super::config::{EnabledTypes, RuntimeConfig, SetupConfig};
 use super::paths::{project_setup_toml, project_setup_user_toml};
 use super::error::ErrorEnvelope;
+use super::i18n::{self, keys};
 use super::field_dsl::Field;
 use super::gen_context::{self, AsContextField, UserIdentity};
 use super::git_info::GitInfo;
 use super::template_engine;
 use super::template_loader;
+use super::template_meta;
+use super::template_variables;
 
-/// Issue category for structured validate output (VAL-04).
+/// Issue category for structured validate output.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IssueKind {
@@ -24,6 +27,9 @@ pub enum IssueKind {
     UnknownVariable,
     RenderError,
     MissingHelper,
+    FrontMatterError,
+    InvalidFilename,
+    PathTraversal,
 }
 
 /// One validate finding (VAL-04 field names).
@@ -96,7 +102,7 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
             format!("cannot read current directory: {e}"),
             None,
             None,
-            "run validate from the project root",
+            i18n::t(keys::ERROR_VALIDATE_CWD),
         )
     })?;
     let runtime = RuntimeConfig::load(
@@ -105,15 +111,29 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
     )?;
     let setup = &runtime.project;
 
+    let schema = template_variables::load_schema(&cwd)?;
+
     let implicit_filter = params
         .type_filter
         .clone()
         .or_else(|| implicit_type_prefixes(setup, runtime.enabled_types()));
+    let templates_root = if let Some(tref) = &setup.project.template {
+        crate::core::template_meta_global::find_template(
+            &tref.name,
+            tref.version.as_deref(),
+        )?
+        .path
+    } else {
+        cwd.join(".crud/templates")
+    };
     let entries =
-        template_loader::discover_templates(&cwd, implicit_filter.as_deref())?;
+        template_loader::discover_templates(&templates_root, implicit_filter.as_deref())?;
     let templates_checked = entries.len();
 
-    let base_allow = build_base_allow_set(setup);
+    let mut base_allow = build_base_allow_set(setup);
+    for name in schema.names() {
+        base_allow.insert(name.to_string());
+    }
     let suggest_pool: Vec<String> = base_allow.iter().cloned().collect();
 
     let fixture_fields: [&dyn AsContextField; 3] = [
@@ -159,6 +179,14 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
             ErrorEnvelope::template_error(format!("read {}: {e}", entry.abs_path.display()))
         })?;
 
+        let meta = match template_meta::split_front_matter(&body) {
+            Ok((m, _)) => Some(m),
+            Err(err) => {
+                issues.push(front_matter_issue(&rel, &err.msg));
+                None
+            }
+        };
+
         let template = match Template::compile(&body) {
             Ok(t) => t,
             Err(err) => {
@@ -175,6 +203,13 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
 
         if let Some(issue) = render_issue(&body, &fixture_ctx, &rel) {
             issues.push(issue);
+            continue;
+        }
+
+        if let Some(m) = meta {
+            for issue in meta_path_issues(&m, &fixture_ctx, &rel) {
+                issues.push(issue);
+            }
         }
     }
 
@@ -211,21 +246,28 @@ fn normalize_rel_path(rel: &Path) -> String {
 }
 
 fn implicit_type_prefixes(project: &SetupConfig, enabled: EnabledTypes) -> Option<Vec<String>> {
-    let backend_prefix = match project.project.backend {
-        Backend::SpringBoot => Some("java"),
-        Backend::Nest => Some("nest"),
-        Backend::None => None,
-    };
-    let frontend_prefix = match project.project.frontend {
-        Frontend::Vue => Some("vue"),
-        Frontend::React => Some("react"),
-        Frontend::None => None,
-    };
-    let prefixes: Vec<String> = match enabled {
+    let aux_keys: Vec<String> = project.paths.aux.keys().cloned().collect();
+    let mut prefixes: Vec<String> = match enabled {
         EnabledTypes::All => return None,
-        EnabledTypes::Backend => backend_prefix.into_iter().map(String::from).collect(),
-        EnabledTypes::Frontend => frontend_prefix.into_iter().map(String::from).collect(),
+        EnabledTypes::Backend => {
+            let mut v: Vec<String> = if project.project.backend.is_none() {
+                Vec::new()
+            } else {
+                vec![project.project.backend.as_key().to_string()]
+            };
+            v.extend(aux_keys);
+            v
+        }
+        EnabledTypes::Frontend => {
+            if project.project.frontend.is_none() {
+                Vec::new()
+            } else {
+                vec![project.project.frontend.as_key().to_string()]
+            }
+        }
     };
+    prefixes.sort();
+    prefixes.dedup();
     if prefixes.is_empty() {
         None
     } else {
@@ -496,6 +538,67 @@ fn did_you_mean(seg: &str, pool: &[String]) -> Option<String> {
         }
     }
     best.map(|(name, _)| format!("did you mean '{name}'?"))
+}
+
+fn front_matter_issue(rel: &str, msg: &str) -> ValidateIssue {
+    ValidateIssue {
+        template_path: rel.to_string(),
+        line: None,
+        column: None,
+        kind: IssueKind::FrontMatterError,
+        variable: None,
+        suggestion: Some(msg.to_string()),
+    }
+}
+
+fn meta_path_issues(
+    meta: &template_meta::TemplateMeta,
+    ctx: &serde_json::Value,
+    rel: &str,
+) -> Vec<ValidateIssue> {
+    let mut out = Vec::new();
+    if let Some(tpl) = meta.filename.as_deref() {
+        if let Ok(rendered) = template_engine::render_template(tpl, ctx) {
+            if rendered.contains('/') || rendered.contains('\\') {
+                out.push(ValidateIssue {
+                    template_path: rel.to_string(),
+                    line: None,
+                    column: None,
+                    kind: IssueKind::InvalidFilename,
+                    variable: Some(rendered),
+                    suggestion: Some(
+                        "filename must be a single path segment; use basePath for directories"
+                            .into(),
+                    ),
+                });
+            }
+        }
+    }
+    if let Some(tpl) = meta.base_path.as_deref() {
+        if let Ok(rendered) = template_engine::render_template(tpl, ctx) {
+            if base_path_has_traversal(&rendered) {
+                out.push(ValidateIssue {
+                    template_path: rel.to_string(),
+                    line: None,
+                    column: None,
+                    kind: IssueKind::PathTraversal,
+                    variable: Some(rendered),
+                    suggestion: Some(
+                        "basePath must be a relative path with no '..' segments".into(),
+                    ),
+                });
+            }
+        }
+    }
+    out
+}
+
+fn base_path_has_traversal(rendered: &str) -> bool {
+    let normalized = rendered.replace('\\', "/");
+    if std::path::Path::new(&normalized).is_absolute() {
+        return true;
+    }
+    normalized.split('/').any(|seg| seg == "..")
 }
 
 fn render_issue(

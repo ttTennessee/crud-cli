@@ -4,8 +4,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use super::error::ErrorEnvelope;
+use super::i18n::{self, keys};
 
-/// One field from the `--fields` DSL or JSON loader (Plan 02).
+/// One field from the `--fields` DSL or JSON loader.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Field {
     pub name: String,
@@ -132,7 +133,7 @@ fn err_empty_type() -> ErrorEnvelope {
         "field missing type",
         "empty_type",
         serde_json::Map::new(),
-        "字段缺类型：写成 name:Type（如 email:String）",
+        i18n::t(keys::ERROR_FIELD_EMPTY_TYPE),
     )
 }
 
@@ -141,7 +142,7 @@ fn err_empty_name() -> ErrorEnvelope {
         "field missing name",
         "empty_name",
         serde_json::Map::new(),
-        "字段缺名称：写成 name:Type（如 email:String）",
+        i18n::t(keys::ERROR_FIELD_EMPTY_NAME),
     )
 }
 
@@ -150,7 +151,7 @@ fn err_invalid_identifier() -> ErrorEnvelope {
         "invalid field name",
         "invalid_identifier",
         serde_json::Map::new(),
-        "字段名必须以字母开头、仅含字母数字和下划线（如 first_name）",
+        i18n::t(keys::ERROR_FIELD_INVALID_IDENTIFIER),
     )
 }
 
@@ -159,7 +160,7 @@ fn err_too_many_segments() -> ErrorEnvelope {
         "too many colons in field token",
         "too_many_segments",
         serde_json::Map::new(),
-        "字段格式 name:Type，最多一个冒号（去掉额外的 :extra）",
+        i18n::t(keys::ERROR_FIELD_TOO_MANY_SEGMENTS),
     )
 }
 
@@ -168,7 +169,7 @@ fn err_duplicate_field() -> ErrorEnvelope {
         "duplicate field name",
         "duplicate_field",
         serde_json::Map::new(),
-        "字段名重复：每个字段必须唯一",
+        i18n::t(keys::ERROR_FIELD_DUPLICATE),
     )
 }
 
@@ -177,7 +178,7 @@ fn err_no_fields() -> ErrorEnvelope {
         "no fields provided",
         "no_fields",
         serde_json::Map::new(),
-        "--fields 不能为空，至少提供一个 name:Type",
+        i18n::t(keys::ERROR_FIELD_NO_FIELDS),
     )
 }
 
@@ -188,6 +189,6 @@ fn err_reserved_field_name(name: &str) -> ErrorEnvelope {
         format!("reserved field name: {name}"),
         "reserved_field_name",
         details,
-        "字段名与内置变量冲突：避开 model/table/package/package_path/fields/model_*",
+        i18n::t(keys::ERROR_FIELD_RESERVED),
     )
 }

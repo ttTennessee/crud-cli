@@ -1,0 +1,148 @@
+# English message catalog. Keys are defined in keys.rs.
+# Placeholders use named braces, e.g. {path}, {count}.
+# clap --help text is intentionally NOT routed through i18n (stays English).
+
+[setup]
+created = "Created {path}"
+created_no_project_hint = " (project setup.toml not found — run `crud-cli setup --project` to create it)"
+overwrite_confirm = "Reconfigure and overwrite {path}?"
+
+[wizard.help]
+backend = "Project backend stack (D-08)"
+enabled_types = "Implicit --type filter for gen/validate"
+name = "Used in generated headers"
+email = "Used in generated headers"
+
+[wizard.paths]
+customize = "Customize paths?"
+none = "No framework path keys for this stack"
+defaults = "Defaults: {summary}"
+
+[wizard.template]
+detected_header = "Installed templates:"
+manual_option = "Skip template — choose languages manually"
+no_templates = "No installed templates found under ~/.crud/templates/."
+choose_backend = "backend"
+choose_frontend = "frontend"
+custom_input = "Custom input..."
+invalid_lang_name = "language id must be [a-z0-9][a-z0-9-]*"
+
+[template.use]
+confirm = "{name} uses {b}+{f}; current project is {cb}+{cf}. Switch template and update setup.toml?"
+applied = "Template applied: {name}@{version} ({path})"
+missing_setup = "Run `crud-cli setup --project` first"
+
+[template.list]
+empty = "No installed templates under ~/.crud/templates/."
+entry = "{name}@{version}  ({backend} + {frontend}) {description}"
+
+[template.install]
+starting = "Fetching {name} from {repo}…"
+done = "Installed {name}@{version} ({backend} + {frontend}) → {path}"
+prompt_fetch = "templates"
+prompt_name = "Pick a template"
+prompt_version = "Pick a version for {name}"
+prompt_doc = "Install doc bundles? (space to toggle, enter for none)"
+confirm_overwrite = "{name}@{version} is already installed. Reinstall?"
+status_installed = "installed"
+status_modified = "installed, locally modified"
+status_outdated = "installed, repo updated"
+
+[wizard.typemap]
+passthrough = "passthrough (keep unmapped types as-is)"
+error = "error (abort render on unmapped types)"
+literal = "literal (replace unmapped types with a fixed string)"
+help = "Policy when a neutral DSL type has no per-bundle mapping"
+literal_help = "Replacement value for unmapped types"
+
+[wizard]
+not_empty = "must not be empty"
+cancelled_msg = "setup wizard cancelled"
+cancelled_hint = "re-run setup or use flags"
+invalid_selection_msg = "invalid wizard selection"
+invalid_selection_hint = "choose a listed option"
+
+[gen.success]
+written = "Generated {count} files"
+dry_run = "dry-run: {count} to generate ({conflicts} conflicts)"
+
+[validate]
+success = "validate ok: {count} templates"
+
+[error.field]
+empty_type = "field needs a type: write name:Type (e.g. email:String)"
+empty_name = "field needs a name: write name:Type (e.g. email:String)"
+invalid_identifier = "field name must start with a letter and contain only letters, digits and underscores (e.g. first_name)"
+too_many_segments = "field format is name:Type with at most one colon (drop the extra :extra)"
+duplicate = "duplicate field name: each field must be unique"
+no_fields = "--fields must not be empty; provide at least one name:Type"
+reserved = "field name collides with a built-in variable: avoid model/table/package/package_path/fields/model_*"
+
+[error.type_map]
+read_failed = "check that type_map.toml is readable"
+parse_failed = "type_map.toml must contain only a top-level [map] of string keys and values"
+unmapped_bundle = "add {type} to the [map] in .crud/templates/{bundle}/type_map.toml, or set [type_map].fallback in setup.toml to passthrough"
+unmapped_global = "add {type} to the [map] in type_map.toml, or relax [type_map].fallback"
+
+[error.template]
+type_not_found = "available types: {available}"
+no_templates = "create .crud/templates/<name>.hbs or seed a template set"
+walk_error = "check .crud/templates permissions and .crudignore syntax"
+invalid_type_glob = "use comma-separated prefixes like java,vue"
+install_needs_tty = "pass `<name>@<version>` explicitly; interactive picker requires a TTY"
+install_repo_empty = "the repo has no `<name>/<version>/template.toml` entries"
+
+[error.file]
+conflict = "remove or rename the existing file, adjust overwrite-policy, or pass --force when policy allows"
+
+[error.validate]
+fix_issues = "fix each entry in details.issues"
+cwd = "run validate from the project root"
+
+[error.paths]
+home_not_found = "set HOME or USERPROFILE"
+gitignore_write = "check .crud/.gitignore write permissions"
+
+[error.global_config]
+check = "check ~/.crud/config.toml permissions and syntax"
+
+[error.json]
+file_not_found = "create the JSON file or pass --fields instead"
+invalid_syntax = "check JSON syntax"
+no_fields = "add at least one field object to \"fields\""
+missing_name = "provide --name or set \"name\" in JSON"
+missing_package = "provide --package or set \"package\" in JSON"
+missing_table = "provide --table or set \"table\" in JSON"
+missing_property = "add the missing property to your JSON"
+type_mismatch = "fix the field type in JSON"
+invalid_value = "fix the value at the reported path"
+unknown_field = "check field names against the JSON schema"
+did_you_mean = "did you mean '{candidate}'?"
+
+[error.gen]
+filename_slash = "use basePath for directories; filename must be a single segment"
+path_traversal = "remove .. or absolute path from template location or front-matter"
+cwd = "run inside a project directory"
+missing_flag = "provide --{flag} for DSL generation"
+missing_input = "provide --{flag}"
+
+[error.cli]
+fields_file_mutex = "provide either --fields or --file, not both"
+clap_retry = "fix the flag value and retry"
+missing_flag = "provide --{flag} with a value from the locked enum set"
+empty_flag = "provide a non-empty value for --{flag}"
+
+[error.setup]
+exists_non_interactive = "pass --force to overwrite, or run setup interactively"
+
+[error.config]
+reserved_variable = "rename the variable; reserved: model, table, package, package_path, fields, model_*"
+legacy_schema = "this setup.toml uses the old framework-based schema; rerun `crud-cli setup --project --force` to migrate to the language-based schema"
+
+[error.variable]
+shadows_builtin = "remove or rename the variable in setup.toml [variables]"
+undeclared = "declare {key} in .crud/templates/{schema_file} or remove --var/JSON entry"
+missing_required = "pass --var {name}=<value> or set in JSON `variables`"
+type_mismatch = "pass a {expected} value for {name}"
+schema_fix = "fix .crud/templates/_variables.toml"
+invalid_var_arg = "use --var key=value (value: true/false/number/string)"

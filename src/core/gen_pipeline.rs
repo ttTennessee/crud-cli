@@ -5,20 +5,25 @@ use std::path::{Component, Path, PathBuf};
 use serde_json::Value;
 
 use crate::core::config::{
-    Backend, EnabledTypes, Frontend, OutputsSection, OverwritePolicy, RuntimeConfig, SetupConfig,
+    EnabledTypes, OutputsSection, OverwritePolicy, RuntimeConfig, SetupConfig,
 };
 use crate::core::paths::{project_setup_toml, project_setup_user_toml};
 use crate::core::gen_run::GenRunParams;
 use crate::core::error::ErrorEnvelope;
+use crate::core::i18n::{self, keys};
 use crate::core::field_dsl;
 use crate::core::fs_writer::{commit, plan, OverwriteContext, WriteTarget};
 use crate::core::gen_context::{self, AsContextField, UserIdentity};
 use crate::core::gen_input::{GenCliOverrides, GenInput};
 use crate::core::gen_report::{DryRunLine, GenReport};
 use crate::core::git_info;
-use crate::core::template_engine;
+use crate::core::template_engine::{self, TypeMapBinding};
 use crate::core::template_loader::{self, TemplateEntry};
 use crate::core::template_meta::{self, TemplateMeta};
+use crate::core::template_variables;
+use crate::core::type_map;
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 struct ResolvedTarget {
     path: PathBuf,
@@ -49,7 +54,7 @@ pub fn resolve_output_path(
             "filename contains path separator",
             "filename_has_slash",
             serde_json::Map::new(),
-            "use basePath for directories; filename must be a single segment",
+            i18n::t(keys::ERROR_GEN_FILENAME_SLASH),
         ));
     }
 
@@ -64,7 +69,7 @@ pub fn resolve_output_path(
     }
 
     let rendered_rel: String = if meta.base_path.is_some() || meta.filename.is_some() {
-        let base = match &meta.base_path {
+        let raw_base = match &meta.base_path {
             Some(bp) => template_engine::render_template(bp, context)?,
             None => entry
                 .rel_path
@@ -73,6 +78,7 @@ pub fn resolve_output_path(
                 .filter(|s| !s.is_empty())
                 .unwrap_or_default(),
         };
+        let base = rebase_framework_prefix(&raw_base, setup).unwrap_or(raw_base);
         let file = match &meta.filename {
             Some(fn_tpl) => template_engine::render_template(fn_tpl, context)?,
             None => {
@@ -122,28 +128,41 @@ fn layer3_rendered_rel(
     }
 }
 
+/// Returns the directory `gen` should walk for `.hbs` templates. When the
+/// project pins a global template, resolve to `~/.crud/templates/<n>/<v>/`;
+/// otherwise fall back to project-local `.crud/templates/`.
+fn resolve_templates_root(cwd: &Path, setup: &SetupConfig) -> Result<PathBuf, ErrorEnvelope> {
+    if let Some(tref) = &setup.project.template {
+        let installed = crate::core::template_meta_global::find_template(
+            &tref.name,
+            tref.version.as_deref(),
+        )?;
+        return Ok(installed.path);
+    }
+    Ok(cwd.join(".crud/templates"))
+}
+
+fn rebase_framework_prefix(rel: &str, setup: &SetupConfig) -> Option<String> {
+    let (head, tail) = match rel.split_once('/') {
+        Some((h, t)) => (h, Some(t)),
+        None => (rel, None),
+    };
+    let base = setup.paths.lookup(head)?;
+    Some(match tail {
+        None => base.to_string(),
+        Some(rest) if rest.is_empty() => base.to_string(),
+        Some(rest) => format!("{base}/{rest}"),
+    })
+}
+
 fn framework_layer3_rel(setup: &SetupConfig, mirror_rel: &str) -> Option<String> {
-    if mirror_rel.starts_with("java/") {
-        if let Some(base) = setup.paths.java_base.as_deref() {
-            return Some(join_base_strip_prefix(base, mirror_rel, "java/"));
-        }
-    }
-    if mirror_rel.starts_with("vue/") {
-        if let Some(base) = setup.paths.vue_base.as_deref() {
-            return Some(join_base_strip_prefix(base, mirror_rel, "vue/"));
-        }
-    }
-    if mirror_rel.starts_with("react/") {
-        if let Some(base) = setup.paths.react_base.as_deref() {
-            return Some(join_base_strip_prefix(base, mirror_rel, "react/"));
-        }
-    }
-    if mirror_rel.starts_with("nest/") {
-        if let Some(base) = setup.paths.nest_base.as_deref() {
-            return Some(join_base_strip_prefix(base, mirror_rel, "nest/"));
-        }
-    }
-    None
+    let (head, _) = mirror_rel.split_once('/')?;
+    let base = setup.paths.lookup(head)?;
+    Some(join_base_strip_prefix(
+        base,
+        mirror_rel,
+        &format!("{head}/"),
+    ))
 }
 
 fn join_base_strip_prefix(base: &str, rel: &str, prefix: &str) -> String {
@@ -208,7 +227,7 @@ fn path_traversal_error(rel_hint: Option<&str>) -> ErrorEnvelope {
         "path traversal in template output",
         "path_traversal",
         details,
-        "remove .. or absolute path from template location or front-matter",
+        i18n::t(keys::ERROR_GEN_PATH_TRAVERSAL),
     )
 }
 
@@ -218,21 +237,30 @@ fn effective_policy(meta: &TemplateMeta, overwrite: OverwritePolicy) -> Overwrit
 
 /// Implicit `--type` prefixes derived from user.enabled-types and project stacks.
 fn implicit_type_prefixes(project: &SetupConfig, enabled: EnabledTypes) -> Option<Vec<String>> {
-    let backend_prefix = match project.project.backend {
-        Backend::SpringBoot => Some("java"),
-        Backend::Nest => Some("nest"),
-        Backend::None => None,
-    };
-    let frontend_prefix = match project.project.frontend {
-        Frontend::Vue => Some("vue"),
-        Frontend::React => Some("react"),
-        Frontend::None => None,
-    };
-    let prefixes: Vec<String> = match enabled {
+    let backend_key = project.project.backend.as_key();
+    let frontend_key = project.project.frontend.as_key();
+    let aux_keys: Vec<String> = project.paths.aux.keys().cloned().collect();
+    let mut prefixes: Vec<String> = match enabled {
         EnabledTypes::All => return None,
-        EnabledTypes::Backend => backend_prefix.into_iter().map(String::from).collect(),
-        EnabledTypes::Frontend => frontend_prefix.into_iter().map(String::from).collect(),
+        EnabledTypes::Backend => {
+            let mut v: Vec<String> = if project.project.backend.is_none() {
+                Vec::new()
+            } else {
+                vec![backend_key.to_string()]
+            };
+            v.extend(aux_keys);
+            v
+        }
+        EnabledTypes::Frontend => {
+            if project.project.frontend.is_none() {
+                Vec::new()
+            } else {
+                vec![frontend_key.to_string()]
+            }
+        }
     };
+    prefixes.sort();
+    prefixes.dedup();
     if prefixes.is_empty() {
         None
     } else {
@@ -258,7 +286,7 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
             format!("cwd: {e}"),
             None,
             None,
-            "run inside a project directory",
+            i18n::t(keys::ERROR_GEN_CWD),
         )
     })?;
 
@@ -277,7 +305,9 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
         email: runtime.user.user.email.clone(),
     };
 
-    let context = if let Some(ref path) = params.file {
+    let schema = template_variables::load_schema(&cwd)?;
+
+    let (mut context, json_vars) = if let Some(ref path) = params.file {
         let loaded = super::gen_input::load_gen_input_with_specs_from_json(
             path,
             GenCliOverrides {
@@ -291,7 +321,7 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
             .iter()
             .map(|s| s as &dyn AsContextField)
             .collect();
-        gen_context::build_context(
+        let ctx = gen_context::build_context(
             &loaded.input.name,
             &loaded.input.table,
             &loaded.input.package,
@@ -299,7 +329,8 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
             setup,
             &git,
             &user,
-        )?
+        )?;
+        (ctx, loaded.variables)
     } else {
         let fields = field_dsl::parse_fields(
             params
@@ -322,15 +353,26 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
                 .ok_or_else(|| missing_pipeline_input("package"))?,
             fields,
         };
-        gen_context::build_context_from_input(&input, setup, &git, &user)?
+        let ctx = gen_context::build_context_from_input(&input, setup, &git, &user)?;
+        (ctx, std::collections::BTreeMap::new())
     };
+
+    let resolved_vars = template_variables::merge_values(&schema, &params.cli_vars, &json_vars)?;
+    if let Some(obj) = context.as_object_mut() {
+        for (k, v) in resolved_vars {
+            obj.insert(k, v);
+        }
+    }
 
     let implicit_filter = params
         .type_filter
         .clone()
         .or_else(|| implicit_type_prefixes(setup, runtime.enabled_types()));
+    let templates_root = resolve_templates_root(&cwd, setup)?;
     let entries =
-        template_loader::discover_templates(&cwd, implicit_filter.as_deref())?;
+        template_loader::discover_templates(&templates_root, implicit_filter.as_deref())?;
+    let fallback = setup.type_map.fallback.clone();
+    let mut bundle_cache: BTreeMap<String, Option<Arc<BTreeMap<String, String>>>> = BTreeMap::new();
 
     let mut resolved = Vec::new();
     for entry in &entries {
@@ -341,7 +383,32 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
             ))
         })?;
         let (meta, body) = template_meta::split_front_matter(&raw)?;
-        let rendered = template_engine::render_template(&body, &context)?;
+        let bundle = entry
+            .rel_path
+            .components()
+            .next()
+            .and_then(|c| match c {
+                Component::Normal(s) => s.to_str().map(|s| s.to_string()),
+                _ => None,
+            });
+        let map = if let Some(name) = bundle.as_deref() {
+            if let Some(slot) = bundle_cache.get(name) {
+                slot.clone()
+            } else {
+                let loaded = type_map::load_for_bundle(&templates_root, name)?
+                    .map(Arc::new);
+                bundle_cache.insert(name.to_string(), loaded.clone());
+                loaded
+            }
+        } else {
+            None
+        };
+        let binding = TypeMapBinding {
+            bundle: bundle.clone(),
+            map,
+            fallback: fallback.clone(),
+        };
+        let rendered = template_engine::render_template_with_type_map(&body, &context, binding)?;
         let out = resolve_output_path(
             entry,
             &meta,
@@ -426,6 +493,6 @@ fn missing_pipeline_input(flag: &'static str) -> ErrorEnvelope {
         format!("missing {flag} for generation"),
         "missing_field",
         details,
-        format!("provide --{flag}"),
+        i18n::tf(keys::ERROR_GEN_MISSING_INPUT, &[("flag", flag)]),
     )
 }

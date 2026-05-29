@@ -35,7 +35,7 @@ fn outputs_map_handlebars_template_renders() {
         crud_cli::core::config::SetupSelections {
             backend: crud_cli::core::config::Backend::None,
             frontend: crud_cli::core::config::Frontend::None,
-            component_library: crud_cli::core::config::ComponentLibrary::None,
+            template: None,
         },
     );
     let ctx = build_context_from_input(&input, &setup, &GitInfo::default(), &crud_cli::core::gen_context::UserIdentity::default()).unwrap();
@@ -61,13 +61,13 @@ fn outputs_map_resolves_java_entity_path() {
 
     const SETUP_TOML: &str = r#"
 [project]
-backend = "spring-boot"
+backend = "java"
 frontend = "vue"
-component-library = "element-plus"
 
-[paths]
-java_base = "src/main/java"
-vue_base = "src/views"
+
+[paths.lang]
+java = "src/main/java"
+vue = "src/views"
 
 
 [templates.outputs]
@@ -88,6 +88,7 @@ vue_base = "src/views"
         dry_run: false,
         force: false,
         output: None,
+        var: vec![],
     });
     let out = root.join("src/main/java/com/x/User.java");
     let exists = out.is_file();

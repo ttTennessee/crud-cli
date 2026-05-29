@@ -5,6 +5,9 @@ use ignore::WalkBuilder;
 use std::path::{Path, PathBuf};
 
 use super::error::ErrorEnvelope;
+use super::i18n::{self, keys};
+use super::template_variables::SCHEMA_FILE_NAME;
+use super::type_map::TYPE_MAP_FILE_NAME;
 
 /// One template file under `.crud/templates/`.
 #[derive(Debug, Clone)]
@@ -16,15 +19,17 @@ pub struct TemplateEntry {
 }
 
 /**
- * Walks `project_root/.crud/templates/` and returns template entries.
+ * Walks `templates_root` (either project-local `.crud/templates/` or a global
+ * template under `~/.crud/templates/<name>/<version>/`) and returns the
+ * rendered template entries.
  *
  * When `type_filter` is set, keeps templates whose `rel_path` matches a prefix.
  */
 pub fn discover_templates(
-    project_root: &Path,
+    templates_root: &Path,
     type_filter: Option<&[String]>,
 ) -> Result<Vec<TemplateEntry>, ErrorEnvelope> {
-    let root = project_root.join(".crud/templates");
+    let root = templates_root.to_path_buf();
     if !root.is_dir() {
         return Err(no_templates_found(&root));
     }
@@ -45,6 +50,21 @@ pub fn discover_templates(
             .strip_prefix(&root)
             .map_err(|_| walk_error(&root, "path outside template root".into()))?
             .to_path_buf();
+        if rel
+            .file_name()
+            .is_some_and(|n| n == SCHEMA_FILE_NAME)
+            && rel.parent().map(|p| p.as_os_str().is_empty()).unwrap_or(true)
+        {
+            continue;
+        }
+        if rel.file_name().is_some_and(|n| n == TYPE_MAP_FILE_NAME) {
+            continue;
+        }
+        if rel.file_name().is_some_and(|n| n == "template.toml")
+            && rel.parent().map(|p| p.as_os_str().is_empty()).unwrap_or(true)
+        {
+            continue;
+        }
         entries.push(TemplateEntry {
             rel_path: rel,
             abs_path: abs,
@@ -75,7 +95,10 @@ pub fn discover_templates(
                             .collect(),
                     ),
                 );
-                let hint = format!("可用 type: {}", available.join(", "));
+                let hint = i18n::tf(
+                    keys::ERROR_TEMPLATE_TYPE_NOT_FOUND,
+                    &[("available", &available.join(", "))],
+                );
                 return Err(ErrorEnvelope::user_error_with_reason(
                     "template type not found",
                     "template_type_not_found",
@@ -127,11 +150,11 @@ fn glob_compile_err(e: globset::Error) -> ErrorEnvelope {
         format!("invalid --type glob: {e}"),
         Some("type"),
         None,
-        "use comma-separated prefixes like java,vue",
+        i18n::t(keys::ERROR_TEMPLATE_INVALID_TYPE_GLOB),
     )
 }
 
-/// Scans top-level and one nested directory under templates (D-G32).
+/// Scans top-level and one nested directory under templates.
 pub fn scan_available_types(root: &Path) -> Result<Vec<String>, ErrorEnvelope> {
     let mut types = Vec::new();
     let read = std::fs::read_dir(root).map_err(|e| walk_error(root, e.to_string()))?;
@@ -167,7 +190,7 @@ fn no_templates_found(root: &Path) -> ErrorEnvelope {
         "no templates in .crud/templates/",
         "no_templates_found",
         details,
-        "create .crud/templates/<name>.hbs or seed a template set",
+        i18n::t(keys::ERROR_TEMPLATE_NO_TEMPLATES),
     )
 }
 
@@ -182,6 +205,6 @@ fn walk_error(root: &Path, msg: String) -> ErrorEnvelope {
         "failed to walk templates directory",
         "template_walk_error",
         details,
-        "check .crud/templates permissions and .crudignore syntax",
+        i18n::t(keys::ERROR_TEMPLATE_WALK_ERROR),
     )
 }

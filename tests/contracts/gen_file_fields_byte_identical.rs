@@ -3,7 +3,7 @@
 
 use crud_cli::core::config::SetupConfig;
 use crud_cli::core::config::SetupSelections;
-use crud_cli::core::config::{Backend, ComponentLibrary, Frontend, OverwritePolicy};
+use crud_cli::core::config::{Backend, Frontend, OverwritePolicy};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -38,7 +38,7 @@ List<String>
     let cfg = SetupConfig::from_selections(SetupSelections {
         backend: Backend::None,
         frontend: Frontend::None,
-        component_library: ComponentLibrary::None,
+        template: None,
     });
     fs::write(crud.join("setup.toml"), cfg.to_toml_pretty().unwrap()).unwrap();
 }

@@ -3,7 +3,7 @@
 
 use crud_cli::core::config::SetupConfig;
 use crud_cli::core::config::SetupSelections;
-use crud_cli::core::config::{Backend, ComponentLibrary, Frontend, OverwritePolicy};
+use crud_cli::core::config::{Backend, Frontend, OverwritePolicy};
 use crud_cli::core::field_dsl::Field;
 use crud_cli::core::gen_context::build_context_from_input;
 use crud_cli::core::gen_input::GenInput;
@@ -33,7 +33,7 @@ fn build_context_includes_model_and_field_case_keys() {
     let setup = SetupConfig::from_selections(SetupSelections {
         backend: Backend::None,
         frontend: Frontend::None,
-        component_library: ComponentLibrary::None,
+        template: None,
     });
     let ctx = build_context_from_input(&input, &setup, &GitInfo::default(), &crud_cli::core::gen_context::UserIdentity::default()).expect("context");
     let obj = ctx.as_object().expect("object");

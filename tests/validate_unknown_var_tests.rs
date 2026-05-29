@@ -3,7 +3,7 @@
 
 use crud_cli::core::config::SetupConfig;
 use crud_cli::core::config::SetupSelections;
-use crud_cli::core::config::{Backend, ComponentLibrary, Frontend, OverwritePolicy};
+use crud_cli::core::config::{Backend, Frontend, OverwritePolicy};
 use crud_cli::core::error::Kind;
 use crud_cli::core::validator::{run, ValidateParams};
 use std::fs;
@@ -22,7 +22,7 @@ fn seed_setup(root: &std::path::Path) -> SetupConfig {
     let cfg = SetupConfig::from_selections(SetupSelections {
         backend: Backend::None,
         frontend: Frontend::None,
-        component_library: ComponentLibrary::None,
+        template: None,
     });
     fs::write(crud.join("setup.toml"), cfg.to_toml_pretty().unwrap()).expect("setup.toml");
     cfg
@@ -48,7 +48,7 @@ fn unknown_first_segment_reported_with_didyoumean() {
     let mut cfg = SetupConfig::from_selections(SetupSelections {
         backend: Backend::None,
         frontend: Frontend::None,
-        component_library: ComponentLibrary::None,
+        template: None,
     });
     cfg.variables
         .0
@@ -121,7 +121,7 @@ fn nested_path_only_first_segment_checked() {
     let mut cfg = SetupConfig::from_selections(SetupSelections {
         backend: Backend::None,
         frontend: Frontend::None,
-        component_library: ComponentLibrary::None,
+        template: None,
     });
     let mut table = toml::map::Map::new();
     table.insert("email".into(), toml::Value::String("a@b.c".into()));

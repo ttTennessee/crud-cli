@@ -5,7 +5,7 @@ use crud_cli::cli::args::GenArgs;
 use crud_cli::cli::commands::gen::run_gen;
 use crud_cli::core::config::SetupConfig;
 use crud_cli::core::config::SetupSelections;
-use crud_cli::core::config::{Backend, ComponentLibrary, Frontend, OverwritePolicy};
+use crud_cli::core::config::{Backend, Frontend, OverwritePolicy};
 use std::fs;
 use std::sync::{Mutex, OnceLock};
 use tempfile::TempDir;
@@ -26,7 +26,7 @@ fn gen_output_flag_writes_under_override_root() {
     let cfg = SetupConfig::from_selections(SetupSelections {
         backend: Backend::None,
         frontend: Frontend::None,
-        component_library: ComponentLibrary::None,
+        template: None,
     });
     fs::write(crud.join("setup.toml"), cfg.to_toml_pretty().unwrap()).unwrap();
 
@@ -43,6 +43,7 @@ fn gen_output_flag_writes_under_override_root() {
         dry_run: false,
         force: false,
         output: Some(std::path::PathBuf::from("generated")),
+        var: vec![],
     });
     std::env::set_current_dir(prev).unwrap();
 
@@ -59,9 +60,9 @@ fn gen_java_base_fallback_without_output_flag() {
     fs::create_dir_all(crud.join("templates/java")).unwrap();
     fs::write(crud.join("templates/java/Entity.java.hbs"), "{{model}}\n").unwrap();
     let cfg = SetupConfig::from_selections(SetupSelections {
-        backend: Backend::SpringBoot,
+        backend: Backend::Java,
         frontend: Frontend::None,
-        component_library: ComponentLibrary::None,
+        template: None,
     });
     fs::write(crud.join("setup.toml"), cfg.to_toml_pretty().unwrap()).unwrap();
 
@@ -78,6 +79,7 @@ fn gen_java_base_fallback_without_output_flag() {
         dry_run: false,
         force: false,
         output: None,
+        var: vec![],
     });
     std::env::set_current_dir(prev).unwrap();
 

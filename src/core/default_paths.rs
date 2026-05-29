@@ -1,20 +1,42 @@
-//! Framework path defaults (D-11 / CONF-05).
+//! Default `[paths]` map for a freshly-created project, derived from the
+//! selected backend + frontend languages. Custom languages contribute no
+//! defaults — the wizard prompts the user to fill them in.
 
 use super::config::{Backend, Frontend, PathsSection};
 
-/// Applies locked path keys for the selected backend and frontend only.
+/// Returns a `PathsSection` pre-populated with conventional defaults for the
+/// chosen languages. `None` selections and `Custom(...)` languages add nothing.
 #[must_use]
-pub fn paths_for_frameworks(backend: Backend, frontend: Frontend) -> PathsSection {
+pub fn paths_for_selections(backend: &Backend, frontend: &Frontend) -> PathsSection {
     let mut paths = PathsSection::default();
     match backend {
-        Backend::SpringBoot => paths.java_base = Some("src/main/java".to_string()),
-        Backend::Nest => paths.nest_base = Some("src".to_string()),
-        Backend::None => {}
+        Backend::Java => {
+            paths.lang.insert("java".into(), "src/main/java".into());
+            paths.aux.insert("resources".into(), "src/main/resources".into());
+            paths.aux.insert("doc".into(), "doc/api".into());
+        }
+        Backend::TypeScript => {
+            paths.lang.insert("ts".into(), "src".into());
+            paths.aux.insert("doc".into(), "doc/api".into());
+        }
+        Backend::Go => {
+            paths.lang.insert("go".into(), "internal".into());
+            paths.aux.insert("doc".into(), "doc/api".into());
+        }
+        Backend::Python => {
+            paths.lang.insert("python".into(), "src".into());
+            paths.aux.insert("doc".into(), "doc/api".into());
+        }
+        Backend::None | Backend::Custom(_) => {}
     }
     match frontend {
-        Frontend::Vue => paths.vue_base = Some("src/views".to_string()),
-        Frontend::React => paths.react_base = Some("src/views".to_string()),
-        Frontend::None => {}
+        Frontend::Vue => {
+            paths.lang.insert("vue".into(), "src/views".into());
+        }
+        Frontend::React => {
+            paths.lang.insert("react".into(), "src/views".into());
+        }
+        Frontend::None | Frontend::Custom(_) => {}
     }
     paths
 }

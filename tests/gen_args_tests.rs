@@ -69,6 +69,7 @@ fn gen_args_fields_file_mutex() {
         dry_run: false,
         force: false,
         output: None,
+        var: vec![],
     };
     let err = args.validate_inputs().expect_err("mutex");
     assert_eq!(err.kind, Kind::UserError);

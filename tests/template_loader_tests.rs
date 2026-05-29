@@ -15,7 +15,7 @@ fn discover_templates_lists_hbs_files() {
     fs::write(templates.join("Entity.java.hbs"), "e").unwrap();
     fs::write(templates.join("Mapper.java.hbs"), "m").unwrap();
 
-    let entries = discover_templates(root, None).expect("discover");
+    let entries = discover_templates(&root.join(".crud/templates"), None).expect("discover");
     assert_eq!(entries.len(), 2);
     assert_eq!(entries[0].rel_path, std::path::PathBuf::from("Entity.java.hbs"));
     assert_eq!(entries[1].rel_path, std::path::PathBuf::from("Mapper.java.hbs"));
@@ -31,7 +31,7 @@ fn crudignore_filters_templates() {
     fs::write(templates.join("Mapper.java.hbs"), "m").unwrap();
     fs::write(templates.join(".crudignore"), "Mapper.*\n").unwrap();
 
-    let entries = discover_templates(root, None).expect("discover");
+    let entries = discover_templates(&root.join(".crud/templates"), None).expect("discover");
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].rel_path, std::path::PathBuf::from("Entity.java.hbs"));
 }
@@ -42,7 +42,7 @@ fn empty_templates_dir_errors() {
     let root = dir.path();
     fs::create_dir_all(root.join(".crud/templates")).unwrap();
 
-    let err = discover_templates(root, None).expect_err("empty");
+    let err = discover_templates(&root.join(".crud/templates"), None).expect_err("empty");
     assert_eq!(err.kind, Kind::UserError);
     assert_eq!(
         err.details.get("reason").and_then(|v| v.as_str()),

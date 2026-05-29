@@ -1,21 +1,23 @@
-//! clap surface for `setup` (D-08, CONF-02, CONF-08, FOUND-04).
+//! clap surface for `setup` / `gen` / `validate` / `template`.
 
 use clap::{Parser, Subcommand, ValueEnum};
 use std::ffi::OsString;
 
 use crate::core::config::{
-    Backend, ComponentLibrary, EnabledTypes, Frontend, OverwritePolicy, SetupConfig,
-    SetupFlagOverlay, SetupSelections, SetupUserConfig, UserSelections,
+    Backend, EnabledTypes, Frontend, OverwritePolicy, SetupConfig, SetupFlagOverlay,
+    SetupSelections, SetupUserConfig, TemplateRef, UserSelections,
 };
 use crate::core::error::ErrorEnvelope;
+use crate::core::i18n::{self, keys};
+use crate::core::type_map::Fallback;
 
 use super::output::emit_failure;
 
-/// Root CLI parser (FOUND-04).
+/// Root CLI parser.
 #[derive(Parser, Debug)]
 #[command(name = "crud-cli", version, about)]
 pub struct Cli {
-    /// Agent/machine mode: JSON errors on stderr, empty success stdout (D-05).
+    /// Agent/machine mode: JSON errors on stderr, empty success stdout.
     #[arg(long, global = true)]
     pub agent: bool,
 
@@ -31,6 +33,8 @@ pub enum Commands {
     Gen(GenArgs),
     /// Validate project templates before generation.
     Validate(ValidateArgs),
+    /// Manage installed templates under `~/.crud/templates/`.
+    Template(TemplateArgs),
 }
 
 /// `crud-cli setup` flags. Default scope = user; `--project` switches target.
@@ -41,15 +45,27 @@ pub struct SetupArgs {
     #[arg(long = "project", default_value_t = false)]
     pub project: bool,
 
-    // Project-scope flags
-    #[arg(long = "backend", value_enum)]
-    pub backend: Option<SetupBackend>,
+    /// Project backend language. Known: java, typescript, go, python, none.
+    /// Any other lowercase identifier becomes `Backend::Custom`.
+    #[arg(long = "backend", value_name = "LANG")]
+    pub backend: Option<String>,
 
-    #[arg(long = "frontend", value_enum)]
-    pub frontend: Option<SetupFrontend>,
+    /// Project frontend. Known: vue, react, none. Other lowercase ids become custom.
+    #[arg(long = "frontend", value_name = "LANG")]
+    pub frontend: Option<String>,
 
-    #[arg(long = "component-library", value_enum)]
-    pub component_library: Option<SetupComponentLibrary>,
+    /// Use an installed template by `name[@version]`. Recorded under
+    /// `[project].template`.
+    #[arg(long = "template", value_name = "NAME[@VERSION]")]
+    pub template: Option<String>,
+
+    /// Repeatable `--lang KEY=PATH` for `[paths.lang]` (e.g. `--lang java=src/main/java`).
+    #[arg(long = "lang", value_name = "KEY=PATH")]
+    pub lang: Vec<String>,
+
+    /// Repeatable `--aux KEY=PATH` for `[paths.aux]` (e.g. `--aux doc=docs`).
+    #[arg(long = "aux", value_name = "KEY=PATH")]
+    pub aux: Vec<String>,
 
     // User-scope flags
     #[arg(long = "overwrite-policy", value_enum)]
@@ -64,22 +80,25 @@ pub struct SetupArgs {
     #[arg(long = "user-email")]
     pub user_email: Option<String>,
 
+    /// Unknown-type fallback policy for [type_map]. Accepts
+    /// `passthrough`, `error`, or any other string (treated as a literal
+    /// replacement value).
+    #[arg(long = "type-map-fallback", value_name = "POLICY")]
+    pub type_map_fallback: Option<String>,
+
     /// Overwrite the target file without the interactive confirm.
     #[arg(long = "force", default_value_t = false)]
     pub force: bool,
 }
 
-/// `crud-cli gen` flags (D-G01, D-G10, D-G11).
+/// `crud-cli gen` flags .
 #[derive(Parser, Debug, Default)]
 pub struct GenArgs {
-    /// Entity / model name (positional).
     pub name: Option<String>,
 
-    /// Micro-DSL field list (`name:Type`, comma-separated).
     #[arg(long = "fields")]
     pub fields: Option<String>,
 
-    /// JSON entity definition file (mutually exclusive with `--fields`).
     #[arg(long = "file")]
     pub file: Option<std::path::PathBuf>,
 
@@ -89,71 +108,78 @@ pub struct GenArgs {
     #[arg(long = "table")]
     pub table: Option<String>,
 
-    /// Template directory prefix filter (Plan 02 applies filtering).
     #[arg(long = "type")]
     pub type_: Option<String>,
 
-    /// List resolved outputs without writing (Wave 1: no fs_writer calls).
     #[arg(long = "dry-run")]
     pub dry_run: bool,
 
     #[arg(long = "force", default_value_t = false)]
     pub force: bool,
 
-    /// Output root directory (layer-3 fallback when no front-matter or templates.outputs entry).
     #[arg(long = "output")]
     pub output: Option<std::path::PathBuf>,
+
+    #[arg(long = "var", value_name = "KEY=VALUE")]
+    pub var: Vec<String>,
 }
 
-/// `crud-cli validate` flags (parity with `gen --type`).
+/// `crud-cli validate` flags.
 #[derive(Parser, Debug, Default)]
 pub struct ValidateArgs {
-    /// Template directory prefix filter (comma-separated).
     #[arg(long = "type")]
     pub type_: Option<String>,
 }
 
+/// `crud-cli template ...` — manage installed templates.
+#[derive(Parser, Debug)]
+pub struct TemplateArgs {
+    #[command(subcommand)]
+    pub command: TemplateCommand,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TemplateCommand {
+    /// Switch the project to an installed template.
+    Use {
+        /// `name` or `name@version`.
+        name: String,
+        /// Accept the switch without confirmation.
+        #[arg(long = "yes", short = 'y', default_value_t = false)]
+        yes: bool,
+    },
+    /// List installed templates under `~/.crud/templates/`.
+    List,
+    /// Download a template from a GitHub repo into `~/.crud/templates/`.
+    ///
+    /// Omit `<NAME>` to pick interactively; pass `<NAME>` alone to pick the
+    /// version interactively; pass `<NAME>@<VERSION>` to install directly.
+    Install {
+        /// Optional `name` or `name@version`. Omitting it triggers the
+        /// interactive picker (requires a TTY; not allowed in --agent mode).
+        name: Option<String>,
+        /// Override repo (`owner/repo[@ref]` or full GitHub URL). Defaults to
+        /// `[templates].repo` in `~/.crud/config.toml`, then `ttTennessee/crud-templates`.
+        #[arg(long = "repo", value_name = "OWNER/REPO[@REF]")]
+        repo: Option<String>,
+        /// Overwrite an already-installed `<name>/<version>/` directory.
+        #[arg(long = "force", default_value_t = false)]
+        force: bool,
+    },
+}
+
 impl GenArgs {
-    /// Wave-1 validation: `--fields` and `--file` are mutually exclusive (D-G10).
     pub fn validate_inputs(&self) -> Result<(), ErrorEnvelope> {
         if self.fields.is_some() && self.file.is_some() {
             return Err(ErrorEnvelope::user_error_with_reason(
                 "cannot use --fields and --file together",
                 "fields_file_mutex",
                 serde_json::Map::new(),
-                "provide either --fields or --file, not both",
+                i18n::t(keys::ERROR_CLI_FIELDS_FILE_MUTEX),
             ));
         }
         Ok(())
     }
-}
-
-#[derive(Clone, Copy, Debug, ValueEnum)]
-#[value(rename_all = "kebab-case")]
-pub enum SetupBackend {
-    #[value(name = "spring-boot")]
-    SpringBoot,
-    Nest,
-    None,
-}
-
-#[derive(Clone, Copy, Debug, ValueEnum)]
-#[value(rename_all = "kebab-case")]
-pub enum SetupFrontend {
-    Vue,
-    React,
-    None,
-}
-
-#[derive(Clone, Copy, Debug, ValueEnum)]
-#[value(rename_all = "kebab-case")]
-pub enum SetupComponentLibrary {
-    #[value(name = "element-plus")]
-    ElementPlus,
-    Antd,
-    #[value(name = "naive-ui")]
-    NaiveUi,
-    None,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -171,37 +197,6 @@ pub enum SetupEnabledTypes {
     All,
     Backend,
     Frontend,
-}
-
-impl From<SetupBackend> for Backend {
-    fn from(v: SetupBackend) -> Self {
-        match v {
-            SetupBackend::SpringBoot => Backend::SpringBoot,
-            SetupBackend::Nest => Backend::Nest,
-            SetupBackend::None => Backend::None,
-        }
-    }
-}
-
-impl From<SetupFrontend> for Frontend {
-    fn from(v: SetupFrontend) -> Self {
-        match v {
-            SetupFrontend::Vue => Frontend::Vue,
-            SetupFrontend::React => Frontend::React,
-            SetupFrontend::None => Frontend::None,
-        }
-    }
-}
-
-impl From<SetupComponentLibrary> for ComponentLibrary {
-    fn from(v: SetupComponentLibrary) -> Self {
-        match v {
-            SetupComponentLibrary::ElementPlus => ComponentLibrary::ElementPlus,
-            SetupComponentLibrary::Antd => ComponentLibrary::Antd,
-            SetupComponentLibrary::NaiveUi => ComponentLibrary::NaiveUi,
-            SetupComponentLibrary::None => ComponentLibrary::None,
-        }
-    }
 }
 
 impl From<SetupOverwritePolicy> for OverwritePolicy {
@@ -230,7 +225,9 @@ impl SetupArgs {
     pub fn is_project_non_interactive(&self) -> bool {
         self.backend.is_some()
             || self.frontend.is_some()
-            || self.component_library.is_some()
+            || self.template.is_some()
+            || !self.lang.is_empty()
+            || !self.aux.is_empty()
     }
 
     /// True when the user scope has any dimension flag (skips wizard).
@@ -248,33 +245,82 @@ impl SetupArgs {
         self.project
     }
 
-    /// Builds flag overlay for runtime merge pipeline.
-    #[must_use]
-    pub fn flag_overlay(&self) -> SetupFlagOverlay {
-        SetupFlagOverlay {
-            backend: self.backend.map(Into::into),
-            frontend: self.frontend.map(Into::into),
-            component_library: self.component_library.map(Into::into),
-            overwrite_policy: self.overwrite_policy.map(Into::into),
-            enabled_types: self.enabled_types.map(Into::into),
-        }
+    fn parse_backend(&self) -> Result<Option<Backend>, ErrorEnvelope> {
+        self.backend
+            .as_deref()
+            .map(|v| Backend::parse(v).map_err(|e| invalid_value("backend", v, e)))
+            .transpose()
     }
 
-    /// Validates the three project dimensions are present (flag mode).
-    pub fn require_project_non_interactive(&self) -> Result<SetupSelections, ErrorEnvelope> {
-        let backend = self.backend.ok_or_else(|| missing_flag("backend"))?;
-        let frontend = self.frontend.ok_or_else(|| missing_flag("frontend"))?;
-        let component_library = self
-            .component_library
-            .ok_or_else(|| missing_flag("component-library"))?;
-        Ok(SetupSelections {
-            backend: backend.into(),
-            frontend: frontend.into(),
-            component_library: component_library.into(),
+    fn parse_frontend(&self) -> Result<Option<Frontend>, ErrorEnvelope> {
+        self.frontend
+            .as_deref()
+            .map(|v| Frontend::parse(v).map_err(|e| invalid_value("frontend", v, e)))
+            .transpose()
+    }
+
+    fn parse_template(&self) -> Result<Option<TemplateRef>, ErrorEnvelope> {
+        self.template
+            .as_deref()
+            .map(|v| TemplateRef::parse(v).map_err(|e| invalid_value("template", v, e)))
+            .transpose()
+    }
+
+    fn parse_path_kv(
+        flag: &'static str,
+        items: &[String],
+    ) -> Result<std::collections::BTreeMap<String, String>, ErrorEnvelope> {
+        let mut out = std::collections::BTreeMap::new();
+        for raw in items {
+            let (k, v) = raw.split_once('=').ok_or_else(|| {
+                invalid_value(flag, raw, "expected KEY=PATH")
+            })?;
+            if k.trim().is_empty() || v.trim().is_empty() {
+                return Err(invalid_value(flag, raw, "KEY and PATH must be non-empty"));
+            }
+            out.insert(k.trim().to_string(), v.trim().to_string());
+        }
+        Ok(out)
+    }
+
+    /// Builds flag overlay for runtime merge pipeline.
+    pub fn flag_overlay(&self) -> Result<SetupFlagOverlay, ErrorEnvelope> {
+        Ok(SetupFlagOverlay {
+            backend: self.parse_backend()?,
+            frontend: self.parse_frontend()?,
+            template: self.parse_template()?,
+            overwrite_policy: self.overwrite_policy.map(Into::into),
+            enabled_types: self.enabled_types.map(Into::into),
+            type_map_fallback: self
+                .type_map_fallback
+                .as_deref()
+                .map(crate::core::config::parse_type_map_fallback),
+            paths_lang: Self::parse_path_kv("lang", &self.lang)?,
+            paths_aux: Self::parse_path_kv("aux", &self.aux)?,
         })
     }
 
-    /// Validates required user dimensions for flag mode.
+    /// Returns the parsed fallback if `--type-map-fallback` was supplied.
+    #[must_use]
+    pub fn parsed_type_map_fallback(&self) -> Option<Fallback> {
+        self.type_map_fallback
+            .as_deref()
+            .map(crate::core::config::parse_type_map_fallback)
+    }
+
+    /// Validates project dimensions are present (flag mode). Backend and
+    /// frontend are required; template is optional.
+    pub fn require_project_non_interactive(&self) -> Result<SetupSelections, ErrorEnvelope> {
+        let backend = self.parse_backend()?.ok_or_else(|| missing_flag("backend"))?;
+        let frontend = self.parse_frontend()?.ok_or_else(|| missing_flag("frontend"))?;
+        let template = self.parse_template()?;
+        Ok(SetupSelections {
+            backend,
+            frontend,
+            template,
+        })
+    }
+
     pub fn require_user_non_interactive(&self) -> Result<UserSelections, ErrorEnvelope> {
         let name = self
             .user_name
@@ -308,7 +354,17 @@ impl SetupArgs {
     /// Materializes project config from flags only (no file merge).
     pub fn to_setup_config(&self) -> Result<SetupConfig, ErrorEnvelope> {
         let selections = self.require_project_non_interactive()?;
-        Ok(SetupConfig::from_selections(selections))
+        let mut cfg = SetupConfig::from_selections(selections);
+        for (k, v) in Self::parse_path_kv("lang", &self.lang)? {
+            cfg.paths.lang.insert(k, v);
+        }
+        for (k, v) in Self::parse_path_kv("aux", &self.aux)? {
+            cfg.paths.aux.insert(k, v);
+        }
+        if let Some(fb) = self.parsed_type_map_fallback() {
+            cfg.type_map.fallback = fb;
+        }
+        Ok(cfg)
     }
 
     /// Materializes user config from flags only.
@@ -323,7 +379,7 @@ fn missing_flag(flag: &'static str) -> ErrorEnvelope {
         format!("missing required flag --{flag}"),
         Some(flag),
         None,
-        format!("provide --{flag} with a value from the locked enum set"),
+        i18n::tf(keys::ERROR_CLI_MISSING_FLAG, &[("flag", flag)]),
     )
 }
 
@@ -332,11 +388,20 @@ fn empty_flag(flag: &'static str) -> ErrorEnvelope {
         format!("--{flag} must not be empty"),
         Some(flag),
         None,
-        format!("provide a non-empty value for --{flag}"),
+        i18n::tf(keys::ERROR_CLI_EMPTY_FLAG, &[("flag", flag)]),
     )
 }
 
-/// Parses argv; maps clap failures to `UserError` envelope (D-09).
+fn invalid_value(flag: &'static str, value: &str, reason: &str) -> ErrorEnvelope {
+    ErrorEnvelope::user_error(
+        format!("--{flag} {value:?}: {reason}"),
+        Some(flag),
+        Some(value),
+        i18n::t(keys::ERROR_CLI_CLAP_RETRY),
+    )
+}
+
+/// Parses argv; maps clap failures to `UserError` envelope.
 pub fn try_parse_cli<I, T>(args: I) -> Result<Cli, ErrorEnvelope>
 where
     I: IntoIterator<Item = T>,
@@ -371,7 +436,7 @@ fn clap_to_user_error(err: clap::Error) -> ErrorEnvelope {
         err.to_string(),
         flag,
         value.as_deref(),
-        "fix the flag value and retry",
+        i18n::t(keys::ERROR_CLI_CLAP_RETRY),
     )
 }
 
@@ -380,11 +445,14 @@ fn clap_flag_value(err: &clap::Error) -> (Option<&'static str>, Option<String>) 
     for flag in [
         "backend",
         "frontend",
-        "component-library",
+        "template",
+        "lang",
+        "aux",
         "overwrite-policy",
         "enabled-types",
         "user-name",
         "user-email",
+        "type-map-fallback",
         "fields",
         "file",
         "package",

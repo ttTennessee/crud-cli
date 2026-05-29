@@ -1,10 +1,11 @@
 //! Structured error kinds and stderr envelopes (D-01..D-04, FOUND-05).
 
+use super::i18n::{self, keys};
 use serde::Serialize;
 use serde_json::{Map, Value};
 use std::path::Path;
 
-/// Process exit code contract (FOUND-05 / D-03).
+/// Process exit code contract.
 ///
 /// | Outcome | `Kind` | Exit code |
 /// |---------|--------|-----------|
@@ -27,7 +28,7 @@ pub enum Kind {
 }
 
 impl Kind {
-    /// Maps each variant 1:1 to its locked exit code (D-03).
+    /// Maps each variant 1:1 to its locked exit code .
     #[must_use]
     pub const fn exit_code(self) -> i32 {
         match self {
@@ -41,7 +42,7 @@ impl Kind {
     }
 }
 
-/// Failure payload written to stderr (D-02).
+/// Failure payload written to stderr .
 #[derive(Debug, Clone, Serialize)]
 pub struct ErrorEnvelope {
     pub kind: Kind,
@@ -52,7 +53,7 @@ pub struct ErrorEnvelope {
 }
 
 impl ErrorEnvelope {
-    /// User input with a closed-set `reason` in `details` (D-G08 / D-G09).
+    /// User input with a closed-set `reason` in `details`.
     #[must_use]
     pub fn user_error_with_reason(
         msg: impl Into<String>,
@@ -72,7 +73,7 @@ impl ErrorEnvelope {
         }
     }
 
-    /// User input / CLI validation failure (D-09).
+    /// User input / CLI validation failure .
     #[must_use]
     pub fn user_error(
         msg: impl Into<String>,
@@ -96,7 +97,7 @@ impl ErrorEnvelope {
         }
     }
 
-    /// Target path already exists and overwrite is denied (D-14 / CONF-06).
+    /// Target path already exists and overwrite is denied.
     #[must_use]
     pub fn file_conflict(msg: impl Into<String>, path: impl AsRef<Path>) -> Self {
         let mut details = Map::new();
@@ -108,7 +109,7 @@ impl ErrorEnvelope {
             kind: Kind::FileConflict,
             msg: msg.into(),
             exit_code: Kind::FileConflict.exit_code(),
-            hint: "remove or rename the existing file, adjust overwrite-policy, or pass --force when policy allows".into(),
+            hint: i18n::t(keys::ERROR_FILE_CONFLICT).into(),
             details,
         }
     }
@@ -133,7 +134,7 @@ impl ErrorEnvelope {
         }
     }
 
-    /// Template render / schema failure (D-13).
+    /// Template render / schema failure .
     #[must_use]
     pub fn template_error(msg: impl Into<String>) -> Self {
         Self::template_error_with_reason(msg, serde_json::Map::new(), "")
@@ -155,7 +156,7 @@ impl ErrorEnvelope {
         }
     }
 
-    /// Aggregated validate issues (D-G23 / VAL-04).
+    /// Aggregated validate issues.
     #[must_use]
     pub fn template_error_with_issues(
         issues_json: Value,
@@ -178,12 +179,12 @@ impl ErrorEnvelope {
                 "validate failed: {issue_count} issues across {templates_with_issues} templates"
             ),
             exit_code: Kind::TemplateError.exit_code(),
-            hint: "fix each entry in details.issues".into(),
+            hint: i18n::t(keys::ERROR_VALIDATE_FIX_ISSUES).into(),
             details,
         }
     }
 
-    /// Builds an `InternalPanic` envelope from panic hook data (D-04).
+    /// Builds an `InternalPanic` envelope from panic hook data .
     #[must_use]
     pub fn internal_panic(
         msg: impl Into<String>,

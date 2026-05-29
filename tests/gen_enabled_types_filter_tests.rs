@@ -3,7 +3,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use crud_cli::core::config::{
-    Backend, ComponentLibrary, EnabledTypes, Frontend, OverwritePolicy, SetupConfig,
+    Backend, EnabledTypes, Frontend, OverwritePolicy, SetupConfig,
     SetupSelections, SetupUserConfig, UserSelections,
 };
 use crud_cli::core::gen_pipeline::run;
@@ -28,9 +28,9 @@ fn seed(root: &std::path::Path, enabled: EnabledTypes) {
     fs::write(crud.join("templates/java/Entity.java.hbs"), body).unwrap();
     fs::write(crud.join("templates/vue/Entity.vue.hbs"), body).unwrap();
     let project = SetupConfig::from_selections(SetupSelections {
-        backend: Backend::SpringBoot,
+        backend: Backend::Java,
         frontend: Frontend::Vue,
-        component_library: ComponentLibrary::ElementPlus,
+        template: None,
     });
     fs::write(crud.join("setup.toml"), project.to_toml_pretty().unwrap()).unwrap();
     let user = SetupUserConfig::from_user_selections(UserSelections {
@@ -62,6 +62,7 @@ fn run_in(root: &std::path::Path, type_filter: Option<Vec<String>>) -> Vec<Strin
         dry_run: false,
         force: true,
         output_dir: None,
+        cli_vars: std::collections::BTreeMap::new(),
     })
     .expect("gen run");
     std::env::set_current_dir(prev).unwrap();

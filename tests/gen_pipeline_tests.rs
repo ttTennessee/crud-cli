@@ -3,7 +3,7 @@
 
 use crud_cli::core::config::SetupConfig;
 use crud_cli::core::config::SetupSelections;
-use crud_cli::core::config::{Backend, ComponentLibrary, Frontend, OverwritePolicy};
+use crud_cli::core::config::{Backend, Frontend, OverwritePolicy};
 use crud_cli::core::error::Kind;
 use crud_cli::core::gen_pipeline::{resolve_output_path, run};
 use crud_cli::core::gen_run::GenRunParams;
@@ -34,15 +34,15 @@ fn setup_none() -> SetupConfig {
     SetupConfig::from_selections(SetupSelections {
         backend: Backend::None,
         frontend: Frontend::None,
-        component_library: ComponentLibrary::None,
+        template: None,
     })
 }
 
 fn setup_spring_boot() -> SetupConfig {
     SetupConfig::from_selections(SetupSelections {
-        backend: Backend::SpringBoot,
+        backend: Backend::Java,
         frontend: Frontend::None,
-        component_library: ComponentLibrary::None,
+        template: None,
     })
 }
 
@@ -101,6 +101,56 @@ fn resolve_java_base_strips_prefix() {
     )
     .expect("ok");
     assert_eq!(out, root.join("src/main/java/Entity.java"));
+}
+
+#[test]
+fn resolve_java_base_applied_with_filename_front_matter() {
+    let dir = TempDir::new().expect("tempdir");
+    let root = dir.path();
+    let setup = setup_spring_boot();
+    let e = entry("java/Entity.java.hbs", root);
+    let meta = crud_cli::core::template_meta::TemplateMeta {
+        filename: Some("Renamed.java".into()),
+        ..Default::default()
+    };
+    let out = resolve_output_path(
+        &e,
+        &meta,
+        &crud_cli::core::config::OutputsSection::default(),
+        &serde_json::json!({}),
+        root,
+        None,
+        &setup,
+    )
+    .expect("ok");
+    assert_eq!(out, root.join("src/main/java/Renamed.java"));
+}
+
+#[test]
+fn resolve_java_base_applied_with_base_path_front_matter() {
+    let dir = TempDir::new().expect("tempdir");
+    let root = dir.path();
+    let setup = setup_spring_boot();
+    let e = entry("java/Entity.java.hbs", root);
+    let meta = crud_cli::core::template_meta::TemplateMeta {
+        base_path: Some("java/com/acme/controller".into()),
+        filename: Some("Entity.java".into()),
+        ..Default::default()
+    };
+    let out = resolve_output_path(
+        &e,
+        &meta,
+        &crud_cli::core::config::OutputsSection::default(),
+        &serde_json::json!({}),
+        root,
+        None,
+        &setup,
+    )
+    .expect("ok");
+    assert_eq!(
+        out,
+        root.join("src/main/java/com/acme/controller/Entity.java")
+    );
 }
 
 #[test]
@@ -195,9 +245,9 @@ fn seed_project(root: &std::path::Path, template_body: &str) {
     let crud = root.join(".crud");
     fs::create_dir_all(crud.join("templates")).unwrap();
     let cfg = SetupConfig::from_selections(SetupSelections {
-        backend: Backend::SpringBoot,
+        backend: Backend::Java,
         frontend: Frontend::Vue,
-        component_library: ComponentLibrary::ElementPlus,
+        template: None,
     });
     fs::write(crud.join("setup.toml"), cfg.to_toml_pretty().unwrap()).unwrap();
     fs::write(crud.join("templates/Entity.java.hbs"), template_body).unwrap();
@@ -224,6 +274,7 @@ fn pipeline_run_writes_rendered_file() {
         dry_run: false,
         force: false,
         output_dir: None,
+        cli_vars: std::collections::BTreeMap::new(),
     })
     .expect("run");
     std::env::set_current_dir(&prev).unwrap();
@@ -257,6 +308,7 @@ fn dry_run_writes_nothing() {
         dry_run: true,
         force: false,
         output_dir: None,
+        cli_vars: std::collections::BTreeMap::new(),
     })
     .expect("dry-run");
     std::env::set_current_dir(&prev).unwrap();

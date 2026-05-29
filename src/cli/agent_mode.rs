@@ -15,7 +15,7 @@ pub fn init_agent_mode(cli_flag: Option<bool>) {
     let _ = CLI_AGENT_FLAG.set(cli_flag);
 }
 
-/// Active agent mode: CLI flag wins over `CRUD_AGENT` (D-05).
+/// Active agent mode: CLI flag wins over `CRUD_AGENT` .
 #[must_use]
 pub fn is_agent_active() -> bool {
     match CLI_AGENT_FLAG.get().and_then(|o| *o) {
