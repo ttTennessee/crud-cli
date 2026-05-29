@@ -3,7 +3,7 @@
 
 use crud_cli::core::config::SetupConfig;
 use crud_cli::core::config::SetupSelections;
-use crud_cli::core::config::{Backend, Frontend, OverwritePolicy};
+use crud_cli::core::config::{Backend, Frontend};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -139,11 +139,15 @@ fn gen_file_and_fields_outputs_byte_identical() {
             .get(rel)
             .unwrap_or_else(|| panic!("missing output file in --file run: {rel}"));
         assert_eq!(
-            bytes_fields, bytes_file,
+            bytes_fields,
+            bytes_file,
             "byte mismatch for {rel}\n--fields:\n{}\n--file:\n{}",
             String::from_utf8_lossy(bytes_fields),
             String::from_utf8_lossy(bytes_file)
         );
     }
-    assert!(!outputs_fields.is_empty(), "expected at least one output file");
+    assert!(
+        !outputs_fields.is_empty(),
+        "expected at least one output file"
+    );
 }

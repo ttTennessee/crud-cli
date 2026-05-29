@@ -3,7 +3,7 @@
 
 use crud_cli::core::config::SetupConfig;
 use crud_cli::core::config::SetupSelections;
-use crud_cli::core::config::{Backend, Frontend, OverwritePolicy};
+use crud_cli::core::config::{Backend, Frontend};
 use crud_cli::core::error::Kind;
 use crud_cli::core::gen_pipeline::{resolve_output_path, run};
 use crud_cli::core::gen_run::GenRunParams;

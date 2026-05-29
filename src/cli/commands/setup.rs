@@ -61,7 +61,10 @@ fn run_project_setup(project_root: &Path, args: SetupArgs) -> i32 {
         run_project_wizard()
     };
     match config_result {
-        Ok(cfg) => match cfg.to_toml_pretty().and_then(|s| write_atomic(&target, s.into_bytes())) {
+        Ok(cfg) => match cfg
+            .to_toml_pretty()
+            .and_then(|s| write_atomic(&target, s.into_bytes()))
+        {
             Ok(()) => {
                 let line = i18n::tf(
                     keys::SETUP_CREATED,
@@ -174,7 +177,6 @@ fn write_atomic(target: &Path, bytes: Vec<u8>) -> Result<(), ErrorEnvelope> {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::expect_used)]
-    use super::*;
     use crate::core::config::{
         Backend, EnabledTypes, Frontend, OverwritePolicy, SetupConfig, SetupSelections,
         SetupUserConfig, UserSelections,
