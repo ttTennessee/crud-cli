@@ -37,8 +37,11 @@ empty = "No installed templates under ~/.crud/templates/."
 entry = "{name}@{version}  ({backend} + {frontend}) {description}"
 
 [template.install]
-starting = "Installing {name} from {repo}…"
+starting = "Fetching {name} from {repo}…"
 done = "Installed {name}@{version} ({backend} + {frontend}) → {path}"
+prompt_fetch = "templates"
+prompt_name = "Pick a template"
+prompt_version = "Pick a version for {name}"
 
 [wizard.typemap]
 passthrough = "passthrough (keep unmapped types as-is)"
@@ -81,6 +84,8 @@ type_not_found = "available types: {available}"
 no_templates = "create .crud/templates/<name>.hbs or seed a template set"
 walk_error = "check .crud/templates permissions and .crudignore syntax"
 invalid_type_glob = "use comma-separated prefixes like java,vue"
+install_needs_tty = "pass `<name>@<version>` explicitly; interactive picker requires a TTY"
+install_repo_empty = "the repo has no `<name>/<version>/template.toml` entries"
 
 [error.file]
 conflict = "remove or rename the existing file, adjust overwrite-policy, or pass --force when policy allows"

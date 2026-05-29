@@ -151,9 +151,13 @@ pub enum TemplateCommand {
     /// List installed templates under `~/.crud/templates/`.
     List,
     /// Download a template from a GitHub repo into `~/.crud/templates/`.
+    ///
+    /// Omit `<NAME>` to pick interactively; pass `<NAME>` alone to pick the
+    /// version interactively; pass `<NAME>@<VERSION>` to install directly.
     Install {
-        /// `name` or `name@version` to install.
-        name: String,
+        /// Optional `name` or `name@version`. Omitting it triggers the
+        /// interactive picker (requires a TTY; not allowed in --agent mode).
+        name: Option<String>,
         /// Override repo (`owner/repo[@ref]` or full GitHub URL). Defaults to
         /// `[templates].repo` in `~/.crud/config.toml`, then `ttTennessee/crud-templates`.
         #[arg(long = "repo", value_name = "OWNER/REPO[@REF]")]

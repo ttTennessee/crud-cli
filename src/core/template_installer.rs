@@ -15,6 +15,7 @@
 //! dependency) and unpacked into a tempdir; only the requested
 //! `<name>/<version>/` subtree is copied into place.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -25,6 +26,11 @@ use super::error::{ErrorEnvelope, Kind};
 use super::template_meta_global::{
     load_manifest, version_cmp, InstalledTemplate, MANIFEST_FILENAME,
 };
+
+/// Top-level directory in the templates repo that holds API-doc bundles
+/// shared across every template. Per-template `<name>/<version>/doc/`
+/// overrides it: when present, the global directory is not copied.
+pub const SHARED_DOC_DIR: &str = "doc";
 
 /// Git ref used when callers don't specify one (codeload accepts `HEAD`).
 pub const DEFAULT_GIT_REF: &str = "HEAD";
@@ -99,42 +105,109 @@ impl RepoSpec {
     }
 }
 
-/// Install `<name>[@<version>]` from `spec` into `dest_root/<name>/<version>/`.
+/// A downloaded + unpacked tarball, ready for inspection and install.
+///
+/// Holds the `TempDir` so the extracted tree stays alive until the snapshot
+/// is dropped.
+pub struct RepoSnapshot {
+    _tmp: tempfile::TempDir,
+    root: PathBuf,
+    spec: RepoSpec,
+}
+
+impl RepoSnapshot {
+    /// Downloads `spec.tarball_url()` and unpacks it into a tempdir.
+    pub fn fetch(spec: RepoSpec) -> Result<Self, ErrorEnvelope> {
+        let tmp = tempfile::tempdir().map_err(|e| io_error("create tempdir", e))?;
+        let extract_dir = tmp.path().join("extracted");
+        fs::create_dir_all(&extract_dir).map_err(|e| io_error("create extract dir", e))?;
+        let url = spec.tarball_url();
+        download_and_extract(&url, &extract_dir)?;
+        let root = single_child_dir(&extract_dir).ok_or_else(|| {
+            network_error(format!("tarball from {url} has unexpected layout"))
+        })?;
+        Ok(Self {
+            _tmp: tmp,
+            root,
+            spec,
+        })
+    }
+
+    /// Repo source the snapshot came from.
+    #[must_use]
+    pub fn spec(&self) -> &RepoSpec {
+        &self.spec
+    }
+
+    /// Enumerates every `<name>/<version>/template.toml` under the snapshot,
+    /// grouped by name and sorted by descending version.
+    #[must_use]
+    pub fn catalog(&self) -> BTreeMap<String, Vec<String>> {
+        let mut out: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let Ok(entries) = fs::read_dir(&self.root) else {
+            return out;
+        };
+        for entry in entries.flatten() {
+            if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                continue;
+            }
+            let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+                continue;
+            };
+            if name == SHARED_DOC_DIR {
+                continue;
+            }
+            let mut versions: Vec<String> = fs::read_dir(entry.path())
+                .ok()
+                .into_iter()
+                .flatten()
+                .flatten()
+                .filter(|e| {
+                    e.file_type().map(|t| t.is_dir()).unwrap_or(false)
+                        && e.path().join(MANIFEST_FILENAME).is_file()
+                })
+                .filter_map(|e| e.file_name().to_str().map(str::to_owned))
+                .collect();
+            if versions.is_empty() {
+                continue;
+            }
+            versions.sort_by(|a, b| version_cmp(b, a));
+            out.insert(name, versions);
+        }
+        out
+    }
+}
+
+/// Install `<name>[@<version>]` from a `RepoSnapshot` into
+/// `dest_root/<name>/<version>/`.
 ///
 /// When `version` is `None`, picks the highest-sorting version directory
 /// (matching the precedence used by `template_meta_global::find_template`).
-pub fn install_template(
+/// If the repo has a top-level `doc/` and the chosen template does NOT
+/// ship its own `<name>/<version>/doc/`, the shared bundle is copied into
+/// `dest_dir/doc/`.
+pub fn install_from_snapshot(
+    snapshot: &RepoSnapshot,
     name: &str,
     version: Option<&str>,
-    spec: &RepoSpec,
     dest_root: &Path,
     force: bool,
 ) -> Result<InstalledTemplate, ErrorEnvelope> {
-    let tmp = tempfile::tempdir().map_err(|e| io_error("create tempdir", e))?;
-    let extract_dir = tmp.path().join("extracted");
-    fs::create_dir_all(&extract_dir).map_err(|e| io_error("create extract dir", e))?;
-
-    let url = spec.tarball_url();
-    download_and_extract(&url, &extract_dir)?;
-
-    let root_dir = single_child_dir(&extract_dir).ok_or_else(|| {
-        network_error(format!("tarball from {url} has unexpected layout"))
-    })?;
-    let template_dir = root_dir.join(name);
+    let template_dir = snapshot.root.join(name);
     if !template_dir.is_dir() {
-        return Err(template_not_in_repo(name, spec));
+        return Err(template_not_in_repo(name, &snapshot.spec));
     }
 
     let src_version = match version {
         Some(v) => {
             let p = template_dir.join(v);
             if !p.join(MANIFEST_FILENAME).is_file() {
-                return Err(version_not_in_repo(name, v, spec));
+                return Err(version_not_in_repo(name, v, &snapshot.spec));
             }
             v.to_string()
         }
         None => pick_highest_version(&template_dir)
-            .ok_or_else(|| no_version_in_repo(name, spec))?,
+            .ok_or_else(|| no_version_in_repo(name, &snapshot.spec))?,
     };
     let src = template_dir.join(&src_version);
 
@@ -165,6 +238,16 @@ pub fn install_template(
         .map_err(|e| io_error(format!("create {}", parent.display()), e))?;
     copy_dir_all(&src, &dest_dir)
         .map_err(|e| io_error(format!("copy into {}", dest_dir.display()), e))?;
+
+    // Layer the shared doc/ bundle only if the template author didn't ship
+    // their own. Per the install contract this is a clean "override or use",
+    // not a per-file merge.
+    let template_doc = src.join(SHARED_DOC_DIR);
+    let shared_doc = snapshot.root.join(SHARED_DOC_DIR);
+    if !template_doc.is_dir() && shared_doc.is_dir() {
+        copy_dir_all(&shared_doc, &dest_dir.join(SHARED_DOC_DIR))
+            .map_err(|e| io_error(format!("copy shared {SHARED_DOC_DIR}/"), e))?;
+    }
 
     Ok(InstalledTemplate {
         name: installed_name,
@@ -384,6 +467,99 @@ mod tests {
         assert!(RepoSpec::parse("justone").is_err());
         assert!(RepoSpec::parse("a/b/c").is_err());
         assert!(RepoSpec::parse("foo/bar@").is_err());
+    }
+
+    fn write_manifest(dir: &Path, body: &str) {
+        fs::create_dir_all(dir).expect("mkdir");
+        fs::write(dir.join(MANIFEST_FILENAME), body).expect("write");
+    }
+
+    fn snapshot_from(root: PathBuf) -> RepoSnapshot {
+        // Construct without going through fetch(); we only need .root + .spec
+        // for catalog/install tests.
+        let tmp = tempfile::tempdir().expect("tmp");
+        RepoSnapshot {
+            _tmp: tmp,
+            root,
+            spec: RepoSpec::parse("ttTennessee/crud-templates").expect("ok"),
+        }
+    }
+
+    #[test]
+    fn catalog_groups_versions_and_filters_shared_doc() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let root = tmp.path().to_path_buf();
+        write_manifest(
+            &root.join("ruoyi").join("1.0.0"),
+            "backend = \"java\"\nfrontend = \"vue\"\n",
+        );
+        write_manifest(
+            &root.join("ruoyi").join("1.10.0"),
+            "backend = \"java\"\nfrontend = \"vue\"\n",
+        );
+        write_manifest(
+            &root.join("eladmin").join("2.0.0"),
+            "backend = \"java\"\nfrontend = \"vue\"\n",
+        );
+        // shared doc/ at repo root must NOT appear as a template name.
+        fs::create_dir_all(root.join("doc")).expect("mkdir");
+        fs::write(root.join("doc").join("controller.md.hbs"), "x").expect("write");
+
+        let snap = snapshot_from(root);
+        let cat = snap.catalog();
+        assert_eq!(cat.len(), 2);
+        assert_eq!(cat["ruoyi"], vec!["1.10.0", "1.0.0"]);
+        assert_eq!(cat["eladmin"], vec!["2.0.0"]);
+        assert!(!cat.contains_key("doc"));
+    }
+
+    #[test]
+    fn install_layers_shared_doc_when_template_omits_it() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let root = tmp.path().join("repo");
+        write_manifest(
+            &root.join("ruoyi").join("1.0.0"),
+            "backend = \"java\"\nfrontend = \"vue\"\n",
+        );
+        fs::write(
+            root.join("ruoyi").join("1.0.0").join("Controller.java.hbs"),
+            "",
+        )
+        .expect("write");
+        fs::create_dir_all(root.join("doc")).expect("mkdir");
+        fs::write(root.join("doc").join("api.md.hbs"), "api").expect("write");
+
+        let snap = snapshot_from(root);
+        let dest = tmp.path().join("home");
+        let installed =
+            install_from_snapshot(&snap, "ruoyi", None, &dest, false).expect("install");
+        assert_eq!(installed.name, "ruoyi");
+        assert!(installed.path.join("doc").join("api.md.hbs").is_file());
+    }
+
+    #[test]
+    fn install_skips_shared_doc_when_template_has_its_own() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let root = tmp.path().join("repo");
+        write_manifest(
+            &root.join("ruoyi").join("1.0.0"),
+            "backend = \"java\"\nfrontend = \"vue\"\n",
+        );
+        fs::create_dir_all(root.join("ruoyi").join("1.0.0").join("doc")).expect("mkdir");
+        fs::write(
+            root.join("ruoyi").join("1.0.0").join("doc").join("custom.md.hbs"),
+            "custom",
+        )
+        .expect("write");
+        fs::create_dir_all(root.join("doc")).expect("mkdir");
+        fs::write(root.join("doc").join("global.md.hbs"), "global").expect("write");
+
+        let snap = snapshot_from(root);
+        let dest = tmp.path().join("home");
+        let installed =
+            install_from_snapshot(&snap, "ruoyi", None, &dest, false).expect("install");
+        assert!(installed.path.join("doc").join("custom.md.hbs").is_file());
+        assert!(!installed.path.join("doc").join("global.md.hbs").exists());
     }
 
     #[test]

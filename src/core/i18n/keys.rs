@@ -44,6 +44,11 @@ pub const TEMPLATE_LIST_EMPTY: &str = "template.list.empty";
 pub const TEMPLATE_LIST_ENTRY: &str = "template.list.entry";
 pub const TEMPLATE_INSTALL_STARTING: &str = "template.install.starting";
 pub const TEMPLATE_INSTALL_DONE: &str = "template.install.done";
+pub const TEMPLATE_INSTALL_PROMPT_FETCH: &str = "template.install.prompt_fetch";
+pub const TEMPLATE_INSTALL_PROMPT_NAME: &str = "template.install.prompt_name";
+pub const TEMPLATE_INSTALL_PROMPT_VERSION: &str = "template.install.prompt_version";
+pub const ERROR_TEMPLATE_INSTALL_NEEDS_TTY: &str = "error.template.install_needs_tty";
+pub const ERROR_TEMPLATE_INSTALL_REPO_EMPTY: &str = "error.template.install_repo_empty";
 pub const ERROR_CONFIG_LEGACY_SCHEMA: &str = "error.config.legacy_schema";
 
 // ── gen / validate success lines (human-only) ───────────────────────────────
@@ -159,6 +164,11 @@ pub const ALL_KEYS: &[&str] = &[
     TEMPLATE_LIST_ENTRY,
     TEMPLATE_INSTALL_STARTING,
     TEMPLATE_INSTALL_DONE,
+    TEMPLATE_INSTALL_PROMPT_FETCH,
+    TEMPLATE_INSTALL_PROMPT_NAME,
+    TEMPLATE_INSTALL_PROMPT_VERSION,
+    ERROR_TEMPLATE_INSTALL_NEEDS_TTY,
+    ERROR_TEMPLATE_INSTALL_REPO_EMPTY,
     ERROR_CONFIG_LEGACY_SCHEMA,
     GEN_SUCCESS_WRITTEN,
     GEN_SUCCESS_DRY_RUN,
