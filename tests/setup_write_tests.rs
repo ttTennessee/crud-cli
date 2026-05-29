@@ -27,11 +27,9 @@ fn project_setup_args(dir: &std::path::Path, extra: &[&str]) -> Command {
         "setup",
         "--project",
         "--backend",
-        "spring-boot",
+        "java",
         "--frontend",
         "vue",
-        "--component-library",
-        "element-plus",
     ]);
     cmd.args(extra);
     cmd
@@ -118,8 +116,8 @@ fn project_setup_writes_config_successfully() {
     );
     let content = fs::read_to_string(&path).unwrap();
     assert!(content.contains("[project]"));
-    assert!(content.contains("spring-boot"));
-    assert!(content.contains("[paths]"));
+    assert!(content.contains("backend = \"java\""));
+    assert!(content.contains("[paths.lang]"));
 }
 
 #[test]
@@ -187,8 +185,6 @@ fn agent_success_stdout_empty_via_project_setup() {
             "--backend",
             "none",
             "--frontend",
-            "none",
-            "--component-library",
             "none",
         ])
         .output()

@@ -19,15 +19,17 @@ pub struct TemplateEntry {
 }
 
 /**
- * Walks `project_root/.crud/templates/` and returns template entries.
+ * Walks `templates_root` (either project-local `.crud/templates/` or a global
+ * template under `~/.crud/templates/<name>/<version>/`) and returns the
+ * rendered template entries.
  *
  * When `type_filter` is set, keeps templates whose `rel_path` matches a prefix.
  */
 pub fn discover_templates(
-    project_root: &Path,
+    templates_root: &Path,
     type_filter: Option<&[String]>,
 ) -> Result<Vec<TemplateEntry>, ErrorEnvelope> {
-    let root = project_root.join(".crud/templates");
+    let root = templates_root.to_path_buf();
     if !root.is_dir() {
         return Err(no_templates_found(&root));
     }
@@ -56,6 +58,11 @@ pub fn discover_templates(
             continue;
         }
         if rel.file_name().is_some_and(|n| n == TYPE_MAP_FILE_NAME) {
+            continue;
+        }
+        if rel.file_name().is_some_and(|n| n == "template.toml")
+            && rel.parent().map(|p| p.as_os_str().is_empty()).unwrap_or(true)
+        {
             continue;
         }
         entries.push(TemplateEntry {

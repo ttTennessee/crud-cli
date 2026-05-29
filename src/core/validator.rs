@@ -7,7 +7,7 @@ use handlebars::template::{HelperTemplate, Parameter, TemplateElement};
 use handlebars::{Path as HbPath, PathSeg, Template, TemplateError};
 use serde::Serialize;
 
-use super::config::{Backend, EnabledTypes, Frontend, RuntimeConfig, SetupConfig};
+use super::config::{EnabledTypes, RuntimeConfig, SetupConfig};
 use super::paths::{project_setup_toml, project_setup_user_toml};
 use super::error::ErrorEnvelope;
 use super::i18n::{self, keys};
@@ -117,8 +117,17 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
         .type_filter
         .clone()
         .or_else(|| implicit_type_prefixes(setup, runtime.enabled_types()));
+    let templates_root = if let Some(tref) = &setup.project.template {
+        crate::core::template_meta_global::find_template(
+            &tref.name,
+            tref.version.as_deref(),
+        )?
+        .path
+    } else {
+        cwd.join(".crud/templates")
+    };
     let entries =
-        template_loader::discover_templates(&cwd, implicit_filter.as_deref())?;
+        template_loader::discover_templates(&templates_root, implicit_filter.as_deref())?;
     let templates_checked = entries.len();
 
     let mut base_allow = build_base_allow_set(setup);
@@ -237,21 +246,28 @@ fn normalize_rel_path(rel: &Path) -> String {
 }
 
 fn implicit_type_prefixes(project: &SetupConfig, enabled: EnabledTypes) -> Option<Vec<String>> {
-    let backend_prefixes: &[&str] = match project.project.backend {
-        Backend::SpringBoot => &["java", "resources", "doc"],
-        Backend::Nest => &["nest", "doc"],
-        Backend::None => &[],
-    };
-    let frontend_prefixes: &[&str] = match project.project.frontend {
-        Frontend::Vue => &["vue"],
-        Frontend::React => &["react"],
-        Frontend::None => &[],
-    };
-    let prefixes: Vec<String> = match enabled {
+    let aux_keys: Vec<String> = project.paths.aux.keys().cloned().collect();
+    let mut prefixes: Vec<String> = match enabled {
         EnabledTypes::All => return None,
-        EnabledTypes::Backend => backend_prefixes.iter().map(|s| (*s).to_string()).collect(),
-        EnabledTypes::Frontend => frontend_prefixes.iter().map(|s| (*s).to_string()).collect(),
+        EnabledTypes::Backend => {
+            let mut v: Vec<String> = if project.project.backend.is_none() {
+                Vec::new()
+            } else {
+                vec![project.project.backend.as_key().to_string()]
+            };
+            v.extend(aux_keys);
+            v
+        }
+        EnabledTypes::Frontend => {
+            if project.project.frontend.is_none() {
+                Vec::new()
+            } else {
+                vec![project.project.frontend.as_key().to_string()]
+            }
+        }
     };
+    prefixes.sort();
+    prefixes.dedup();
     if prefixes.is_empty() {
         None
     } else {

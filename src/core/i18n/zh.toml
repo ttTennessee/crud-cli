@@ -18,6 +18,24 @@ customize = "自定义路径？"
 none = "当前技术栈没有框架路径键"
 defaults = "默认值：{summary}"
 
+[wizard.template]
+detected_header = "检测到已安装的模板："
+manual_option = "不选择，手动设置语言"
+no_templates = "未检测到 ~/.crud/templates/ 下的已安装模板。"
+choose_backend = "后端语言"
+choose_frontend = "前端框架"
+custom_input = "自定义输入..."
+invalid_lang_name = "语言标识必须匹配 [a-z0-9][a-z0-9-]*"
+
+[template.use]
+confirm = "{name} 使用的是 {b}+{f}，当前项目配置为 {cb}+{cf}。切换模板将更新项目配置，继续？"
+applied = "已切换模板：{name}@{version}（{path}）"
+missing_setup = "请先运行 `crud-cli setup --project`"
+
+[template.list]
+empty = "~/.crud/templates/ 下没有已安装的模板。"
+entry = "{name}@{version}  ({backend} + {frontend}) {description}"
+
 [wizard.typemap]
 passthrough = "passthrough（未映射类型保持原样）"
 error = "error（遇到未映射类型则中止渲染）"
@@ -105,6 +123,7 @@ exists_non_interactive = "使用 --force 覆盖，或以交互方式运行 setup
 
 [error.config]
 reserved_variable = "重命名该变量；保留名：model、table、package、package_path、fields、model_*"
+legacy_schema = "该 setup.toml 仍使用旧版基于框架名的结构；请运行 `crud-cli setup --project --force` 迁移到基于语言的新结构"
 
 [error.variable]
 shadows_builtin = "在 setup.toml [variables] 中删除或重命名该变量"

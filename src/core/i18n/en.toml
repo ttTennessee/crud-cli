@@ -18,6 +18,24 @@ customize = "Customize paths?"
 none = "No framework path keys for this stack"
 defaults = "Defaults: {summary}"
 
+[wizard.template]
+detected_header = "Installed templates:"
+manual_option = "Skip template — choose languages manually"
+no_templates = "No installed templates found under ~/.crud/templates/."
+choose_backend = "backend"
+choose_frontend = "frontend"
+custom_input = "Custom input..."
+invalid_lang_name = "language id must be [a-z0-9][a-z0-9-]*"
+
+[template.use]
+confirm = "{name} uses {b}+{f}; current project is {cb}+{cf}. Switch template and update setup.toml?"
+applied = "Template applied: {name}@{version} ({path})"
+missing_setup = "Run `crud-cli setup --project` first"
+
+[template.list]
+empty = "No installed templates under ~/.crud/templates/."
+entry = "{name}@{version}  ({backend} + {frontend}) {description}"
+
 [wizard.typemap]
 passthrough = "passthrough (keep unmapped types as-is)"
 error = "error (abort render on unmapped types)"
@@ -105,6 +123,7 @@ exists_non_interactive = "pass --force to overwrite, or run setup interactively"
 
 [error.config]
 reserved_variable = "rename the variable; reserved: model, table, package, package_path, fields, model_*"
+legacy_schema = "this setup.toml uses the old framework-based schema; rerun `crud-cli setup --project --force` to migrate to the language-based schema"
 
 [error.variable]
 shadows_builtin = "remove or rename the variable in setup.toml [variables]"

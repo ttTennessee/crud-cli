@@ -27,7 +27,7 @@ fn seed_setup(root: &std::path::Path) {
 [project]
 backend = "none"
 frontend = "none"
-component-library = "none"
+
 
 [paths]
 

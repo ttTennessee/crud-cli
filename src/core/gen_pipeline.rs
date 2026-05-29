@@ -5,7 +5,7 @@ use std::path::{Component, Path, PathBuf};
 use serde_json::Value;
 
 use crate::core::config::{
-    Backend, EnabledTypes, Frontend, OutputsSection, OverwritePolicy, RuntimeConfig, SetupConfig,
+    EnabledTypes, OutputsSection, OverwritePolicy, RuntimeConfig, SetupConfig,
 };
 use crate::core::paths::{project_setup_toml, project_setup_user_toml};
 use crate::core::gen_run::GenRunParams;
@@ -128,61 +128,41 @@ fn layer3_rendered_rel(
     }
 }
 
-fn rebase_framework_prefix(rel: &str, setup: &SetupConfig) -> Option<String> {
-    for (prefix, base) in [
-        ("java/", setup.paths.java_base.as_deref()),
-        ("resources/", setup.paths.resources_base.as_deref()),
-        ("doc/", setup.paths.doc_base.as_deref()),
-        ("vue/", setup.paths.vue_base.as_deref()),
-        ("react/", setup.paths.react_base.as_deref()),
-        ("nest/", setup.paths.nest_base.as_deref()),
-    ] {
-        let bare = prefix.trim_end_matches('/');
-        if rel == bare {
-            return base.map(|b| b.to_string());
-        }
-        if rel.starts_with(prefix) {
-            if let Some(b) = base {
-                return Some(join_base_strip_prefix(b, rel, prefix));
-            }
-            return None;
-        }
+/// Returns the directory `gen` should walk for `.hbs` templates. When the
+/// project pins a global template, resolve to `~/.crud/templates/<n>/<v>/`;
+/// otherwise fall back to project-local `.crud/templates/`.
+fn resolve_templates_root(cwd: &Path, setup: &SetupConfig) -> Result<PathBuf, ErrorEnvelope> {
+    if let Some(tref) = &setup.project.template {
+        let installed = crate::core::template_meta_global::find_template(
+            &tref.name,
+            tref.version.as_deref(),
+        )?;
+        return Ok(installed.path);
     }
-    None
+    Ok(cwd.join(".crud/templates"))
+}
+
+fn rebase_framework_prefix(rel: &str, setup: &SetupConfig) -> Option<String> {
+    let (head, tail) = match rel.split_once('/') {
+        Some((h, t)) => (h, Some(t)),
+        None => (rel, None),
+    };
+    let base = setup.paths.lookup(head)?;
+    Some(match tail {
+        None => base.to_string(),
+        Some(rest) if rest.is_empty() => base.to_string(),
+        Some(rest) => format!("{base}/{rest}"),
+    })
 }
 
 fn framework_layer3_rel(setup: &SetupConfig, mirror_rel: &str) -> Option<String> {
-    if mirror_rel.starts_with("java/") {
-        if let Some(base) = setup.paths.java_base.as_deref() {
-            return Some(join_base_strip_prefix(base, mirror_rel, "java/"));
-        }
-    }
-    if mirror_rel.starts_with("resources/") {
-        if let Some(base) = setup.paths.resources_base.as_deref() {
-            return Some(join_base_strip_prefix(base, mirror_rel, "resources/"));
-        }
-    }
-    if mirror_rel.starts_with("doc/") {
-        if let Some(base) = setup.paths.doc_base.as_deref() {
-            return Some(join_base_strip_prefix(base, mirror_rel, "doc/"));
-        }
-    }
-    if mirror_rel.starts_with("vue/") {
-        if let Some(base) = setup.paths.vue_base.as_deref() {
-            return Some(join_base_strip_prefix(base, mirror_rel, "vue/"));
-        }
-    }
-    if mirror_rel.starts_with("react/") {
-        if let Some(base) = setup.paths.react_base.as_deref() {
-            return Some(join_base_strip_prefix(base, mirror_rel, "react/"));
-        }
-    }
-    if mirror_rel.starts_with("nest/") {
-        if let Some(base) = setup.paths.nest_base.as_deref() {
-            return Some(join_base_strip_prefix(base, mirror_rel, "nest/"));
-        }
-    }
-    None
+    let (head, _) = mirror_rel.split_once('/')?;
+    let base = setup.paths.lookup(head)?;
+    Some(join_base_strip_prefix(
+        base,
+        mirror_rel,
+        &format!("{head}/"),
+    ))
 }
 
 fn join_base_strip_prefix(base: &str, rel: &str, prefix: &str) -> String {
@@ -257,21 +237,30 @@ fn effective_policy(meta: &TemplateMeta, overwrite: OverwritePolicy) -> Overwrit
 
 /// Implicit `--type` prefixes derived from user.enabled-types and project stacks.
 fn implicit_type_prefixes(project: &SetupConfig, enabled: EnabledTypes) -> Option<Vec<String>> {
-    let backend_prefixes: &[&str] = match project.project.backend {
-        Backend::SpringBoot => &["java", "resources", "doc"],
-        Backend::Nest => &["nest", "doc"],
-        Backend::None => &[],
-    };
-    let frontend_prefixes: &[&str] = match project.project.frontend {
-        Frontend::Vue => &["vue"],
-        Frontend::React => &["react"],
-        Frontend::None => &[],
-    };
-    let prefixes: Vec<String> = match enabled {
+    let backend_key = project.project.backend.as_key();
+    let frontend_key = project.project.frontend.as_key();
+    let aux_keys: Vec<String> = project.paths.aux.keys().cloned().collect();
+    let mut prefixes: Vec<String> = match enabled {
         EnabledTypes::All => return None,
-        EnabledTypes::Backend => backend_prefixes.iter().map(|s| (*s).to_string()).collect(),
-        EnabledTypes::Frontend => frontend_prefixes.iter().map(|s| (*s).to_string()).collect(),
+        EnabledTypes::Backend => {
+            let mut v: Vec<String> = if project.project.backend.is_none() {
+                Vec::new()
+            } else {
+                vec![backend_key.to_string()]
+            };
+            v.extend(aux_keys);
+            v
+        }
+        EnabledTypes::Frontend => {
+            if project.project.frontend.is_none() {
+                Vec::new()
+            } else {
+                vec![frontend_key.to_string()]
+            }
+        }
     };
+    prefixes.sort();
+    prefixes.dedup();
     if prefixes.is_empty() {
         None
     } else {
@@ -379,10 +368,9 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
         .type_filter
         .clone()
         .or_else(|| implicit_type_prefixes(setup, runtime.enabled_types()));
+    let templates_root = resolve_templates_root(&cwd, setup)?;
     let entries =
-        template_loader::discover_templates(&cwd, implicit_filter.as_deref())?;
-
-    let templates_root = cwd.join(".crud/templates");
+        template_loader::discover_templates(&templates_root, implicit_filter.as_deref())?;
     let fallback = setup.type_map.fallback.clone();
     let mut bundle_cache: BTreeMap<String, Option<Arc<BTreeMap<String, String>>>> = BTreeMap::new();
 

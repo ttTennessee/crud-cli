@@ -1,4 +1,4 @@
-//! Interactive `setup` wizards: project and user (CONF-01).
+//! Interactive `setup` wizards: project and user.
 
 use std::io::IsTerminal;
 
@@ -6,26 +6,22 @@ use inquire::error::InquireError;
 use inquire::{Confirm, Select, Text};
 
 use crate::core::config::{
-    EnabledTypes, PathsSection, SetupConfig, SetupSelections, SetupUserConfig, UserSelections,
+    is_valid_lang_id, Backend, EnabledTypes, Frontend, PathsSection, SetupConfig, SetupSelections,
+    SetupUserConfig, TemplateRef, UserSelections,
 };
+use crate::core::default_paths::paths_for_selections;
 use crate::core::error::ErrorEnvelope;
 use crate::core::git_info;
 use crate::core::global_config::{lang_env_override, GlobalConfig};
 use crate::core::i18n::{self, keys, Lang};
 use crate::core::paths::global_config_toml;
+use crate::core::template_meta_global::{list_installed_templates, InstalledTemplate};
 use crate::core::type_map::Fallback;
 
 use super::agent_mode::is_agent_active;
-use super::args::{
-    SetupBackend, SetupComponentLibrary, SetupEnabledTypes, SetupFrontend, SetupOverwritePolicy,
-};
+use super::args::{SetupEnabledTypes, SetupOverwritePolicy};
 
 /// Ensures a UI language preference exists before running a wizard (first-run).
-///
-/// Resolution: agent / non-interactive → no prompt (locale already resolved by
-/// [`crate::cli::init_locale`]); `CRUD_LANG` set → honor it without persisting;
-/// stored preference → apply it; otherwise prompt the user once and persist the
-/// choice to `~/.crud/config.toml`.
 pub fn ensure_language_preference() {
     if is_agent_active() || !std::io::stdin().is_terminal() {
         return;
@@ -45,16 +41,13 @@ pub fn ensure_language_preference() {
     }
     let lang = match prompt_language() {
         Ok(l) => l,
-        // Cancelled selection: keep the default locale, do not persist.
         Err(_) => return,
     };
     i18n::set(lang);
     cfg.set_lang(lang);
-    // Best-effort persistence; a write failure must not block setup.
     let _ = cfg.save(&path);
 }
 
-/// Prompts for a UI language. Labels stay language-neutral on purpose.
 pub fn prompt_language() -> Result<Lang, ErrorEnvelope> {
     const EN_LABEL: &str = "English";
     const ZH_LABEL: &str = "中文";
@@ -68,7 +61,7 @@ pub fn prompt_language() -> Result<Lang, ErrorEnvelope> {
     })
 }
 
-/// Runs the project wizard and returns the canonical project config .
+/// Runs the project wizard and returns the canonical project config.
 pub fn run_project_wizard() -> Result<SetupConfig, ErrorEnvelope> {
     let selections = collect_project_selections()?;
     let mut cfg = SetupConfig::from_selections(selections);
@@ -83,21 +76,7 @@ pub fn run_user_wizard() -> Result<SetupUserConfig, ErrorEnvelope> {
     Ok(SetupUserConfig::from_user_selections(selections))
 }
 
-/// Test-friendly mapping of project wizard answers.
-#[must_use]
-pub fn selections_from_answers(
-    backend: SetupBackend,
-    frontend: SetupFrontend,
-    component_library: SetupComponentLibrary,
-) -> SetupSelections {
-    SetupSelections {
-        backend: backend.into(),
-        frontend: frontend.into(),
-        component_library: component_library.into(),
-    }
-}
-
-/// Test-friendly mapping of user wizard answers.
+/// Test-friendly mapping of user wizard answers (kept for legacy test code).
 #[must_use]
 pub fn user_selections_from_answers(
     name: String,
@@ -114,10 +93,27 @@ pub fn user_selections_from_answers(
 }
 
 fn collect_project_selections() -> Result<SetupSelections, ErrorEnvelope> {
+    let installed = list_installed_templates();
+    if let Some(picked) = prompt_template_choice(&installed)? {
+        let backend = picked.manifest.backend.clone();
+        let frontend = picked.manifest.frontend.clone();
+        let template = Some(TemplateRef {
+            name: picked.name.clone(),
+            version: Some(picked.version.clone()),
+        });
+        return Ok(SetupSelections {
+            backend,
+            frontend,
+            template,
+        });
+    }
     let backend = prompt_backend()?;
     let frontend = prompt_frontend()?;
-    let component_library = prompt_component_library()?;
-    Ok(selections_from_answers(backend, frontend, component_library))
+    Ok(SetupSelections {
+        backend,
+        frontend,
+        template: None,
+    })
 }
 
 fn collect_user_selections() -> Result<UserSelections, ErrorEnvelope> {
@@ -134,41 +130,98 @@ fn collect_user_selections() -> Result<UserSelections, ErrorEnvelope> {
     ))
 }
 
-fn prompt_backend() -> Result<SetupBackend, ErrorEnvelope> {
+/// Presents installed templates plus a "manual" option. Returns `None` when
+/// the user picks "manual" or no templates are installed.
+fn prompt_template_choice(
+    installed: &[InstalledTemplate],
+) -> Result<Option<InstalledTemplate>, ErrorEnvelope> {
+    if installed.is_empty() {
+        println!("{}", i18n::t(keys::WIZARD_TEMPLATE_NO_TEMPLATES));
+        return Ok(None);
+    }
+    let manual_label = i18n::t(keys::WIZARD_TEMPLATE_MANUAL_OPTION).to_string();
+    let mut labels: Vec<String> = installed
+        .iter()
+        .map(|t| {
+            format!(
+                "{name}@{ver}  ({backend} + {frontend})",
+                name = t.name,
+                ver = t.version,
+                backend = t.manifest.backend.as_key(),
+                frontend = t.manifest.frontend.as_key()
+            )
+        })
+        .collect();
+    labels.push(manual_label.clone());
+
+    let header = i18n::t(keys::WIZARD_TEMPLATE_DETECTED_HEADER);
+    println!("{header}");
+    let choice = Select::new("template", labels.clone())
+        .prompt()
+        .map_err(inquire_to_user_error)?;
+    if choice == manual_label {
+        return Ok(None);
+    }
+    let idx = labels
+        .iter()
+        .position(|l| *l == choice)
+        .ok_or_else(invalid_selection)?;
+    Ok(installed.get(idx).cloned())
+}
+
+fn prompt_backend() -> Result<Backend, ErrorEnvelope> {
+    let custom = i18n::t(keys::WIZARD_TEMPLATE_CUSTOM_INPUT).to_string();
     let options = [
-        SetupBackend::SpringBoot,
-        SetupBackend::Nest,
-        SetupBackend::None,
+        ("java", Backend::Java),
+        ("typescript", Backend::TypeScript),
+        ("go", Backend::Go),
+        ("python", Backend::Python),
+        ("none", Backend::None),
     ];
-    let labels: Vec<&str> = options.iter().map(|o| backend_label(*o)).collect();
-    let choice = Select::new("backend", labels.clone())
+    let mut labels: Vec<String> = options.iter().map(|(l, _)| (*l).to_string()).collect();
+    labels.push(custom.clone());
+    let choice = Select::new(i18n::t(keys::WIZARD_TEMPLATE_CHOOSE_BACKEND), labels.clone())
         .with_help_message(i18n::t(keys::WIZARD_HELP_BACKEND))
         .prompt()
         .map_err(inquire_to_user_error)?;
-    Ok(options[label_index(&choice, &labels)?])
+    if choice == custom {
+        let raw = Text::new("backend")
+            .with_validator(non_empty_validator())
+            .prompt()
+            .map_err(inquire_to_user_error)?;
+        return Backend::parse(raw.trim()).map_err(|_| invalid_lang_name(raw.trim()));
+    }
+    let idx = labels
+        .iter()
+        .position(|l| *l == choice)
+        .ok_or_else(invalid_selection)?;
+    Ok(options[idx].1.clone())
 }
 
-fn prompt_frontend() -> Result<SetupFrontend, ErrorEnvelope> {
-    let options = [SetupFrontend::Vue, SetupFrontend::React, SetupFrontend::None];
-    let labels: Vec<&str> = options.iter().map(|o| frontend_label(*o)).collect();
-    let choice = Select::new("frontend", labels.clone())
-        .prompt()
-        .map_err(inquire_to_user_error)?;
-    Ok(options[label_index(&choice, &labels)?])
-}
-
-fn prompt_component_library() -> Result<SetupComponentLibrary, ErrorEnvelope> {
+fn prompt_frontend() -> Result<Frontend, ErrorEnvelope> {
+    let custom = i18n::t(keys::WIZARD_TEMPLATE_CUSTOM_INPUT).to_string();
     let options = [
-        SetupComponentLibrary::ElementPlus,
-        SetupComponentLibrary::Antd,
-        SetupComponentLibrary::NaiveUi,
-        SetupComponentLibrary::None,
+        ("vue", Frontend::Vue),
+        ("react", Frontend::React),
+        ("none", Frontend::None),
     ];
-    let labels: Vec<&str> = options.iter().map(|o| component_library_label(*o)).collect();
-    let choice = Select::new("component-library", labels.clone())
+    let mut labels: Vec<String> = options.iter().map(|(l, _)| (*l).to_string()).collect();
+    labels.push(custom.clone());
+    let choice = Select::new(i18n::t(keys::WIZARD_TEMPLATE_CHOOSE_FRONTEND), labels.clone())
         .prompt()
         .map_err(inquire_to_user_error)?;
-    Ok(options[label_index(&choice, &labels)?])
+    if choice == custom {
+        let raw = Text::new("frontend")
+            .with_validator(non_empty_validator())
+            .prompt()
+            .map_err(inquire_to_user_error)?;
+        return Frontend::parse(raw.trim()).map_err(|_| invalid_lang_name(raw.trim()));
+    }
+    let idx = labels
+        .iter()
+        .position(|l| *l == choice)
+        .ok_or_else(invalid_selection)?;
+    Ok(options[idx].1.clone())
 }
 
 fn prompt_overwrite_policy() -> Result<SetupOverwritePolicy, ErrorEnvelope> {
@@ -237,6 +290,26 @@ fn label_index(choice: &str, labels: &[&str]) -> Result<usize, ErrorEnvelope> {
     })
 }
 
+fn invalid_selection() -> ErrorEnvelope {
+    ErrorEnvelope::user_error(
+        i18n::t(keys::WIZARD_INVALID_SELECTION_MSG),
+        None,
+        None,
+        i18n::t(keys::WIZARD_INVALID_SELECTION_HINT),
+    )
+}
+
+fn invalid_lang_name(value: &str) -> ErrorEnvelope {
+    let mut details = serde_json::Map::new();
+    details.insert("value".into(), serde_json::Value::String(value.to_string()));
+    ErrorEnvelope::user_error_with_reason(
+        format!("invalid language identifier: {value:?}"),
+        "invalid_lang_id",
+        details,
+        i18n::t(keys::WIZARD_TEMPLATE_INVALID_LANG_NAME),
+    )
+}
+
 fn inquire_to_user_error(err: InquireError) -> ErrorEnvelope {
     let (msg, value) = match &err {
         InquireError::OperationCanceled | InquireError::OperationInterrupted => {
@@ -250,31 +323,6 @@ fn inquire_to_user_error(err: InquireError) -> ErrorEnvelope {
         value.as_deref(),
         i18n::t(keys::WIZARD_CANCELLED_HINT),
     )
-}
-
-fn backend_label(b: SetupBackend) -> &'static str {
-    match b {
-        SetupBackend::SpringBoot => "spring-boot",
-        SetupBackend::Nest => "nest",
-        SetupBackend::None => "none",
-    }
-}
-
-fn frontend_label(f: SetupFrontend) -> &'static str {
-    match f {
-        SetupFrontend::Vue => "vue",
-        SetupFrontend::React => "react",
-        SetupFrontend::None => "none",
-    }
-}
-
-fn component_library_label(c: SetupComponentLibrary) -> &'static str {
-    match c {
-        SetupComponentLibrary::ElementPlus => "element-plus",
-        SetupComponentLibrary::Antd => "antd",
-        SetupComponentLibrary::NaiveUi => "naive-ui",
-        SetupComponentLibrary::None => "none",
-    }
 }
 
 fn overwrite_policy_label(p: SetupOverwritePolicy) -> &'static str {
@@ -309,12 +357,26 @@ fn prompt_paths(defaults: PathsSection) -> Result<PathsSection, ErrorEnvelope> {
         return Ok(defaults);
     }
     let mut paths = defaults;
-    paths.java_base = prompt_optional_path("paths.java_base", paths.java_base)?;
-    paths.resources_base = prompt_optional_path("paths.resources_base", paths.resources_base)?;
-    paths.doc_base = prompt_optional_path("paths.doc_base", paths.doc_base)?;
-    paths.nest_base = prompt_optional_path("paths.nest_base", paths.nest_base)?;
-    paths.vue_base = prompt_optional_path("paths.vue_base", paths.vue_base)?;
-    paths.react_base = prompt_optional_path("paths.react_base", paths.react_base)?;
+    let lang_keys: Vec<String> = paths.lang.keys().cloned().collect();
+    for key in lang_keys {
+        let label = format!("paths.lang.{key}");
+        let current = paths.lang.get(&key).cloned();
+        if let Some(new_value) = prompt_optional_path(&label, current)? {
+            paths.lang.insert(key, new_value);
+        } else {
+            paths.lang.remove(&key);
+        }
+    }
+    let aux_keys: Vec<String> = paths.aux.keys().cloned().collect();
+    for key in aux_keys {
+        let label = format!("paths.aux.{key}");
+        let current = paths.aux.get(&key).cloned();
+        if let Some(new_value) = prompt_optional_path(&label, current)? {
+            paths.aux.insert(key, new_value);
+        } else {
+            paths.aux.remove(&key);
+        }
+    }
     Ok(paths)
 }
 
@@ -338,18 +400,12 @@ fn prompt_optional_path(
 }
 
 fn summarize_paths(p: &PathsSection) -> String {
-    let mut parts = Vec::new();
-    for (k, v) in [
-        ("java_base", &p.java_base),
-        ("resources_base", &p.resources_base),
-        ("doc_base", &p.doc_base),
-        ("nest_base", &p.nest_base),
-        ("vue_base", &p.vue_base),
-        ("react_base", &p.react_base),
-    ] {
-        if let Some(value) = v {
-            parts.push(format!("{k}={value}"));
-        }
+    let mut parts: Vec<String> = Vec::new();
+    for (k, v) in &p.lang {
+        parts.push(format!("lang.{k}={v}"));
+    }
+    for (k, v) in &p.aux {
+        parts.push(format!("aux.{k}={v}"));
     }
     parts.join(", ")
 }
@@ -385,7 +441,9 @@ fn prompt_type_map_fallback() -> Result<Fallback, ErrorEnvelope> {
     })
 }
 
-// Silence unused-import diagnostics when `EnabledTypes`/`git_info` are only
-// referenced from wizard runtime paths.
+// Touch otherwise unused imports
 #[allow(dead_code)]
-fn _enabled_types_assert(_t: EnabledTypes) {}
+fn _imports_assert(_t: EnabledTypes, _v: bool, _p: PathsSection) {
+    let _ = is_valid_lang_id("x");
+    let _ = paths_for_selections(&Backend::None, &Frontend::None);
+}

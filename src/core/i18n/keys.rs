@@ -29,6 +29,21 @@ pub const WIZARD_CANCELLED_HINT: &str = "wizard.cancelled_hint";
 pub const WIZARD_INVALID_SELECTION_MSG: &str = "wizard.invalid_selection_msg";
 pub const WIZARD_INVALID_SELECTION_HINT: &str = "wizard.invalid_selection_hint";
 
+// ── template wizard / subcommand ────────────────────────────────────────────
+pub const WIZARD_TEMPLATE_DETECTED_HEADER: &str = "wizard.template.detected_header";
+pub const WIZARD_TEMPLATE_MANUAL_OPTION: &str = "wizard.template.manual_option";
+pub const WIZARD_TEMPLATE_NO_TEMPLATES: &str = "wizard.template.no_templates";
+pub const WIZARD_TEMPLATE_CHOOSE_BACKEND: &str = "wizard.template.choose_backend";
+pub const WIZARD_TEMPLATE_CHOOSE_FRONTEND: &str = "wizard.template.choose_frontend";
+pub const WIZARD_TEMPLATE_CUSTOM_INPUT: &str = "wizard.template.custom_input";
+pub const WIZARD_TEMPLATE_INVALID_LANG_NAME: &str = "wizard.template.invalid_lang_name";
+pub const TEMPLATE_USE_CONFIRM: &str = "template.use.confirm";
+pub const TEMPLATE_USE_APPLIED: &str = "template.use.applied";
+pub const TEMPLATE_USE_MISSING_SETUP: &str = "template.use.missing_setup";
+pub const TEMPLATE_LIST_EMPTY: &str = "template.list.empty";
+pub const TEMPLATE_LIST_ENTRY: &str = "template.list.entry";
+pub const ERROR_CONFIG_LEGACY_SCHEMA: &str = "error.config.legacy_schema";
+
 // ── gen / validate success lines (human-only) ───────────────────────────────
 pub const GEN_SUCCESS_WRITTEN: &str = "gen.success.written";
 pub const GEN_SUCCESS_DRY_RUN: &str = "gen.success.dry_run";
@@ -128,6 +143,19 @@ pub const ALL_KEYS: &[&str] = &[
     WIZARD_CANCELLED_HINT,
     WIZARD_INVALID_SELECTION_MSG,
     WIZARD_INVALID_SELECTION_HINT,
+    WIZARD_TEMPLATE_DETECTED_HEADER,
+    WIZARD_TEMPLATE_MANUAL_OPTION,
+    WIZARD_TEMPLATE_NO_TEMPLATES,
+    WIZARD_TEMPLATE_CHOOSE_BACKEND,
+    WIZARD_TEMPLATE_CHOOSE_FRONTEND,
+    WIZARD_TEMPLATE_CUSTOM_INPUT,
+    WIZARD_TEMPLATE_INVALID_LANG_NAME,
+    TEMPLATE_USE_CONFIRM,
+    TEMPLATE_USE_APPLIED,
+    TEMPLATE_USE_MISSING_SETUP,
+    TEMPLATE_LIST_EMPTY,
+    TEMPLATE_LIST_ENTRY,
+    ERROR_CONFIG_LEGACY_SCHEMA,
     GEN_SUCCESS_WRITTEN,
     GEN_SUCCESS_DRY_RUN,
     VALIDATE_SUCCESS,

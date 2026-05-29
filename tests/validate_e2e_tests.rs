@@ -5,7 +5,7 @@ use crud_cli::cli::args::ValidateArgs;
 use crud_cli::cli::commands::validate::run_validate;
 use crud_cli::core::config::SetupConfig;
 use crud_cli::core::config::SetupSelections;
-use crud_cli::core::config::{Backend, ComponentLibrary, Frontend, OverwritePolicy};
+use crud_cli::core::config::{Backend, Frontend, OverwritePolicy};
 use std::fs;
 use std::sync::{Mutex, OnceLock};
 use tempfile::TempDir;
@@ -22,7 +22,7 @@ fn seed_setup(root: &std::path::Path) {
     let cfg = SetupConfig::from_selections(SetupSelections {
         backend: Backend::None,
         frontend: Frontend::None,
-        component_library: ComponentLibrary::None,
+        template: None,
     });
     fs::write(crud.join("setup.toml"), cfg.to_toml_pretty().unwrap()).expect("setup.toml");
 }

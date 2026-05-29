@@ -3,7 +3,7 @@
 
 use crud_cli::core::config::SetupConfig;
 use crud_cli::core::config::SetupSelections;
-use crud_cli::core::config::{Backend, ComponentLibrary, Frontend, OverwritePolicy};
+use crud_cli::core::config::{Backend, Frontend, OverwritePolicy};
 use crud_cli::core::error::Kind;
 use crud_cli::core::gen_pipeline::{resolve_output_path, run};
 use crud_cli::core::gen_run::GenRunParams;
@@ -34,15 +34,15 @@ fn setup_none() -> SetupConfig {
     SetupConfig::from_selections(SetupSelections {
         backend: Backend::None,
         frontend: Frontend::None,
-        component_library: ComponentLibrary::None,
+        template: None,
     })
 }
 
 fn setup_spring_boot() -> SetupConfig {
     SetupConfig::from_selections(SetupSelections {
-        backend: Backend::SpringBoot,
+        backend: Backend::Java,
         frontend: Frontend::None,
-        component_library: ComponentLibrary::None,
+        template: None,
     })
 }
 
@@ -245,9 +245,9 @@ fn seed_project(root: &std::path::Path, template_body: &str) {
     let crud = root.join(".crud");
     fs::create_dir_all(crud.join("templates")).unwrap();
     let cfg = SetupConfig::from_selections(SetupSelections {
-        backend: Backend::SpringBoot,
+        backend: Backend::Java,
         frontend: Frontend::Vue,
-        component_library: ComponentLibrary::ElementPlus,
+        template: None,
     });
     fs::write(crud.join("setup.toml"), cfg.to_toml_pretty().unwrap()).unwrap();
     fs::write(crud.join("templates/Entity.java.hbs"), template_body).unwrap();

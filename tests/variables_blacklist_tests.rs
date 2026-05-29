@@ -15,7 +15,7 @@ fn reserved_variable_in_setup_toml() {
 [project]
 backend = "none"
 frontend = "none"
-component-library = "none"
+
 
 [paths]
 

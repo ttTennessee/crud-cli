@@ -1,27 +1,29 @@
-//! Task 3: interactive wizard → canonical SetupConfig / SetupUserConfig (CONF-01, D-10).
+//! Interactive wizard helpers and byte-identical contract.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use crud_cli::cli::args::{
-    SetupArgs, SetupBackend, SetupComponentLibrary, SetupEnabledTypes, SetupFrontend,
-    SetupOverwritePolicy,
-};
-use crud_cli::cli::setup_wizard::{selections_from_answers, user_selections_from_answers};
+use crud_cli::cli::args::{SetupArgs, SetupEnabledTypes, SetupOverwritePolicy};
+use crud_cli::cli::setup_wizard::user_selections_from_answers;
 use crud_cli::core::config::{
-    Backend, ComponentLibrary, EnabledTypes, Frontend, OverwritePolicy, SetupConfig,
+    Backend, EnabledTypes, Frontend, OverwritePolicy, SetupConfig, SetupSelections,
 };
 use crud_cli::core::error::{ErrorEnvelope, Kind};
 use inquire::error::InquireError;
 
-#[test]
-fn setup_wizard_project_prompts() {
-    let sel = selections_from_answers(
-        SetupBackend::Nest,
-        SetupFrontend::React,
-        SetupComponentLibrary::NaiveUi,
-    );
-    assert_eq!(sel.backend, Backend::Nest);
-    assert_eq!(sel.frontend, Frontend::React);
-    assert_eq!(sel.component_library, ComponentLibrary::NaiveUi);
+fn setup_args(backend: &str, frontend: &str) -> SetupArgs {
+    SetupArgs {
+        project: true,
+        backend: Some(backend.into()),
+        frontend: Some(frontend.into()),
+        template: None,
+        lang: Vec::new(),
+        aux: Vec::new(),
+        overwrite_policy: None,
+        enabled_types: None,
+        user_name: None,
+        user_email: None,
+        type_map_fallback: None,
+        force: false,
+    }
 }
 
 #[test]
@@ -39,28 +41,16 @@ fn setup_wizard_user_prompts() {
 }
 
 #[test]
-fn project_setup_byte_identical() {
-    let args = SetupArgs {
-        project: true,
-        backend: Some(SetupBackend::SpringBoot),
-        frontend: Some(SetupFrontend::Vue),
-        component_library: Some(SetupComponentLibrary::ElementPlus),
-        overwrite_policy: None,
-        enabled_types: None,
-        user_name: None,
-        user_email: None,
-        type_map_fallback: None,
-        force: false,
-    };
-    let from_flags = args.to_setup_config().expect("flags");
-    let from_wizard = SetupConfig::from_selections(selections_from_answers(
-        SetupBackend::SpringBoot,
-        SetupFrontend::Vue,
-        SetupComponentLibrary::ElementPlus,
-    ));
+fn project_setup_flag_and_selections_match() {
+    let from_flags = setup_args("java", "vue").to_setup_config().expect("flags");
+    let from_selections = SetupConfig::from_selections(SetupSelections {
+        backend: Backend::Java,
+        frontend: Frontend::Vue,
+        template: None,
+    });
     assert_eq!(
         from_flags.to_toml_pretty().expect("a"),
-        from_wizard.to_toml_pretty().expect("b")
+        from_selections.to_toml_pretty().expect("b")
     );
 }
 

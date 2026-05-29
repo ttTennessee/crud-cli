@@ -4,7 +4,7 @@
 use crud_cli::cli::args::GenArgs;
 use crud_cli::cli::commands::gen::run_gen;
 use crud_cli::core::config::{
-    Backend, ComponentLibrary, Frontend, SetupConfig, SetupSelections,
+    Backend, Frontend, SetupConfig, SetupSelections,
 };
 use std::fs;
 use std::path::Path;
@@ -27,7 +27,7 @@ fn seed(root: &Path, schema: &str, template_body: &str) {
     let cfg = SetupConfig::from_selections(SetupSelections {
         backend: Backend::None,
         frontend: Frontend::None,
-        component_library: ComponentLibrary::None,
+        template: None,
     });
     fs::write(crud.join("setup.toml"), cfg.to_toml_pretty().unwrap()).unwrap();
     if !schema.is_empty() {

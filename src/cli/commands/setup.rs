@@ -176,16 +176,16 @@ mod tests {
     #![allow(clippy::expect_used)]
     use super::*;
     use crate::core::config::{
-        Backend, ComponentLibrary, EnabledTypes, Frontend, OverwritePolicy, SetupConfig,
-        SetupSelections, SetupUserConfig, UserSelections,
+        Backend, EnabledTypes, Frontend, OverwritePolicy, SetupConfig, SetupSelections,
+        SetupUserConfig, UserSelections,
     };
 
     #[test]
     fn project_config_roundtrip_has_no_overwrite() {
         let cfg = SetupConfig::from_selections(SetupSelections {
-            backend: Backend::SpringBoot,
+            backend: Backend::Java,
             frontend: Frontend::Vue,
-            component_library: ComponentLibrary::ElementPlus,
+            template: None,
         });
         let toml = cfg.to_toml_pretty().expect("serialize");
         assert!(!toml.contains("[overwrite]"));

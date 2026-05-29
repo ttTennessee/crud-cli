@@ -5,7 +5,7 @@ use crud_cli::cli::args::GenArgs;
 use crud_cli::cli::commands::gen::run_gen;
 use crud_cli::core::config::SetupConfig;
 use crud_cli::core::config::SetupSelections;
-use crud_cli::core::config::{Backend, ComponentLibrary, Frontend, OverwritePolicy};
+use crud_cli::core::config::{Backend, Frontend, OverwritePolicy};
 use std::fs;
 use std::sync::{Mutex, OnceLock};
 use tempfile::TempDir;
@@ -20,9 +20,9 @@ fn seed_setup(root: &std::path::Path) {
     let crud = root.join(".crud");
     fs::create_dir_all(&crud).expect("mkdir .crud");
     let cfg = SetupConfig::from_selections(SetupSelections {
-        backend: Backend::SpringBoot,
+        backend: Backend::Java,
         frontend: Frontend::Vue,
-        component_library: ComponentLibrary::ElementPlus,
+        template: None,
     });
     let toml = cfg.to_toml_pretty().expect("serialize setup");
     fs::write(crud.join("setup.toml"), toml).expect("write setup.toml");

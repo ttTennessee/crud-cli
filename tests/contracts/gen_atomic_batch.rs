@@ -32,7 +32,7 @@ fn atomic_batch_conflict_writes_nothing() {
 [project]
 backend = "none"
 frontend = "none"
-component-library = "none"
+
 [paths]
 "#
     )
