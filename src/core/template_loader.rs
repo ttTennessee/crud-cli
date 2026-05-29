@@ -8,8 +8,6 @@ use super::config::SetupConfig;
 use super::error::ErrorEnvelope;
 use super::i18n::{self, keys};
 use super::template_meta_global;
-use super::template_variables::SCHEMA_FILE_NAME;
-use super::type_map::TYPE_MAP_FILE_NAME;
 
 /// Resolves the template bundle root for gen/validate/schema loading.
 ///
@@ -63,25 +61,13 @@ pub fn discover_templates(
             continue;
         }
         let abs = entry.path().to_path_buf();
+        if abs.extension().and_then(|e| e.to_str()) != Some("hbs") {
+            continue;
+        }
         let rel = abs
             .strip_prefix(&root)
             .map_err(|_| walk_error(&root, "path outside template root".into()))?
             .to_path_buf();
-        if rel
-            .file_name()
-            .is_some_and(|n| n == SCHEMA_FILE_NAME)
-            && rel.parent().map(|p| p.as_os_str().is_empty()).unwrap_or(true)
-        {
-            continue;
-        }
-        if rel.file_name().is_some_and(|n| n == TYPE_MAP_FILE_NAME) {
-            continue;
-        }
-        if rel.file_name().is_some_and(|n| n == "template.toml")
-            && rel.parent().map(|p| p.as_os_str().is_empty()).unwrap_or(true)
-        {
-            continue;
-        }
         entries.push(TemplateEntry {
             rel_path: rel,
             abs_path: abs,
