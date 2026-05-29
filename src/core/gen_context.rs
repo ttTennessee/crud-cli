@@ -34,7 +34,7 @@ pub struct UserIdentity {
     pub email: String,
 }
 
-/// Common field surface for DSL [`Field`] and JSON [`FieldSpec`] (Plan 02).
+/// Common field surface for DSL [`Field`] and JSON [`FieldSpec`].
 pub trait AsContextField {
     fn name(&self) -> &str;
     fn ty(&self) -> &str;

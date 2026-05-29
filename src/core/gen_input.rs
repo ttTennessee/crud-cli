@@ -11,7 +11,7 @@ use strsim::levenshtein;
 use super::error::ErrorEnvelope;
 use super::field_dsl::Field;
 
-/// Entity input consumed by `build_context` and `gen_pipeline` (D-G13).
+/// Entity input consumed by `build_context` and `gen_pipeline`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GenInput {
@@ -21,7 +21,7 @@ pub struct GenInput {
     pub fields: Vec<Field>,
 }
 
-/// JSON field shape (`--file`); converted to [`Field`] for [`GenInput`] (D-G15).
+/// JSON field shape (`--file`); converted to [`Field`] for [`GenInput`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FieldSpec {
@@ -65,7 +65,7 @@ pub struct GenCliOverrides {
     pub table: Option<String>,
 }
 
-/// Loaded JSON bundle: canonical [`GenInput`] plus specs for rich context (Plan 02).
+/// Loaded JSON bundle: canonical [`GenInput`] plus specs for rich context.
 #[derive(Debug, Clone)]
 pub struct JsonLoadResult {
     pub input: GenInput,

@@ -14,7 +14,7 @@ use super::args::{
     SetupBackend, SetupComponentLibrary, SetupEnabledTypes, SetupFrontend, SetupOverwritePolicy,
 };
 
-/// Runs the project wizard and returns the canonical project config (D-10).
+/// Runs the project wizard and returns the canonical project config .
 pub fn run_project_wizard() -> Result<SetupConfig, ErrorEnvelope> {
     let selections = collect_project_selections()?;
     let mut cfg = SetupConfig::from_selections(selections);

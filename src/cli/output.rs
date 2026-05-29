@@ -9,7 +9,7 @@ use super::agent_mode::is_agent_active;
 
 const ANSI_ESCAPE: &str = "\x1b[";
 
-/// Panic hook handler → `InternalPanic` / exit 99 (D-04); wired from `main.rs` via `set_hook`.
+/// Panic hook handler → `InternalPanic` / exit 99 ; wired from `main.rs` via `set_hook`.
 pub fn panic_hook_handler(info: &PanicHookInfo<'_>) {
     let msg = panic_message(info);
     let location = info
@@ -31,7 +31,7 @@ fn panic_message(info: &PanicHookInfo<'_>) -> String {
     "panic".to_string()
 }
 
-/// Renders failure to stderr only; stdout stays empty (D-01).
+/// Renders failure to stderr only; stdout stays empty .
 pub fn emit_failure(envelope: &ErrorEnvelope) {
     let agent = is_agent_active();
     let mut stderr = io::stderr().lock();
@@ -52,7 +52,7 @@ pub fn emit_failure(envelope: &ErrorEnvelope) {
     }
 }
 
-/// `--dry-run` listing: stdout in non-agent mode, `tracing::info` under agent (GEN-08).
+/// `--dry-run` listing: stdout in non-agent mode, `tracing::info` under agent .
 pub fn emit_dry_run_listing(lines: &[crate::core::gen_report::DryRunLine]) {
     for item in lines {
         let marker = if item.conflict { "  [CONFLICT]" } else { "" };
@@ -71,7 +71,7 @@ pub fn emit_dry_run_listing(lines: &[crate::core::gen_report::DryRunLine]) {
     }
 }
 
-/// Success path: agent mode keeps stdout empty (FOUND-09).
+/// Success path: agent mode keeps stdout empty.
 pub fn emit_success(human_line: Option<&str>) {
     if is_agent_active() {
         return;

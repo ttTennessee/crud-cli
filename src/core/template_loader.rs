@@ -143,7 +143,7 @@ fn glob_compile_err(e: globset::Error) -> ErrorEnvelope {
     )
 }
 
-/// Scans top-level and one nested directory under templates (D-G32).
+/// Scans top-level and one nested directory under templates.
 pub fn scan_available_types(root: &Path) -> Result<Vec<String>, ErrorEnvelope> {
     let mut types = Vec::new();
     let read = std::fs::read_dir(root).map_err(|e| walk_error(root, e.to_string()))?;

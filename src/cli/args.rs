@@ -16,7 +16,7 @@ use super::output::emit_failure;
 #[derive(Parser, Debug)]
 #[command(name = "crud-cli", version, about)]
 pub struct Cli {
-    /// Agent/machine mode: JSON errors on stderr, empty success stdout (D-05).
+    /// Agent/machine mode: JSON errors on stderr, empty success stdout .
     #[arg(long, global = true)]
     pub agent: bool,
 
@@ -76,7 +76,7 @@ pub struct SetupArgs {
     pub force: bool,
 }
 
-/// `crud-cli gen` flags (D-G01, D-G10, D-G11).
+/// `crud-cli gen` flags .
 #[derive(Parser, Debug, Default)]
 pub struct GenArgs {
     /// Entity / model name (positional).
@@ -126,7 +126,7 @@ pub struct ValidateArgs {
 }
 
 impl GenArgs {
-    /// Wave-1 validation: `--fields` and `--file` are mutually exclusive (D-G10).
+    /// Wave-1 validation: `--fields` and `--file` are mutually exclusive.
     pub fn validate_inputs(&self) -> Result<(), ErrorEnvelope> {
         if self.fields.is_some() && self.file.is_some() {
             return Err(ErrorEnvelope::user_error_with_reason(
@@ -364,7 +364,7 @@ fn empty_flag(flag: &'static str) -> ErrorEnvelope {
     )
 }
 
-/// Parses argv; maps clap failures to `UserError` envelope (D-09).
+/// Parses argv; maps clap failures to `UserError` envelope .
 pub fn try_parse_cli<I, T>(args: I) -> Result<Cli, ErrorEnvelope>
 where
     I: IntoIterator<Item = T>,

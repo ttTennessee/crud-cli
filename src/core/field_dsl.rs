@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 use super::error::ErrorEnvelope;
 
-/// One field from the `--fields` DSL or JSON loader (Plan 02).
+/// One field from the `--fields` DSL or JSON loader.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Field {
     pub name: String,

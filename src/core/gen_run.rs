@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use serde_json::Value;
 
-/// Inputs for `gen_pipeline::run` without a `clap` dependency (FOUND-02).
+/// Inputs for `gen_pipeline::run` without a `clap` dependency.
 #[derive(Debug, Clone)]
 pub struct GenRunParams {
     pub name: Option<String>,

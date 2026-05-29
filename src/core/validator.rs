@@ -18,7 +18,7 @@ use super::template_loader;
 use super::template_meta;
 use super::template_variables;
 
-/// Issue category for structured validate output (VAL-04).
+/// Issue category for structured validate output.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IssueKind {

@@ -25,7 +25,7 @@ pub fn parse_type_map_fallback(s: &str) -> Fallback {
     }
 }
 
-/// Closed-set backend (D-08).
+/// Closed-set backend .
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Backend {
@@ -35,7 +35,7 @@ pub enum Backend {
     None,
 }
 
-/// Closed-set frontend (D-08).
+/// Closed-set frontend .
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Frontend {
@@ -44,7 +44,7 @@ pub enum Frontend {
     None,
 }
 
-/// Closed-set component library (D-08).
+/// Closed-set component library .
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ComponentLibrary {
@@ -161,12 +161,12 @@ impl Default for ScopeSection {
     }
 }
 
-/// Free-form `[variables]` table (D-G27).
+/// Free-form `[variables]` table.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(transparent)]
 pub struct VariablesSection(pub BTreeMap<String, toml::Value>);
 
-/// `[templates.outputs]` keyed on template `rel_path` (D-G28 layer 2).
+/// `[templates.outputs]` keyed on template `rel_path`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct OutputsSection(pub BTreeMap<String, String>);
@@ -202,7 +202,7 @@ fn is_default_type_map(t: &TypeMapSection) -> bool {
     matches!(t.fallback, Fallback::Passthrough)
 }
 
-/// Project setup.toml — shared / checked-in. Section order is contract (D-10).
+/// Project setup.toml — shared / checked-in. Section order is contract .
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct SetupConfig {
@@ -226,7 +226,7 @@ pub struct SetupUserConfig {
     pub scope: ScopeSection,
 }
 
-/// Flag layer applied after defaults and optional file (CONF-04).
+/// Flag layer applied after defaults and optional file.
 #[derive(Debug, Clone, Default)]
 pub struct SetupFlagOverlay {
     pub backend: Option<Backend>,
@@ -248,7 +248,7 @@ impl SetupConfig {
         }
     }
 
-    /// Single builder for interactive and non-interactive inputs (D-10).
+    /// Single builder for interactive and non-interactive inputs .
     #[must_use]
     pub fn from_selections(selections: SetupSelections) -> Self {
         Self {
@@ -292,7 +292,7 @@ impl SetupConfig {
         cfg
     }
 
-    /// Deterministic TOML bytes for `.crud/setup.toml` (D-10).
+    /// Deterministic TOML bytes for `.crud/setup.toml` .
     pub fn to_toml_pretty(&self) -> Result<String, ErrorEnvelope> {
         toml::to_string_pretty(self).map_err(|e| config_error(format!("serialize setup: {e}")))
     }
@@ -380,7 +380,7 @@ impl RuntimeConfig {
     }
 }
 
-/// Parses an on-disk project setup file with unknown-field rejection (CONF-03).
+/// Parses an on-disk project setup file with unknown-field rejection.
 pub fn load_setup_file(path: &Path) -> Result<SetupConfig, ErrorEnvelope> {
     let raw = std::fs::read_to_string(path).map_err(|e| {
         config_error(format!("read {}: {e}", path.display()))

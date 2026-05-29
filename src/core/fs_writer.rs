@@ -16,7 +16,7 @@ pub struct WriteTarget {
     pub content: Vec<u8>,
 }
 
-/// Overwrite gate applied during preflight (CONF-08).
+/// Overwrite gate applied during preflight.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OverwriteContext {
     /// Policy from setup configuration.
@@ -31,7 +31,7 @@ pub struct WritePlan {
     targets: Vec<WriteTarget>,
 }
 
-/// Preflight all targets; abort entire batch on any denied conflict (D-14).
+/// Preflight all targets; abort entire batch on any denied conflict .
 pub fn plan(
     targets: &[WriteTarget],
     overwrite: OverwriteContext,
@@ -57,7 +57,7 @@ fn allows_overwrite(ctx: OverwriteContext, _path: &Path) -> Result<bool, ErrorEn
     }
 }
 
-/// Commit all planned writes via tempfile + fsync + atomic rename (CONF-07).
+/// Commit all planned writes via tempfile + fsync + atomic rename.
 pub fn commit(plan: WritePlan) -> Result<(), ErrorEnvelope> {
     for target in plan.targets {
         atomic_write(&target.path, &target.content)?;

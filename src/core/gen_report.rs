@@ -3,7 +3,7 @@
 use serde::Serialize;
 use std::path::PathBuf;
 
-/// One resolved output line in `--dry-run` mode (GEN-08).
+/// One resolved output line in `--dry-run` mode .
 #[derive(Debug, Clone, Serialize)]
 pub struct DryRunLine {
     pub path: PathBuf,
