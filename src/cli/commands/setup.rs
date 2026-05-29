@@ -143,7 +143,7 @@ fn check_overwrite_confirm(target: &Path, force: bool) -> Decision {
             format!("file exists: {}", target.display()),
             "setup_exists_non_interactive",
             details,
-            "pass --force to overwrite, or run setup interactively",
+            i18n::t(keys::ERROR_SETUP_EXISTS_NON_INTERACTIVE),
         ));
     }
     let prompt = i18n::tf(

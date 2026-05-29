@@ -4,6 +4,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
 use super::error::{ErrorEnvelope, Kind};
+use super::i18n::{self, keys};
 
 /// Resolves the global CRUD directory under the user home (`~/.crud`).
 pub fn global_crud_dir() -> Result<PathBuf, ErrorEnvelope> {
@@ -12,7 +13,7 @@ pub fn global_crud_dir() -> Result<PathBuf, ErrorEnvelope> {
             kind: Kind::ConfigError,
             msg: "home directory not found".into(),
             exit_code: Kind::ConfigError.exit_code(),
-            hint: "set HOME or USERPROFILE".into(),
+            hint: i18n::t(keys::ERROR_PATHS_HOME_NOT_FOUND).into(),
             details: serde_json::Map::new(),
         }
     })?;
@@ -98,7 +99,7 @@ fn gitignore_error(path: &Path, msg: impl Into<String>) -> ErrorEnvelope {
         kind: Kind::ConfigError,
         msg: msg.into(),
         exit_code: Kind::ConfigError.exit_code(),
-        hint: "check .crud/.gitignore write permissions".into(),
+        hint: i18n::t(keys::ERROR_PATHS_GITIGNORE_WRITE).into(),
         details,
     }
 }

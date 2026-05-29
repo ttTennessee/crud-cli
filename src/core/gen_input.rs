@@ -10,6 +10,7 @@ use strsim::levenshtein;
 
 use super::error::ErrorEnvelope;
 use super::field_dsl::Field;
+use super::i18n::{self, keys};
 
 /// Entity input consumed by `build_context` and `gen_pipeline`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -100,34 +101,24 @@ pub fn load_gen_input_with_specs_from_json(
                 format!("file not found: {}", path.display()),
                 "file_not_found",
                 details,
-                "create the JSON file or pass --fields instead",
+                i18n::t(keys::ERROR_JSON_FILE_NOT_FOUND),
             );
         }
-        json_error("invalid_json", "", &e.to_string(), "check JSON syntax")
+        json_error(
+            "invalid_json",
+            "",
+            &e.to_string(),
+            i18n::t(keys::ERROR_JSON_INVALID_SYNTAX),
+        )
     })?;
 
     let de = &mut serde_json::Deserializer::from_str(&raw);
     let parsed: JsonInputFile =
         serde_path_to_error::deserialize(de).map_err(map_json_deser_error)?;
 
-    let name = resolve_scalar(
-        overrides.name,
-        parsed.name,
-        "name",
-        "provide --name or set \"name\" in JSON",
-    )?;
-    let package = resolve_scalar(
-        overrides.package,
-        parsed.package,
-        "package",
-        "provide --package or set \"package\" in JSON",
-    )?;
-    let table = resolve_scalar(
-        overrides.table,
-        parsed.table,
-        "table",
-        "provide --table or set \"table\" in JSON",
-    )?;
+    let name = resolve_scalar(overrides.name, parsed.name, "name")?;
+    let package = resolve_scalar(overrides.package, parsed.package, "package")?;
+    let table = resolve_scalar(overrides.table, parsed.table, "table")?;
 
     let fields: Vec<Field> = parsed
         .fields
@@ -140,7 +131,7 @@ pub fn load_gen_input_with_specs_from_json(
             "no fields in JSON",
             "no_fields",
             serde_json::Map::new(),
-            "add at least one field object to \"fields\"",
+            i18n::t(keys::ERROR_JSON_NO_FIELDS),
         ));
     }
 
@@ -160,23 +151,22 @@ fn resolve_scalar(
     cli: Option<String>,
     from_json: String,
     field: &'static str,
-    hint: &'static str,
 ) -> Result<String, ErrorEnvelope> {
     let value = cli.unwrap_or(from_json);
     if value.trim().is_empty() {
         let mut details = serde_json::Map::new();
         details.insert("field".into(), Value::String(field.to_string()));
-        let reason = match field {
-            "name" => "missing_name",
-            "package" => "missing_package",
-            "table" => "missing_table",
-            _ => "missing_field",
+        let (reason, hint_key) = match field {
+            "name" => ("missing_name", keys::ERROR_JSON_MISSING_NAME),
+            "package" => ("missing_package", keys::ERROR_JSON_MISSING_PACKAGE),
+            "table" => ("missing_table", keys::ERROR_JSON_MISSING_TABLE),
+            _ => ("missing_field", keys::ERROR_JSON_MISSING_NAME),
         };
         return Err(ErrorEnvelope::user_error_with_reason(
             format!("missing {field}"),
             reason,
             details,
-            hint,
+            i18n::t(hint_key),
         ));
     }
     Ok(value)
@@ -197,7 +187,12 @@ fn map_json_deser_error(err: serde_path_to_error::Error<serde_json::Error>) -> E
     let msg = inner.to_string();
 
     if inner.is_syntax() || inner.is_eof() {
-        return json_error("invalid_json", &path, &msg, "check JSON syntax");
+        return json_error(
+            "invalid_json",
+            &path,
+            &msg,
+            i18n::t(keys::ERROR_JSON_INVALID_SYNTAX),
+        );
     }
 
     if msg.contains("unknown field") {
@@ -232,7 +227,7 @@ fn map_json_deser_error(err: serde_path_to_error::Error<serde_json::Error>) -> E
             msg,
             "missing_field",
             details,
-            "add the missing property to your JSON",
+            i18n::t(keys::ERROR_JSON_MISSING_PROPERTY),
         );
     }
 
@@ -249,14 +244,19 @@ fn map_json_deser_error(err: serde_path_to_error::Error<serde_json::Error>) -> E
             msg,
             "type_mismatch",
             details,
-            "fix the field type in JSON",
+            i18n::t(keys::ERROR_JSON_TYPE_MISMATCH),
         );
     }
 
-    json_error("invalid_value", &path, &msg, "fix the value at the reported path")
+    json_error(
+        "invalid_value",
+        &path,
+        &msg,
+        i18n::t(keys::ERROR_JSON_INVALID_VALUE),
+    )
 }
 
-fn json_error(reason: &'static str, path: &str, msg: &str, hint: &str) -> ErrorEnvelope {
+fn json_error(reason: &'static str, path: &str, msg: &str, hint: impl Into<String>) -> ErrorEnvelope {
     let mut details = serde_json::Map::new();
     if !path.is_empty() {
         details.insert("path".into(), Value::String(path.to_string()));
@@ -276,8 +276,8 @@ fn did_you_mean_hint(got: &str, candidates: &[&str]) -> String {
         }
     }
     match best {
-        Some((cand, _)) => format!("did you mean '{cand}'?"),
-        None => "check field names against the JSON schema".into(),
+        Some((cand, _)) => i18n::tf(keys::ERROR_JSON_DID_YOU_MEAN, &[("candidate", cand)]),
+        None => i18n::t(keys::ERROR_JSON_UNKNOWN_FIELD).into(),
     }
 }
 

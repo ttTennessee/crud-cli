@@ -8,6 +8,7 @@ use crate::core::config::{
     SetupFlagOverlay, SetupSelections, SetupUserConfig, UserSelections,
 };
 use crate::core::error::ErrorEnvelope;
+use crate::core::i18n::{self, keys};
 use crate::core::type_map::Fallback;
 
 use super::output::emit_failure;
@@ -133,7 +134,7 @@ impl GenArgs {
                 "cannot use --fields and --file together",
                 "fields_file_mutex",
                 serde_json::Map::new(),
-                "provide either --fields or --file, not both",
+                i18n::t(keys::ERROR_CLI_FIELDS_FILE_MUTEX),
             ));
         }
         Ok(())
@@ -351,7 +352,7 @@ fn missing_flag(flag: &'static str) -> ErrorEnvelope {
         format!("missing required flag --{flag}"),
         Some(flag),
         None,
-        format!("provide --{flag} with a value from the locked enum set"),
+        i18n::tf(keys::ERROR_CLI_MISSING_FLAG, &[("flag", flag)]),
     )
 }
 
@@ -360,7 +361,7 @@ fn empty_flag(flag: &'static str) -> ErrorEnvelope {
         format!("--{flag} must not be empty"),
         Some(flag),
         None,
-        format!("provide a non-empty value for --{flag}"),
+        i18n::tf(keys::ERROR_CLI_EMPTY_FLAG, &[("flag", flag)]),
     )
 }
 
@@ -399,7 +400,7 @@ fn clap_to_user_error(err: clap::Error) -> ErrorEnvelope {
         err.to_string(),
         flag,
         value.as_deref(),
-        "fix the flag value and retry",
+        i18n::t(keys::ERROR_CLI_CLAP_RETRY),
     )
 }
 

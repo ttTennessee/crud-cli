@@ -1,5 +1,6 @@
 //! Structured error kinds and stderr envelopes (D-01..D-04, FOUND-05).
 
+use super::i18n::{self, keys};
 use serde::Serialize;
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -108,7 +109,7 @@ impl ErrorEnvelope {
             kind: Kind::FileConflict,
             msg: msg.into(),
             exit_code: Kind::FileConflict.exit_code(),
-            hint: "remove or rename the existing file, adjust overwrite-policy, or pass --force when policy allows".into(),
+            hint: i18n::t(keys::ERROR_FILE_CONFLICT).into(),
             details,
         }
     }
@@ -178,7 +179,7 @@ impl ErrorEnvelope {
                 "validate failed: {issue_count} issues across {templates_with_issues} templates"
             ),
             exit_code: Kind::TemplateError.exit_code(),
-            hint: "fix each entry in details.issues".into(),
+            hint: i18n::t(keys::ERROR_VALIDATE_FIX_ISSUES).into(),
             details,
         }
     }

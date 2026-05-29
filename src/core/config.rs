@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 
 use super::default_paths::paths_for_frameworks;
 use super::error::ErrorEnvelope;
+use super::i18n::{self, keys};
 use super::field_dsl::RESERVED_VARIABLE_NAMES;
 use super::type_map::Fallback;
 
@@ -395,7 +396,7 @@ pub fn load_setup_file(path: &Path) -> Result<SetupConfig, ErrorEnvelope> {
                 format!("reserved variable name: {key}"),
                 "reserved_variable",
                 details,
-                "rename the variable; reserved: model, table, package, package_path, fields, model_*",
+                i18n::t(keys::ERROR_CONFIG_RESERVED_VARIABLE),
             ));
         }
     }

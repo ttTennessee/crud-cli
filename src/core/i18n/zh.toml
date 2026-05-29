@@ -59,3 +59,57 @@ type_not_found = "可用 type：{available}"
 no_templates = "创建 .crud/templates/<name>.hbs，或初始化一套模板"
 walk_error = "检查 .crud/templates 的权限与 .crudignore 语法"
 invalid_type_glob = "使用逗号分隔的前缀，如 java,vue"
+
+[error.file]
+conflict = "删除或重命名已有文件，调整 overwrite 策略，或在策略允许时使用 --force"
+
+[error.validate]
+fix_issues = "逐项修复 details.issues 中的问题"
+cwd = "请在项目根目录运行 validate"
+
+[error.paths]
+home_not_found = "设置 HOME 或 USERPROFILE 环境变量"
+gitignore_write = "检查 .crud/.gitignore 的写入权限"
+
+[error.global_config]
+check = "检查 ~/.crud/config.toml 的权限与语法"
+
+[error.json]
+file_not_found = "创建 JSON 文件，或改用 --fields"
+invalid_syntax = "检查 JSON 语法"
+no_fields = "在 \"fields\" 中至少添加一个字段对象"
+missing_name = "提供 --name，或在 JSON 中设置 \"name\""
+missing_package = "提供 --package，或在 JSON 中设置 \"package\""
+missing_table = "提供 --table，或在 JSON 中设置 \"table\""
+missing_property = "在 JSON 中补全缺失的属性"
+type_mismatch = "修正 JSON 中的字段类型"
+invalid_value = "修正报错路径处的值"
+unknown_field = "对照 JSON schema 检查字段名"
+did_you_mean = "是否指 '{candidate}'？"
+
+[error.gen]
+filename_slash = "目录请用 basePath；filename 只能是单个路径段"
+path_traversal = "从模板路径或 front-matter 中移除 .. 或绝对路径"
+cwd = "请在项目目录内运行"
+missing_flag = "生成 DSL 需提供 --{flag}"
+missing_input = "请提供 --{flag}"
+
+[error.cli]
+fields_file_mutex = "只能使用 --fields 或 --file 之一，不能同时使用"
+clap_retry = "修正参数值后重试"
+missing_flag = "请为 --{flag} 提供锁定枚举集合中的值"
+empty_flag = "请为 --{flag} 提供非空值"
+
+[error.setup]
+exists_non_interactive = "使用 --force 覆盖，或以交互方式运行 setup"
+
+[error.config]
+reserved_variable = "重命名该变量；保留名：model、table、package、package_path、fields、model_*"
+
+[error.variable]
+shadows_builtin = "在 setup.toml [variables] 中删除或重命名该变量"
+undeclared = "在 .crud/templates/{schema_file} 中声明 {key}，或移除 --var/JSON 项"
+missing_required = "使用 --var {name}=<value>，或在 JSON 的 `variables` 中设置"
+type_mismatch = "为 {name} 提供 {expected} 类型的值"
+schema_fix = "修复 .crud/templates/_variables.toml"
+invalid_var_arg = "使用 --var key=value（值为 true/false/数字/字符串）"

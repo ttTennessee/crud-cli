@@ -13,6 +13,7 @@ use serde_json::Value;
 
 use super::error::ErrorEnvelope;
 use super::field_dsl::RESERVED_VARIABLE_NAMES;
+use super::i18n::{self, keys};
 
 /// File name of the schema (relative to `.crud/templates/`).
 pub const SCHEMA_FILE_NAME: &str = "_variables.toml";
@@ -125,7 +126,10 @@ pub fn merge_values(
                 format!("undeclared variable: {key}"),
                 "undeclared_variable",
                 details,
-                format!("declare {key} in .crud/templates/{SCHEMA_FILE_NAME} or remove --var/JSON entry"),
+                i18n::tf(
+                    keys::ERROR_VARIABLE_UNDECLARED,
+                    &[("key", key), ("schema_file", SCHEMA_FILE_NAME)],
+                ),
             ));
         }
     }
@@ -155,7 +159,10 @@ pub fn merge_values(
                         format!("missing required variable: {name}"),
                         "missing_required_variable",
                         details,
-                        format!("pass --var {name}=<value> or set in JSON `variables`"),
+                        i18n::tf(
+                            keys::ERROR_VARIABLE_MISSING_REQUIRED,
+                            &[("name", name.as_str())],
+                        ),
                     ));
                 }
                 out.insert(name.clone(), Value::Null);
@@ -233,12 +240,19 @@ fn check_json_matches_type(
         format!("variable {name}: expected {} from {source}", ty.as_str()),
         "variable_type_mismatch",
         details,
-        format!("pass a {} value for {name}", ty.as_str()),
+        i18n::tf(
+            keys::ERROR_VARIABLE_TYPE_MISMATCH,
+            &[("expected", ty.as_str()), ("name", name)],
+        ),
     ))
 }
 
 fn schema_error(msg: impl Into<String>, reason: &'static str) -> ErrorEnvelope {
-    ErrorEnvelope::template_error_with_reason(msg, reason_details(reason), "fix .crud/templates/_variables.toml")
+    ErrorEnvelope::template_error_with_reason(
+        msg,
+        reason_details(reason),
+        i18n::t(keys::ERROR_VARIABLE_SCHEMA_FIX),
+    )
 }
 
 fn reason_details(reason: &'static str) -> serde_json::Map<String, Value> {
@@ -288,6 +302,6 @@ fn bad_var_arg(raw: &str, why: &'static str) -> ErrorEnvelope {
         format!("invalid --var: {raw}"),
         "invalid_var_arg",
         details,
-        "use --var key=value (value: true/false/number/string)",
+        i18n::t(keys::ERROR_VARIABLE_INVALID_VAR_ARG),
     )
 }

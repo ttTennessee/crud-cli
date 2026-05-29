@@ -10,6 +10,7 @@ use serde::Serialize;
 use super::config::{Backend, EnabledTypes, Frontend, RuntimeConfig, SetupConfig};
 use super::paths::{project_setup_toml, project_setup_user_toml};
 use super::error::ErrorEnvelope;
+use super::i18n::{self, keys};
 use super::field_dsl::Field;
 use super::gen_context::{self, AsContextField, UserIdentity};
 use super::git_info::GitInfo;
@@ -101,7 +102,7 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
             format!("cannot read current directory: {e}"),
             None,
             None,
-            "run validate from the project root",
+            i18n::t(keys::ERROR_VALIDATE_CWD),
         )
     })?;
     let runtime = RuntimeConfig::load(

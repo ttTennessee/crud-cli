@@ -9,6 +9,7 @@ use time::OffsetDateTime;
 
 use super::config::SetupConfig;
 use super::error::ErrorEnvelope;
+use super::i18n::{self, keys};
 use super::field_dsl::{Field, RESERVED_VARIABLE_NAMES};
 use super::gen_input::GenInput;
 use super::git_info::GitInfo;
@@ -166,7 +167,7 @@ pub fn build_context(
             return Err(ErrorEnvelope::template_error_with_reason(
                 format!("variable shadows built-in: {key}"),
                 details,
-                "remove or rename the variable in setup.toml [variables]",
+                i18n::t(keys::ERROR_VARIABLE_SHADOWS_BUILTIN),
             ));
         }
         let json = serde_json::to_value(val).map_err(|e| {

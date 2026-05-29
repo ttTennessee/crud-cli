@@ -110,6 +110,6 @@ fn missing_gen_flag(flag: &'static str, reason: &'static str) -> ErrorEnvelope {
         format!("missing required --{flag}"),
         reason,
         details,
-        format!("provide --{flag} for DSL generation"),
+        i18n::tf(keys::ERROR_GEN_MISSING_FLAG, &[("flag", flag)]),
     )
 }

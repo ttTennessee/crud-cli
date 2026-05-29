@@ -59,3 +59,57 @@ type_not_found = "available types: {available}"
 no_templates = "create .crud/templates/<name>.hbs or seed a template set"
 walk_error = "check .crud/templates permissions and .crudignore syntax"
 invalid_type_glob = "use comma-separated prefixes like java,vue"
+
+[error.file]
+conflict = "remove or rename the existing file, adjust overwrite-policy, or pass --force when policy allows"
+
+[error.validate]
+fix_issues = "fix each entry in details.issues"
+cwd = "run validate from the project root"
+
+[error.paths]
+home_not_found = "set HOME or USERPROFILE"
+gitignore_write = "check .crud/.gitignore write permissions"
+
+[error.global_config]
+check = "check ~/.crud/config.toml permissions and syntax"
+
+[error.json]
+file_not_found = "create the JSON file or pass --fields instead"
+invalid_syntax = "check JSON syntax"
+no_fields = "add at least one field object to \"fields\""
+missing_name = "provide --name or set \"name\" in JSON"
+missing_package = "provide --package or set \"package\" in JSON"
+missing_table = "provide --table or set \"table\" in JSON"
+missing_property = "add the missing property to your JSON"
+type_mismatch = "fix the field type in JSON"
+invalid_value = "fix the value at the reported path"
+unknown_field = "check field names against the JSON schema"
+did_you_mean = "did you mean '{candidate}'?"
+
+[error.gen]
+filename_slash = "use basePath for directories; filename must be a single segment"
+path_traversal = "remove .. or absolute path from template location or front-matter"
+cwd = "run inside a project directory"
+missing_flag = "provide --{flag} for DSL generation"
+missing_input = "provide --{flag}"
+
+[error.cli]
+fields_file_mutex = "provide either --fields or --file, not both"
+clap_retry = "fix the flag value and retry"
+missing_flag = "provide --{flag} with a value from the locked enum set"
+empty_flag = "provide a non-empty value for --{flag}"
+
+[error.setup]
+exists_non_interactive = "pass --force to overwrite, or run setup interactively"
+
+[error.config]
+reserved_variable = "rename the variable; reserved: model, table, package, package_path, fields, model_*"
+
+[error.variable]
+shadows_builtin = "remove or rename the variable in setup.toml [variables]"
+undeclared = "declare {key} in .crud/templates/{schema_file} or remove --var/JSON entry"
+missing_required = "pass --var {name}=<value> or set in JSON `variables`"
+type_mismatch = "pass a {expected} value for {name}"
+schema_fix = "fix .crud/templates/_variables.toml"
+invalid_var_arg = "use --var key=value (value: true/false/number/string)"

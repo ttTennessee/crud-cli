@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 use super::error::{ErrorEnvelope, Kind};
-use super::i18n::Lang;
+use super::i18n::{self, keys, Lang};
 
 /// `[ui]` section of the global config.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -106,7 +106,7 @@ fn config_error(msg: impl Into<String>) -> ErrorEnvelope {
         kind: Kind::ConfigError,
         msg: msg.into(),
         exit_code: Kind::ConfigError.exit_code(),
-        hint: "check ~/.crud/config.toml permissions and syntax".into(),
+        hint: i18n::t(keys::ERROR_GLOBAL_CONFIG_CHECK).into(),
         details: serde_json::Map::new(),
     }
 }

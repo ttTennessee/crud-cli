@@ -10,6 +10,7 @@ use crate::core::config::{
 use crate::core::paths::{project_setup_toml, project_setup_user_toml};
 use crate::core::gen_run::GenRunParams;
 use crate::core::error::ErrorEnvelope;
+use crate::core::i18n::{self, keys};
 use crate::core::field_dsl;
 use crate::core::fs_writer::{commit, plan, OverwriteContext, WriteTarget};
 use crate::core::gen_context::{self, AsContextField, UserIdentity};
@@ -53,7 +54,7 @@ pub fn resolve_output_path(
             "filename contains path separator",
             "filename_has_slash",
             serde_json::Map::new(),
-            "use basePath for directories; filename must be a single segment",
+            i18n::t(keys::ERROR_GEN_FILENAME_SLASH),
         ));
     }
 
@@ -246,7 +247,7 @@ fn path_traversal_error(rel_hint: Option<&str>) -> ErrorEnvelope {
         "path traversal in template output",
         "path_traversal",
         details,
-        "remove .. or absolute path from template location or front-matter",
+        i18n::t(keys::ERROR_GEN_PATH_TRAVERSAL),
     )
 }
 
@@ -296,7 +297,7 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
             format!("cwd: {e}"),
             None,
             None,
-            "run inside a project directory",
+            i18n::t(keys::ERROR_GEN_CWD),
         )
     })?;
 
@@ -504,6 +505,6 @@ fn missing_pipeline_input(flag: &'static str) -> ErrorEnvelope {
         format!("missing {flag} for generation"),
         "missing_field",
         details,
-        format!("provide --{flag}"),
+        i18n::tf(keys::ERROR_GEN_MISSING_INPUT, &[("flag", flag)]),
     )
 }
