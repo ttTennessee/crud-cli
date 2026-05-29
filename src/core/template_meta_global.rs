@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use super::config::{Backend, Frontend};
+use super::config::{Backend, Frontend, PathsSection};
 use super::error::{ErrorEnvelope, Kind};
 
 /// File name of the per-template manifest.
@@ -35,6 +35,10 @@ pub struct TemplateManifest {
     /// Optional one-line description shown in `template list`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// Optional path overrides to apply to the project when this template is
+    /// selected. When present, completely replaces the project's `[paths]`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paths: Option<PathsSection>,
 }
 
 /// A successfully-loaded installed template.

@@ -475,6 +475,9 @@ fn cmd_use(spec: &str, yes: bool) -> Result<(), ErrorEnvelope> {
         name: installed.name.clone(),
         version: Some(installed.version.clone()),
     });
+    if let Some(paths) = installed.manifest.paths.clone() {
+        cfg.paths = paths;
+    }
     write_setup(&setup_path, &cfg)?;
 
     let line = i18n::tf(
