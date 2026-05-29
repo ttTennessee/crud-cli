@@ -22,8 +22,14 @@ MCP tool usage:
 
 ## Technology Stack
 
+> **Note (2026-05-29):** The sections below were the original pre-build stack
+> *recommendation*. The shipped project diverged on one point — layout. The
+> "2-crate workspace" recommendation was **not** adopted; see **Architecture**
+> at the bottom of this file for the actual layout. The crate/version picks
+> (clap, handlebars, serde+toml, ureq+flate2+tar, inquire, …) all hold.
+
 ## TL;DR
-- **Workspace layout:** Cargo workspace with TWO library crates + one binary — `crates/crud-core` (pure logic), `crates/crud-cli` (thin clap layer + binary). This keeps the future MCP server a 4th crate (`crates/crud-mcp`) that depends on `crud-core` only.
+- **Layout (as built):** a SINGLE crate `crud-cli` with `src/core/` (pure logic) and `src/cli/` (clap/inquire surface) modules. The boundary is enforced by a `cli` Cargo feature: `core` compiles with `--no-default-features`, so it cannot reach for clap/inquire. The future MCP server reuses `crud_cli` as a library with `cli` off (or is promoted to a `crud-core` crate then). The original recommendation was a 2-crate workspace (`crates/crud-core` + `crates/crud-cli`); the feature-gate approach achieved the same boundary with less ceremony.
 - **CLI:** `clap` 4.6 (derive) — no real alternative.
 - **Templates:** `handlebars` 6.4 — chosen because the PRD explicitly specifies `.hbs` files and Handlebars syntax (`{{model}}`). `minijinja` would be faster but breaks PRD compatibility.
 - **Config:** plain `serde` + `toml` + `serde_json`. Skip `figment`/`config-rs` — they over-engineer a single-file `.crud/setup.toml`.
@@ -153,8 +159,42 @@ MCP tool usage:
 
 ## Conventions
 
-Conventions not yet established. Will populate as patterns emerge during development.
+- **Errors:** `crud-core` returns typed `ErrorEnvelope` (`src/core/error.rs`) with a
+  `Kind`, an exit code, a human hint, and a JSON `details` map. The CLI converts
+  these to either human output or, under `--agent`, a single JSON object on stderr.
+- **i18n:** user-facing strings are keys in `src/core/i18n/keys.rs`, rendered via
+  `i18n::t` / `i18n::tf`. Don't hardcode user-facing English in command code.
+- **Config schemas** are `#[serde(deny_unknown_fields)]` — typos surface as errors.
+  Section order in `setup.toml` is part of the contract (round-tripped on write).
+- **Tests:** `insta` snapshots for rendered templates; `assert_cmd` + `predicates`
+  for end-to-end CLI; `tests/contracts/` locks the agent-facing surface.
+- **Lint policy:** `unwrap_used` / `expect_used` / `panic` are denied — propagate
+  errors via `ErrorEnvelope`/`Result` instead.
 
 ## Architecture
 
-Architecture not yet mapped. Follow existing patterns found in the codebase.
+Single crate, two strictly-separated module layers (a `cli` Cargo feature gates the
+upper layer so `core` can be used as a pure library):
+
+- `src/core/` — config parsing (`config.rs`, `global_config.rs`), language-based path
+  resolution (`paths.rs`, `default_paths.rs`, prefix rebasing in `gen_pipeline.rs`),
+  template engine + loader (`template_engine.rs`, `template_loader.rs`,
+  `template_meta.rs`), the generation pipeline (`gen_*`), transactional writer
+  (`fs_writer.rs`), validator (`validator.rs`), per-call variable schema
+  (`template_variables.rs`), GitHub template install (`template_installer.rs`,
+  `template_install_meta.rs`, `template_meta_global.rs`), type mapping (`type_map.rs`),
+  i18n (`i18n/`), and typed `thiserror` errors (`error.rs`). No clap, no inquire.
+- `src/cli/` — clap surface (`args.rs`), inquire setup wizard (`setup_wizard.rs`),
+  command handlers (`commands/{setup,gen,validate,template}.rs`), agent-mode JSON
+  output (`agent_mode.rs`), human output (`output.rs`). Depends on `core`; never the
+  reverse.
+
+**Paths model:** template subdirectory prefixes (the first path segment, e.g.
+`java/`, `vue/`, `resources/`, `doc/`) are looked up in `[paths.lang]` first, then
+`[paths.aux]`, and rebased to the configured project directory. The model is
+language-based and open-ended — there is no fixed list of framework prefixes.
+
+**Global templates:** `crud-cli template install` downloads a template bundle from a
+GitHub repo into `~/.crud/templates/<name>/<version>/`; `template use` points a
+project's `[project].template` at one; `template list` enumerates installed bundles.
+The default repo is configurable via `[templates].repo` in `~/.crud/config.toml`.

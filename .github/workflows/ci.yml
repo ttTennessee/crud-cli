@@ -29,12 +29,12 @@ jobs:
       - name: Core lib without CLI deps
         run: cargo check --no-default-features --lib
 
-      - name: CLI --help / --version (CONF-10)
+      - name: CLI --help / --version
         run: |
           cargo run --quiet -- --help
           cargo run --quiet -- --version
 
-      - name: Core-only example (FOUND-03)
+      - name: Core-only example
         run: cargo run --example library_usage --no-default-features
 
       - name: Contract tests
@@ -51,7 +51,7 @@ jobs:
       - name: Full test suite
         run: cargo test -q
 
-      - name: Stream discipline grep (FOUND-10)
+      - name: Stream discipline grep
         shell: bash
         run: |
           set -euo pipefail
@@ -60,7 +60,7 @@ jobs:
             exit 1
           fi
 
-      - name: Clippy deny policy (FOUND-07 / D-15)
+      - name: Clippy deny policy
         run: >-
           cargo clippy --all-targets
           --
@@ -68,7 +68,7 @@ jobs:
           -D clippy::expect_used
           -D clippy::panic
 
-      - name: Clippy core-only (FOUND-03)
+      - name: Clippy core-only
         run: >-
           cargo clippy --no-default-features --lib
           --

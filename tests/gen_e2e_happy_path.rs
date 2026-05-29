@@ -5,7 +5,7 @@ use crud_cli::cli::args::GenArgs;
 use crud_cli::cli::commands::gen::run_gen;
 use crud_cli::core::config::SetupConfig;
 use crud_cli::core::config::SetupSelections;
-use crud_cli::core::config::{Backend, Frontend, OverwritePolicy};
+use crud_cli::core::config::{Backend, Frontend};
 use std::fs;
 use std::sync::{Mutex, OnceLock};
 use tempfile::TempDir;

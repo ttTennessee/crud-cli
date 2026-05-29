@@ -3,7 +3,7 @@
 
 use crud_cli::core::config::SetupConfig;
 use crud_cli::core::config::SetupSelections;
-use crud_cli::core::config::{Backend, Frontend, OverwritePolicy};
+use crud_cli::core::config::{Backend, Frontend};
 use crud_cli::core::error::Kind;
 use crud_cli::core::validator::{run, ValidateParams};
 use std::fs;
@@ -27,7 +27,9 @@ fn seed_setup(root: &std::path::Path) {
     fs::write(crud.join("setup.toml"), cfg.to_toml_pretty().unwrap()).expect("setup.toml");
 }
 
-fn run_validate_in(root: &std::path::Path) -> Result<crud_cli::core::validator::ValidateReport, crud_cli::core::error::ErrorEnvelope> {
+fn run_validate_in(
+    root: &std::path::Path,
+) -> Result<crud_cli::core::validator::ValidateReport, crud_cli::core::error::ErrorEnvelope> {
     let _lock = cwd_guard();
     let prev = std::env::current_dir().unwrap();
     std::env::set_current_dir(root).unwrap();
@@ -47,7 +49,11 @@ fn missing_helper_reported() {
 
     let err = run_validate_in(root).expect_err("should fail");
     assert_eq!(err.kind, Kind::TemplateError);
-    let issues = err.details.get("issues").and_then(|v| v.as_array()).unwrap();
+    let issues = err
+        .details
+        .get("issues")
+        .and_then(|v| v.as_array())
+        .unwrap();
     let issue = issues
         .iter()
         .find(|i| i.get("kind").and_then(|k| k.as_str()) == Some("missing_helper"))
@@ -93,13 +99,22 @@ fn aggregate_multiple_templates() {
     let err = run_validate_in(root).expect_err("should fail");
     assert_eq!(err.exit_code, 2);
     let summary = err.details.get("summary").expect("summary");
-    assert_eq!(summary.get("templates_checked").and_then(|v| v.as_u64()), Some(3));
     assert_eq!(
-        summary.get("templates_with_issues").and_then(|v| v.as_u64()),
+        summary.get("templates_checked").and_then(|v| v.as_u64()),
+        Some(3)
+    );
+    assert_eq!(
+        summary
+            .get("templates_with_issues")
+            .and_then(|v| v.as_u64()),
         Some(2)
     );
     assert_eq!(summary.get("issue_count").and_then(|v| v.as_u64()), Some(2));
-    let issues = err.details.get("issues").and_then(|v| v.as_array()).unwrap();
+    let issues = err
+        .details
+        .get("issues")
+        .and_then(|v| v.as_array())
+        .unwrap();
     assert_eq!(issues.len(), 2);
     let kinds: Vec<_> = issues
         .iter()

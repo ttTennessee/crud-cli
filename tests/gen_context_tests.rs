@@ -3,7 +3,7 @@
 
 use crud_cli::core::config::SetupConfig;
 use crud_cli::core::config::SetupSelections;
-use crud_cli::core::config::{Backend, Frontend, OverwritePolicy};
+use crud_cli::core::config::{Backend, Frontend};
 use crud_cli::core::field_dsl::Field;
 use crud_cli::core::gen_context::build_context_from_input;
 use crud_cli::core::gen_input::GenInput;
@@ -35,7 +35,13 @@ fn build_context_includes_model_and_field_case_keys() {
         frontend: Frontend::None,
         template: None,
     });
-    let ctx = build_context_from_input(&input, &setup, &GitInfo::default(), &crud_cli::core::gen_context::UserIdentity::default()).expect("context");
+    let ctx = build_context_from_input(
+        &input,
+        &setup,
+        &GitInfo::default(),
+        &crud_cli::core::gen_context::UserIdentity::default(),
+    )
+    .expect("context");
     let obj = ctx.as_object().expect("object");
 
     assert_eq!(obj.get("model").and_then(|v| v.as_str()), Some("User"));
@@ -52,7 +58,10 @@ fn build_context_includes_model_and_field_case_keys() {
         Some("com/acme/demo")
     );
 
-    let fields = obj.get("fields").and_then(|v| v.as_array()).expect("fields");
+    let fields = obj
+        .get("fields")
+        .and_then(|v| v.as_array())
+        .expect("fields");
     let first = fields[1].as_object().expect("field obj");
     assert_eq!(
         first.get("name_pascal").and_then(|v| v.as_str()),
