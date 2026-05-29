@@ -28,8 +28,13 @@ Agent 只下发一条短命令 + 结构化数据，`crud-cli` 在本地完成模
   自然语言描述，最后这条是给 Agent 读的契约）。
 - 两阶段事务式写盘 —— 任一文件冲突，整批回滚，磁盘上不留半成品。
 - Agent 模式（`--agent`）：错误以结构化 JSON 输出到 stderr，成功时 stdout 为空。
-
-尚未实现：`template install`、`template list`。
+- `crud-cli template install` —— 从 GitHub 仓库下载模板包到
+  `~/.crud/templates/<name>/<version>/`。交互式选择名称/版本（版本会标注
+  已安装 / 本地已改 / 仓库有更新 等状态），并可选择叠加共享的 `doc/`。
+  脚本化用法：`template install name@version`。
+- `crud-cli template list` —— 列出已安装的模板包。
+- `crud-cli template use <name>[@version]` —— 把项目的 `[project].template`
+  指向某个已安装模板包（同步 backend/frontend）。
 
 ## 安装
 
@@ -48,11 +53,13 @@ cargo build --release
 
 ### 1. Setup
 
-项目配置（checked in，团队共享）：
+项目配置（checked in，团队共享）。`--backend` / `--frontend` 接收语言标识，
+`--lang` / `--aux` 设置路径映射：
 
 ```bash
-crud-cli setup --project --backend spring-boot --frontend vue \
-  --component-library element-plus
+crud-cli setup --project --backend java --frontend vue \
+  --lang java=src/main/java --lang vue=src/views \
+  --aux resources=src/main/resources --aux doc=doc/api
 ```
 
 用户配置（每人一份，gitignored）：
@@ -89,7 +96,7 @@ crud-cli gen User --table sys_user --package com.acme.demo \
   --fields "name:String,age:Integer"
 ```
 
-输出落到 `<java_base>/com/acme/demo/controller/UserController.java`。
+输出落到 `<paths.lang.java>/com/acme/demo/controller/UserController.java`。
 
 ### 4. 提交前校验
 
@@ -100,30 +107,40 @@ crud-cli validate
 
 ## 路径系统
 
-模板本身是项目无关的；具体落到哪里由 `.crud/setup.toml [paths]` 决定。
-模板路径里出现的"约定前缀"会被替换成配置的真实目录：
+模板本身是项目无关的；具体落到哪里由 `.crud/setup.toml` 里的两张路径表决定。
+模板位置的第一段路径（**前缀**）会先在 `[paths.lang]` 查找，找不到再到
+`[paths.aux]`，然后把该前缀替换成配置的真实目录。这套模型是按语言组织、
+开放式的 —— 没有固定的框架前缀列表；你往 `[paths.lang]` / `[paths.aux]`
+里加的任何 key 都能当前缀用。
 
-| 模板前缀 | 配置项 | SpringBoot 默认 | Vue 默认 |
+`setup` 按所选语言种入的约定默认值：
+
+| 前缀 | 所在表 | 默认值 | 适用于 |
 |---|---|---|---|
-| `java/` | `paths.java_base` | `src/main/java` | — |
-| `resources/` | `paths.resources_base` | `src/main/resources` | — |
-| `doc/` | `paths.doc_base` | `doc/api` | — |
-| `vue/` | `paths.vue_base` | — | `src/views` |
-| `react/` | `paths.react_base` | — | `src/views` |
-| `nest/` | `paths.nest_base` | `src`（Nest 后端） | — |
+| `java` | `[paths.lang]` | `src/main/java` | backend = java |
+| `ts` | `[paths.lang]` | `src` | backend = typescript |
+| `go` | `[paths.lang]` | `internal` | backend = go |
+| `python` | `[paths.lang]` | `src` | backend = python |
+| `vue` | `[paths.lang]` | `src/views` | frontend = vue |
+| `react` | `[paths.lang]` | `src/views` | frontend = react |
+| `resources` | `[paths.aux]` | `src/main/resources` | backend = java |
+| `doc` | `[paths.aux]` | `doc/api` | 多数后端 |
 
 多模块/monorepo 项目，按布局覆写：
 
 ```toml
-[paths]
-java_base = "backend/api/src/main/java"
-resources_base = "backend/api/src/main/resources"
-doc_base = "docs/api"
+[paths.lang]
+java = "backend/api/src/main/java"
+vue = "frontend/src/views"
+
+[paths.aux]
+resources = "backend/api/src/main/resources"
+doc = "docs/api"
 ```
 
 `.crud/templates/java/Foo.hbs`（或在 front-matter 写
 `basePath: "java/{{package_path}}/foo"`），不管宿主项目布局如何，
-都会落到配置的 `java_base` 下。
+都会落到配置的 `java` 路径下。
 
 ## 模板编写
 
@@ -222,11 +239,13 @@ CLI flag（`--name`、`--package`、`--table`、`--var`）覆盖 JSON 里的同�
 
 | 文件 | 范围 | 入库 | 内容 |
 |---|---|---|---|
-| `.crud/setup.toml` | 项目 | 是 | `[project]`、`[paths]`、`[variables]`、`[templates.outputs]` |
+| `.crud/setup.toml` | 项目 | 是 | `[project]`、`[paths.lang]`、`[paths.aux]`、`[variables]`、`[templates.outputs]`、`[type_map]` |
 | `.crud/setup.user.toml` | 开发者 | 否 | `[user]`、`[overwrite]`、`[scope]` |
 | `.crud/templates/_variables.toml` | 项目 | 是 | 每次调用变量的 schema |
 | `.crud/templates/**/*.hbs` | 项目 | 是 | 模板 |
 | `.crud/templates/.crudignore` | 项目 | 是 | 排除特定模板 |
+| `~/.crud/config.toml` | 全局 | 否 | `[templates].repo` —— `template install` 的默认 GitHub 仓库 |
+| `~/.crud/templates/<name>/<version>/` | 全局 | 否 | 已安装的模板包 |
 
 所有 TOML schema 都是 `deny_unknown_fields` —— 拼错或漂写会立刻报错，
 不会静默改变行为。
@@ -264,4 +283,4 @@ JSON 错误 envelope 形状、setup 写盘的字节一致性。
 
 ## 许可证
 
-MIT OR Apache-2.0
+MIT —— 见 [LICENSE](./LICENSE)。Copyright (c) 2026 Yujie Jin。

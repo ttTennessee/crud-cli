@@ -32,8 +32,13 @@ Implemented:
 - Transactional two-phase write — on conflict, nothing lands on disk.
 - Agent mode (`--agent`): structured JSON errors on stderr, empty stdout on
   success.
-
-Not yet implemented: `template install`, `template list`.
+- `crud-cli template install` — download a template bundle from a GitHub repo
+  into `~/.crud/templates/<name>/<version>/`. Interactive name/version pickers
+  (version labels show installed / locally-modified / repo-updated status) and
+  an optional shared-`doc/` picker. Scriptable as `template install name@version`.
+- `crud-cli template list` — list installed template bundles.
+- `crud-cli template use <name>[@version]` — point the project's
+  `[project].template` at an installed bundle (syncs backend/frontend).
 
 ## Install
 
@@ -52,11 +57,13 @@ A `cargo install` / prebuilt-binary path will land with the v0.1 release.
 
 ### 1. Setup
 
-Project config (checked in, shared by all developers):
+Project config (checked in, shared by all developers). `--backend` /
+`--frontend` take a language identifier; `--lang` / `--aux` set the path map:
 
 ```bash
-crud-cli setup --project --backend spring-boot --frontend vue \
-  --component-library element-plus
+crud-cli setup --project --backend java --frontend vue \
+  --lang java=src/main/java --lang vue=src/views \
+  --aux resources=src/main/resources --aux doc=doc/api
 ```
 
 User config (per developer, gitignored):
@@ -93,7 +100,7 @@ crud-cli gen User --table sys_user --package com.acme.demo \
   --fields "name:String,age:Integer"
 ```
 
-Output lands at `<java_base>/com/acme/demo/controller/UserController.java`.
+Output lands at `<paths.lang.java>/com/acme/demo/controller/UserController.java`.
 
 ### 4. Validate before commit
 
@@ -104,31 +111,41 @@ crud-cli validate
 
 ## Path system
 
-Templates are project-agnostic; per-project layout is driven by
-`.crud/setup.toml [paths]`. Each prefix in the template path is rebased to the
-configured base:
+Templates are project-agnostic; per-project layout is driven by the two path
+maps in `.crud/setup.toml`. The first path segment of a template's location
+(its **prefix**) is looked up in `[paths.lang]` first, then `[paths.aux]`, and
+the prefix is rebased to the configured directory. The model is language-based
+and open-ended — there is no fixed list of framework prefixes; any key you add
+to `[paths.lang]` / `[paths.aux]` becomes a usable prefix.
 
-| Template prefix | Config key | SpringBoot default | Vue default |
+Conventional defaults seeded by `setup` (depend on the chosen languages):
+
+| Prefix | Map | Default | Seeded for |
 |---|---|---|---|
-| `java/` | `paths.java_base` | `src/main/java` | — |
-| `resources/` | `paths.resources_base` | `src/main/resources` | — |
-| `doc/` | `paths.doc_base` | `doc/api` | — |
-| `vue/` | `paths.vue_base` | — | `src/views` |
-| `react/` | `paths.react_base` | — | `src/views` |
-| `nest/` | `paths.nest_base` | `src` (Nest backend) | — |
+| `java` | `[paths.lang]` | `src/main/java` | backend = java |
+| `ts` | `[paths.lang]` | `src` | backend = typescript |
+| `go` | `[paths.lang]` | `internal` | backend = go |
+| `python` | `[paths.lang]` | `src` | backend = python |
+| `vue` | `[paths.lang]` | `src/views` | frontend = vue |
+| `react` | `[paths.lang]` | `src/views` | frontend = react |
+| `resources` | `[paths.aux]` | `src/main/resources` | backend = java |
+| `doc` | `[paths.aux]` | `doc/api` | most backends |
 
 Override in `setup.toml` to match your monorepo layout:
 
 ```toml
-[paths]
-java_base = "backend/api/src/main/java"
-resources_base = "backend/api/src/main/resources"
-doc_base = "docs/api"
+[paths.lang]
+java = "backend/api/src/main/java"
+vue = "frontend/src/views"
+
+[paths.aux]
+resources = "backend/api/src/main/resources"
+doc = "docs/api"
 ```
 
 A template at `.crud/templates/java/Foo.hbs` (or with
-`basePath: "java/{{package_path}}/foo"`) lands under the configured
-`java_base` regardless of how the host project is laid out.
+`basePath: "java/{{package_path}}/foo"`) lands under the configured `java`
+path regardless of how the host project is laid out.
 
 ## Template authoring
 
@@ -226,11 +243,13 @@ CLI flags (`--name`, `--package`, `--table`, `--var`) override JSON values.
 
 | File | Scope | Tracked | Contents |
 |---|---|---|---|
-| `.crud/setup.toml` | Project | Yes | `[project]`, `[paths]`, `[variables]`, `[templates.outputs]` |
+| `.crud/setup.toml` | Project | Yes | `[project]`, `[paths.lang]`, `[paths.aux]`, `[variables]`, `[templates.outputs]`, `[type_map]` |
 | `.crud/setup.user.toml` | Developer | No | `[user]`, `[overwrite]`, `[scope]` |
 | `.crud/templates/_variables.toml` | Project | Yes | Per-call variable schema |
 | `.crud/templates/**/*.hbs` | Project | Yes | Templates |
 | `.crud/templates/.crudignore` | Project | Yes | Exclude files from discovery |
+| `~/.crud/config.toml` | Global | No | `[templates].repo` — default GitHub repo for `template install` |
+| `~/.crud/templates/<name>/<version>/` | Global | No | Installed template bundles |
 
 All TOML schemas use `deny_unknown_fields` — typos and drift surface
 immediately rather than silently changing behavior.
@@ -270,4 +289,4 @@ behavior, JSON error envelope shape, byte-identical setup output.
 
 ## License
 
-MIT OR Apache-2.0
+MIT — see [LICENSE](./LICENSE). Copyright (c) 2026 Yujie Jin.
