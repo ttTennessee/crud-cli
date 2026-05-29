@@ -75,6 +75,10 @@ fn catalog(lang: Lang) -> &'static HashMap<String, String> {
 }
 
 fn parse_catalog(src: &str) -> HashMap<String, String> {
+    // Catalogs are compiled in via include_str! and covered by
+    // `locales_have_identical_key_sets`; a parse failure here means a
+    // developer broke the bundled TOML, not anything a user can fix.
+    #[allow(clippy::panic)]
     let value: toml::Value = src
         .parse()
         .unwrap_or_else(|e| panic!("i18n catalog is not valid TOML: {e}"));

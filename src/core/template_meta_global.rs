@@ -151,7 +151,10 @@ pub fn find_template_in(
             .ok_or_else(|| not_found_error(name, Some(v))),
         None => {
             candidates.sort_by(|a, b| version_cmp(&b.version, &a.version));
-            Ok(candidates.into_iter().next().expect("non-empty"))
+            candidates
+                .into_iter()
+                .next()
+                .ok_or_else(|| not_found_error(name, None))
         }
     }
 }

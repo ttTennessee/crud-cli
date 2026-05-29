@@ -309,9 +309,12 @@ pub fn install_from_snapshot(
         fs::remove_dir_all(&dest_dir)
             .map_err(|e| io_error(format!("remove {}", dest_dir.display()), e))?;
     }
-    let parent = dest_dir
-        .parent()
-        .expect("dest_root/<name> always has a parent");
+    let parent = dest_dir.parent().ok_or_else(|| {
+        io_error(
+            format!("invalid dest path {}", dest_dir.display()),
+            io::Error::new(io::ErrorKind::InvalidInput, "no parent directory"),
+        )
+    })?;
     fs::create_dir_all(parent)
         .map_err(|e| io_error(format!("create {}", parent.display()), e))?;
     copy_dir_all(&src, &dest_dir)

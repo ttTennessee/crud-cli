@@ -195,7 +195,14 @@ fn resolve_name_and_version(
             let chosen_idx = labels
                 .iter()
                 .position(|(l, _)| l == &chosen_label)
-                .expect("Select returns one of the offered labels");
+                .ok_or_else(|| {
+                    ErrorEnvelope::user_error(
+                        "internal: version picker returned an unknown label",
+                        None,
+                        None,
+                        "",
+                    )
+                })?;
             let (_, status) = &labels[chosen_idx];
             let v = versions[chosen_idx].clone();
             let force_flag = match status {
