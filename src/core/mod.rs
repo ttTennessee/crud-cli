@@ -16,6 +16,7 @@ pub mod i18n;
 pub mod template_loader;
 pub mod template_meta;
 pub mod template_meta_global;
+pub mod template_installer;
 pub mod template_variables;
 pub mod paths;
 pub mod template_engine;

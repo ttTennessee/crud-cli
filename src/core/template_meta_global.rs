@@ -156,14 +156,18 @@ pub fn find_template_in(
     }
 }
 
-fn load_manifest(version_dir: &Path) -> Result<TemplateManifest, String> {
+pub(crate) fn load_manifest(version_dir: &Path) -> Result<TemplateManifest, String> {
     let path = version_dir.join(MANIFEST_FILENAME);
     let raw = std::fs::read_to_string(&path)
         .map_err(|e| format!("read {}: {e}", path.display()))?;
     toml::from_str::<TemplateManifest>(&raw).map_err(|e| format!("parse: {e}"))
 }
 
-fn version_cmp(a: &str, b: &str) -> Ordering {
+/// Component-wise version comparison: numeric segments compared as integers,
+/// non-numeric segments compared lexicographically. `pub(crate)` so the
+/// installer can pick the highest version directory from a freshly extracted
+/// tarball without duplicating the logic.
+pub(crate) fn version_cmp(a: &str, b: &str) -> Ordering {
     let mut ai = a.split('.');
     let mut bi = b.split('.');
     loop {

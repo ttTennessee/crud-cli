@@ -24,12 +24,34 @@ impl UiSection {
     }
 }
 
+/// `[templates]` section: template-install registry preferences.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct TemplatesRegistrySection {
+    /// GitHub `owner/repo` (or full `https://github.com/owner/repo` URL) that
+    /// `crud-cli template install` downloads from when no `--repo` flag is set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repo: Option<String>,
+}
+
+impl TemplatesRegistrySection {
+    fn is_empty(&self) -> bool {
+        self.repo.is_none()
+    }
+}
+
+/// Default GitHub repository used by `template install` when neither the
+/// `--repo` flag nor `[templates].repo` is set.
+pub const DEFAULT_TEMPLATE_REPO: &str = "ttTennessee/crud-templates";
+
 /// Root schema for `~/.crud/config.toml`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct GlobalConfig {
     #[serde(default, skip_serializing_if = "UiSection::is_empty")]
     pub ui: UiSection,
+    #[serde(default, skip_serializing_if = "TemplatesRegistrySection::is_empty")]
+    pub templates: TemplatesRegistrySection,
 }
 
 impl GlobalConfig {
@@ -58,6 +80,15 @@ impl GlobalConfig {
     /// Records the chosen language preference.
     pub fn set_lang(&mut self, lang: Lang) {
         self.ui.lang = Some(lang.code().to_string());
+    }
+
+    /// Configured template repo, falling back to [`DEFAULT_TEMPLATE_REPO`].
+    #[must_use]
+    pub fn template_repo(&self) -> &str {
+        self.templates
+            .repo
+            .as_deref()
+            .unwrap_or(DEFAULT_TEMPLATE_REPO)
     }
 
     /// Serializes to deterministic TOML bytes.

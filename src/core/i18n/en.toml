@@ -36,6 +36,10 @@ missing_setup = "Run `crud-cli setup --project` first"
 empty = "No installed templates under ~/.crud/templates/."
 entry = "{name}@{version}  ({backend} + {frontend}) {description}"
 
+[template.install]
+starting = "Installing {name} from {repo}…"
+done = "Installed {name}@{version} ({backend} + {frontend}) → {path}"
+
 [wizard.typemap]
 passthrough = "passthrough (keep unmapped types as-is)"
 error = "error (abort render on unmapped types)"

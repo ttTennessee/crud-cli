@@ -36,6 +36,10 @@ missing_setup = "请先运行 `crud-cli setup --project`"
 empty = "~/.crud/templates/ 下没有已安装的模板。"
 entry = "{name}@{version}  ({backend} + {frontend}) {description}"
 
+[template.install]
+starting = "正在从 {repo} 安装 {name}……"
+done = "已安装 {name}@{version}（{backend} + {frontend}）→ {path}"
+
 [wizard.typemap]
 passthrough = "passthrough（未映射类型保持原样）"
 error = "error（遇到未映射类型则中止渲染）"

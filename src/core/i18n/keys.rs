@@ -42,6 +42,8 @@ pub const TEMPLATE_USE_APPLIED: &str = "template.use.applied";
 pub const TEMPLATE_USE_MISSING_SETUP: &str = "template.use.missing_setup";
 pub const TEMPLATE_LIST_EMPTY: &str = "template.list.empty";
 pub const TEMPLATE_LIST_ENTRY: &str = "template.list.entry";
+pub const TEMPLATE_INSTALL_STARTING: &str = "template.install.starting";
+pub const TEMPLATE_INSTALL_DONE: &str = "template.install.done";
 pub const ERROR_CONFIG_LEGACY_SCHEMA: &str = "error.config.legacy_schema";
 
 // ── gen / validate success lines (human-only) ───────────────────────────────
@@ -155,6 +157,8 @@ pub const ALL_KEYS: &[&str] = &[
     TEMPLATE_USE_MISSING_SETUP,
     TEMPLATE_LIST_EMPTY,
     TEMPLATE_LIST_ENTRY,
+    TEMPLATE_INSTALL_STARTING,
+    TEMPLATE_INSTALL_DONE,
     ERROR_CONFIG_LEGACY_SCHEMA,
     GEN_SUCCESS_WRITTEN,
     GEN_SUCCESS_DRY_RUN,

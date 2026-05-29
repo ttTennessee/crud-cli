@@ -150,6 +150,18 @@ pub enum TemplateCommand {
     },
     /// List installed templates under `~/.crud/templates/`.
     List,
+    /// Download a template from a GitHub repo into `~/.crud/templates/`.
+    Install {
+        /// `name` or `name@version` to install.
+        name: String,
+        /// Override repo (`owner/repo[@ref]` or full GitHub URL). Defaults to
+        /// `[templates].repo` in `~/.crud/config.toml`, then `ttTennessee/crud-templates`.
+        #[arg(long = "repo", value_name = "OWNER/REPO[@REF]")]
+        repo: Option<String>,
+        /// Overwrite an already-installed `<name>/<version>/` directory.
+        #[arg(long = "force", default_value_t = false)]
+        force: bool,
+    },
 }
 
 impl GenArgs {
