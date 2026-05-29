@@ -55,6 +55,7 @@ fn gen_renders_single_template_to_disk() {
         fields: Some("id:Long,name:String".into()),
         package: Some("com.acme.demo".into()),
         table: Some("sys_user".into()),
+        table_comment: None,
         file: None,
         type_: None,
         dry_run: false,

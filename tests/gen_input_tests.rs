@@ -107,6 +107,7 @@ fn json_cli_override_wins() {
             name: Some("FromCli".into()),
             package: Some("com.cli".into()),
             table: Some("t_cli".into()),
+            table_comment: None,
         },
     )
     .expect("ok");

@@ -51,6 +51,7 @@ fn dry_run_lists_paths_and_writes_nothing() {
         fields: Some("id:Long".into()),
         package: Some("com.x".into()),
         table: Some("t".into()),
+        table_comment: None,
         file: None,
         type_: None,
         dry_run: true,

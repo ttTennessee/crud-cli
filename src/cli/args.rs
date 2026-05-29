@@ -108,6 +108,10 @@ pub struct GenArgs {
     #[arg(long = "table")]
     pub table: Option<String>,
 
+    /// Business description of the table/entity (`{{table_comment}}` in templates).
+    #[arg(long = "table-comment")]
+    pub table_comment: Option<String>,
+
     #[arg(long = "type")]
     pub type_: Option<String>,
 

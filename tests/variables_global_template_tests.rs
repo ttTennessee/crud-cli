@@ -97,6 +97,7 @@ fn global_template_variables_schema_used_without_project_local_schema() {
         fields: Some("id:Long".into()),
         package: Some("com.x".into()),
         table: Some("u".into()),
+        table_comment: None,
         file: None,
         type_: None,
         dry_run: false,

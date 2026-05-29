@@ -15,6 +15,7 @@ fn build_context_includes_model_and_field_case_keys() {
         name: "User".into(),
         table: "sys_user".into(),
         package: "com.acme.demo".into(),
+        table_comment: String::new(),
         fields: vec![
             Field {
                 name: "id".into(),
@@ -82,6 +83,39 @@ fn build_context_includes_model_and_field_case_keys() {
 }
 
 #[test]
+fn build_context_includes_table_comment() {
+    let input = GenInput {
+        name: "User".into(),
+        table: "sys_user".into(),
+        package: "com.acme.demo".into(),
+        table_comment: "系统用户".into(),
+        fields: vec![Field {
+            name: "id".into(),
+            ty: "Long".into(),
+            is_pk: true,
+            nullable: false,
+        }],
+    };
+    let setup = SetupConfig::from_selections(SetupSelections {
+        backend: Backend::None,
+        frontend: Frontend::None,
+        template: None,
+    });
+    let ctx = build_context_from_input(
+        &input,
+        &setup,
+        &GitInfo::default(),
+        &crud_cli::core::gen_context::UserIdentity::default(),
+    )
+    .expect("context");
+    let obj = ctx.as_object().expect("object");
+    assert_eq!(
+        obj.get("table_comment").and_then(|v| v.as_str()),
+        Some("系统用户")
+    );
+}
+
+#[test]
 fn build_context_surfaces_field_comment_length_unique_default_from_json_spec() {
     use crud_cli::core::gen_context::{build_context, AsContextField};
     use crud_cli::core::gen_input::FieldSpec;
@@ -118,6 +152,7 @@ fn build_context_surfaces_field_comment_length_unique_default_from_json_spec() {
         "User",
         "sys_user",
         "com.acme.demo",
+        "",
         &refs,
         &setup,
         &GitInfo::default(),

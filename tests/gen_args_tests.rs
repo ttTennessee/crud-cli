@@ -27,6 +27,7 @@ fn gen_args_parses_minimal_dsl_form() {
     assert_eq!(args.fields.as_deref(), Some("id:Long"));
     assert_eq!(args.package.as_deref(), Some("com.acme"));
     assert_eq!(args.table.as_deref(), Some("u"));
+    assert!(args.table_comment.is_none());
     assert!(args.file.is_none());
     assert!(!args.dry_run);
     assert!(!args.force);
@@ -65,6 +66,7 @@ fn gen_args_fields_file_mutex() {
         file: Some(std::path::PathBuf::from("user.json")),
         package: Some("com.acme".into()),
         table: Some("u".into()),
+        table_comment: None,
         type_: None,
         dry_run: false,
         stdout: false,

@@ -200,7 +200,9 @@ Always available in templates:
 
 - `{{model}}`, `{{model_pascal}}`, `{{model_snake}}`, `{{model_camel}}`,
   `{{model_kebab}}`
-- `{{table}}`, `{{package}}`, `{{package_path}}` (dots → slashes)
+- `{{table}}`, `{{table_comment}}` (optional entity/table business caption;
+  `--table-comment`, JSON `table_comment`, or empty), `{{package}}`,
+  `{{package_path}}` (dots → slashes)
 - `{{fields}}` — iterate with `{{#each fields}}`; each item exposes `name`,
   `name_pascal`, `name_snake`, `name_camel`, `name_kebab`, `type`, `is_pk`,
   `nullable`, `comment`, `length`, `unique`, `default`. The last four come from

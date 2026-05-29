@@ -60,6 +60,7 @@ pub struct ValidateParams {
 const BUILTINS: &[&str] = &[
     "model",
     "table",
+    "table_comment",
     "package",
     "package_path",
     "fields",
@@ -162,6 +163,7 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
         "ValidateFixture",
         "validate_fixture",
         "com.example.validate",
+        "",
         &fixture_fields,
         setup,
         &git,

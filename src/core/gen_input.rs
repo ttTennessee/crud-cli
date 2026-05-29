@@ -19,6 +19,9 @@ pub struct GenInput {
     pub name: String,
     pub table: String,
     pub package: String,
+    /// Business description of the table/entity (Swagger, JavaDoc, etc.).
+    #[serde(default)]
+    pub table_comment: String,
     pub fields: Vec<Field>,
 }
 
@@ -52,6 +55,9 @@ pub struct JsonInputFile {
     pub name: String,
     pub table: String,
     pub package: String,
+    /// Business description of the table/entity; surfaced as `{{table_comment}}`.
+    #[serde(default)]
+    pub table_comment: String,
     pub fields: Vec<FieldSpec>,
     /// Per-call variable values declared in `.crud/templates/_variables.toml`.
     #[serde(default)]
@@ -64,6 +70,7 @@ pub struct GenCliOverrides {
     pub name: Option<String>,
     pub package: Option<String>,
     pub table: Option<String>,
+    pub table_comment: Option<String>,
 }
 
 /// Loaded JSON bundle: canonical [`GenInput`] plus specs for rich context.
@@ -119,12 +126,9 @@ pub fn load_gen_input_with_specs_from_json(
     let name = resolve_scalar(overrides.name, parsed.name, "name")?;
     let package = resolve_scalar(overrides.package, parsed.package, "package")?;
     let table = resolve_scalar(overrides.table, parsed.table, "table")?;
+    let table_comment = overrides.table_comment.unwrap_or(parsed.table_comment);
 
-    let fields: Vec<Field> = parsed
-        .fields
-        .iter()
-        .map(field_spec_to_field)
-        .collect();
+    let fields: Vec<Field> = parsed.fields.iter().map(field_spec_to_field).collect();
 
     if fields.is_empty() {
         return Err(ErrorEnvelope::user_error_with_reason(
@@ -140,6 +144,7 @@ pub fn load_gen_input_with_specs_from_json(
             name,
             table,
             package,
+            table_comment,
             fields,
         },
         field_specs: parsed.fields,
@@ -256,7 +261,12 @@ fn map_json_deser_error(err: serde_path_to_error::Error<serde_json::Error>) -> E
     )
 }
 
-fn json_error(reason: &'static str, path: &str, msg: &str, hint: impl Into<String>) -> ErrorEnvelope {
+fn json_error(
+    reason: &'static str,
+    path: &str,
+    msg: &str,
+    hint: impl Into<String>,
+) -> ErrorEnvelope {
     let mut details = serde_json::Map::new();
     if !path.is_empty() {
         details.insert("path".into(), Value::String(path.to_string()));

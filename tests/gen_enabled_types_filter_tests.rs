@@ -57,6 +57,7 @@ fn run_in(root: &std::path::Path, type_filter: Option<Vec<String>>) -> Vec<Strin
         fields_src: Some("id:Long".into()),
         package: Some("com.acme".into()),
         table: Some("sys_user".into()),
+        table_comment: None,
         file: None,
         type_filter,
         dry_run: false,

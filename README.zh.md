@@ -190,7 +190,8 @@ filename: "{{model_pascal}}Service.java"
 
 - `{{model}}`、`{{model_pascal}}`、`{{model_snake}}`、`{{model_camel}}`、
   `{{model_kebab}}`
-- `{{table}}`、`{{package}}`、`{{package_path}}`（点替换为斜杠）
+- `{{table}}`、`{{table_comment}}`（表/实体业务说明，可选；`--table-comment`、JSON
+  `table_comment` 或省略为空串）、`{{package}}`、`{{package_path}}`（点替换为斜杠）
 - `{{fields}}` —— 用 `{{#each fields}}` 遍历；每一项暴露 `name`、
   `name_pascal`、`name_snake`、`name_camel`、`name_kebab`、`type`、
   `is_pk`、`nullable`、`comment`、`length`、`unique`、`default`。后四项
@@ -217,18 +218,13 @@ default     = false
 description = "是否生成导出接口"
 type        = "bool"
 default     = false
-
-[table_comment]
-description = "表的业务说明，用于 Swagger 注解和类文档"
-type        = "string"
-required    = true
 ```
 
 gen 时传值：
 
 ```bash
 crud-cli gen User --fields "..." --package ... --table ... \
-  --var has_import=true --var table_comment="系统用户"
+  --table-comment "系统用户" --var has_import=true
 ```
 
 优先级：`--var` > JSON `variables` > schema `default`。缺失 required → 报错；
@@ -247,14 +243,14 @@ crud-cli gen User --fields "..." --package ... --table ... \
 {
   "name": "User",
   "table": "sys_user",
+  "table_comment": "系统用户",
   "package": "com.acme.demo",
   "fields": [
     { "name": "id", "type": "Long", "is_pk": true, "comment": "主键" },
     { "name": "email", "type": "String", "length": 128, "unique": true, "comment": "登录邮箱" }
   ],
   "variables": {
-    "has_import": true,
-    "table_comment": "系统用户"
+    "has_import": true
   }
 }
 ```
@@ -263,7 +259,7 @@ crud-cli gen User --fields "..." --package ... --table ... \
 crud-cli gen --file user.json
 ```
 
-CLI flag（`--name`、`--package`、`--table`、`--var`）覆盖 JSON 里的同名值。
+CLI flag（`--name`、`--package`、`--table`、`--table-comment`、`--var`）覆盖 JSON 里的同名值。
 
 ## 配置文件
 

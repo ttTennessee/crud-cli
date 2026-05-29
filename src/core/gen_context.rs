@@ -120,6 +120,7 @@ pub fn build_context(
     name: &str,
     table: &str,
     package: &str,
+    table_comment: &str,
     fields: &[&dyn AsContextField],
     setup: &SetupConfig,
     git: &GitInfo,
@@ -145,6 +146,10 @@ pub fn build_context(
         Value::String(model.to_case(Case::Kebab)),
     );
     map.insert("table".into(), Value::String(table.to_string()));
+    map.insert(
+        "table_comment".into(),
+        Value::String(table_comment.to_string()),
+    );
     map.insert("package".into(), Value::String(package.to_string()));
     map.insert(
         "package_path".into(),
@@ -226,6 +231,7 @@ pub fn build_context_from_input(
         &input.name,
         &input.table,
         &input.package,
+        &input.table_comment,
         &refs,
         setup,
         git,

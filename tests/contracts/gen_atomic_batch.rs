@@ -46,6 +46,7 @@ frontend = "none"
         fields: Some("id:Long".into()),
         package: Some("com.x".into()),
         table: Some("x".into()),
+        table_comment: None,
         file: None,
         type_: None,
         dry_run: false,

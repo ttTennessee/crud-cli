@@ -24,6 +24,7 @@ fn outputs_map_handlebars_template_renders() {
         name: "User".into(),
         table: "u".into(),
         package: "com.x".into(),
+        table_comment: String::new(),
         fields: vec![Field {
             name: "id".into(),
             ty: "Long".into(),
@@ -83,6 +84,7 @@ vue = "src/views"
         fields: Some("id:Long".into()),
         package: Some("com.x".into()),
         table: Some("u".into()),
+        table_comment: None,
         file: None,
         type_: None,
         dry_run: false,

@@ -301,6 +301,7 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
                 name: params.name.clone(),
                 package: params.package.clone(),
                 table: params.table.clone(),
+                table_comment: params.table_comment.clone(),
             },
         )?;
         let refs: Vec<&dyn AsContextField> = loaded
@@ -312,6 +313,7 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
             &loaded.input.name,
             &loaded.input.table,
             &loaded.input.package,
+            &loaded.input.table_comment,
             &refs,
             setup,
             &git,
@@ -338,6 +340,7 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
                 .package
                 .clone()
                 .ok_or_else(|| missing_pipeline_input("package"))?,
+            table_comment: params.table_comment.clone().unwrap_or_default(),
             fields,
         };
         let ctx = gen_context::build_context_from_input(&input, setup, &git, &user)?;
