@@ -128,20 +128,6 @@ fn layer3_rendered_rel(
     }
 }
 
-/// Returns the directory `gen` should walk for `.hbs` templates. When the
-/// project pins a global template, resolve to `~/.crud/templates/<n>/<v>/`;
-/// otherwise fall back to project-local `.crud/templates/`.
-fn resolve_templates_root(cwd: &Path, setup: &SetupConfig) -> Result<PathBuf, ErrorEnvelope> {
-    if let Some(tref) = &setup.project.template {
-        let installed = crate::core::template_meta_global::find_template(
-            &tref.name,
-            tref.version.as_deref(),
-        )?;
-        return Ok(installed.path);
-    }
-    Ok(cwd.join(".crud/templates"))
-}
-
 fn rebase_framework_prefix(rel: &str, setup: &SetupConfig) -> Option<String> {
     let (head, tail) = match rel.split_once('/') {
         Some((h, t)) => (h, Some(t)),
@@ -305,7 +291,8 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
         email: runtime.user.user.email.clone(),
     };
 
-    let schema = template_variables::load_schema(&cwd)?;
+    let templates_root = template_loader::resolve_templates_root(&cwd, setup)?;
+    let schema = template_variables::load_schema(&templates_root)?;
 
     let (mut context, json_vars) = if let Some(ref path) = params.file {
         let loaded = super::gen_input::load_gen_input_with_specs_from_json(
@@ -368,7 +355,6 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
         .type_filter
         .clone()
         .or_else(|| implicit_type_prefixes(setup, runtime.enabled_types()));
-    let templates_root = resolve_templates_root(&cwd, setup)?;
     let entries =
         template_loader::discover_templates(&templates_root, implicit_filter.as_deref())?;
     let fallback = setup.type_map.fallback.clone();

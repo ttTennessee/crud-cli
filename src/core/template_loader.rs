@@ -4,12 +4,29 @@ use globset::{Glob, GlobSetBuilder};
 use ignore::WalkBuilder;
 use std::path::{Path, PathBuf};
 
+use super::config::SetupConfig;
 use super::error::ErrorEnvelope;
 use super::i18n::{self, keys};
+use super::template_meta_global;
 use super::template_variables::SCHEMA_FILE_NAME;
 use super::type_map::TYPE_MAP_FILE_NAME;
 
-/// One template file under `.crud/templates/`.
+/// Resolves the template bundle root for gen/validate/schema loading.
+///
+/// When `[project].template` pins a global install, returns
+/// `~/.crud/templates/<name>/<version>/`; otherwise `.crud/templates/` under `cwd`.
+pub fn resolve_templates_root(cwd: &Path, setup: &SetupConfig) -> Result<PathBuf, ErrorEnvelope> {
+    if let Some(tref) = &setup.project.template {
+        let installed = template_meta_global::find_template(
+            &tref.name,
+            tref.version.as_deref(),
+        )?;
+        return Ok(installed.path);
+    }
+    Ok(cwd.join(".crud").join("templates"))
+}
+
+/// One template file under a template bundle root.
 #[derive(Debug, Clone)]
 pub struct TemplateEntry {
     /// Path relative to `.crud/templates/`.

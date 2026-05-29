@@ -111,21 +111,14 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
     )?;
     let setup = &runtime.project;
 
-    let schema = template_variables::load_schema(&cwd)?;
+    let templates_root =
+        crate::core::template_loader::resolve_templates_root(&cwd, setup)?;
+    let schema = template_variables::load_schema(&templates_root)?;
 
     let implicit_filter = params
         .type_filter
         .clone()
         .or_else(|| implicit_type_prefixes(setup, runtime.enabled_types()));
-    let templates_root = if let Some(tref) = &setup.project.template {
-        crate::core::template_meta_global::find_template(
-            &tref.name,
-            tref.version.as_deref(),
-        )?
-        .path
-    } else {
-        cwd.join(".crud/templates")
-    };
     let entries =
         template_loader::discover_templates(&templates_root, implicit_filter.as_deref())?;
     let templates_checked = entries.len();
