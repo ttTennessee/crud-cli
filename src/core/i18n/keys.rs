@@ -47,6 +47,11 @@ pub const TEMPLATE_INSTALL_DONE: &str = "template.install.done";
 pub const TEMPLATE_INSTALL_PROMPT_FETCH: &str = "template.install.prompt_fetch";
 pub const TEMPLATE_INSTALL_PROMPT_NAME: &str = "template.install.prompt_name";
 pub const TEMPLATE_INSTALL_PROMPT_VERSION: &str = "template.install.prompt_version";
+pub const TEMPLATE_INSTALL_PROMPT_DOC: &str = "template.install.prompt_doc";
+pub const TEMPLATE_INSTALL_CONFIRM_OVERWRITE: &str = "template.install.confirm_overwrite";
+pub const TEMPLATE_INSTALL_STATUS_INSTALLED: &str = "template.install.status_installed";
+pub const TEMPLATE_INSTALL_STATUS_MODIFIED: &str = "template.install.status_modified";
+pub const TEMPLATE_INSTALL_STATUS_OUTDATED: &str = "template.install.status_outdated";
 pub const ERROR_TEMPLATE_INSTALL_NEEDS_TTY: &str = "error.template.install_needs_tty";
 pub const ERROR_TEMPLATE_INSTALL_REPO_EMPTY: &str = "error.template.install_repo_empty";
 pub const ERROR_CONFIG_LEGACY_SCHEMA: &str = "error.config.legacy_schema";
@@ -167,6 +172,11 @@ pub const ALL_KEYS: &[&str] = &[
     TEMPLATE_INSTALL_PROMPT_FETCH,
     TEMPLATE_INSTALL_PROMPT_NAME,
     TEMPLATE_INSTALL_PROMPT_VERSION,
+    TEMPLATE_INSTALL_PROMPT_DOC,
+    TEMPLATE_INSTALL_CONFIRM_OVERWRITE,
+    TEMPLATE_INSTALL_STATUS_INSTALLED,
+    TEMPLATE_INSTALL_STATUS_MODIFIED,
+    TEMPLATE_INSTALL_STATUS_OUTDATED,
     ERROR_TEMPLATE_INSTALL_NEEDS_TTY,
     ERROR_TEMPLATE_INSTALL_REPO_EMPTY,
     ERROR_CONFIG_LEGACY_SCHEMA,

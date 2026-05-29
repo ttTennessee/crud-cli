@@ -42,6 +42,7 @@ ureq = { version = "3.0", default-features = false, features = ["rustls"] }
 flate2 = "1.0"
 tar = "0.4"
 time = { version = "0.3", features = ["formatting", "macros", "local-offset"] }
+sha2 = "0.10"
 
 [dev-dependencies]
 tempfile = "3.14"

@@ -42,6 +42,11 @@ done = "Installed {name}@{version} ({backend} + {frontend}) → {path}"
 prompt_fetch = "templates"
 prompt_name = "Pick a template"
 prompt_version = "Pick a version for {name}"
+prompt_doc = "Install doc bundles? (space to toggle, enter for none)"
+confirm_overwrite = "{name}@{version} is already installed. Reinstall?"
+status_installed = "installed"
+status_modified = "installed, locally modified"
+status_outdated = "installed, repo updated"
 
 [wizard.typemap]
 passthrough = "passthrough (keep unmapped types as-is)"

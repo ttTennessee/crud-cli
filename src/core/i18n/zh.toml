@@ -42,6 +42,11 @@ done = "已安装 {name}@{version}（{backend} + {frontend}）→ {path}"
 prompt_fetch = "模板"
 prompt_name = "选择模板"
 prompt_version = "选择 {name} 的版本"
+prompt_doc = "安装哪些 doc 子目录？（空格切换，回车不装）"
+confirm_overwrite = "{name}@{version} 已安装，是否覆盖重装？"
+status_installed = "已安装"
+status_modified = "已安装·已修改"
+status_outdated = "已安装·有新版本"
 
 [wizard.typemap]
 passthrough = "passthrough（未映射类型保持原样）"

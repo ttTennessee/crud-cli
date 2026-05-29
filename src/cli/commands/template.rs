@@ -5,7 +5,7 @@ use std::env;
 use std::io::IsTerminal;
 use std::path::Path;
 
-use inquire::{Confirm, Select};
+use inquire::{Confirm, MultiSelect, Select};
 
 use crate::cli::agent_mode::is_agent_active;
 use crate::cli::args::{exit_with_envelope, TemplateArgs, TemplateCommand};
@@ -15,6 +15,7 @@ use crate::core::error::{ErrorEnvelope, Kind};
 use crate::core::global_config::GlobalConfig;
 use crate::core::i18n::{self, keys};
 use crate::core::paths::{global_config_toml, project_setup_toml};
+use crate::core::template_install_meta::{hash_dir, load_install_meta, record_doc_categories};
 use crate::core::template_installer::{install_from_snapshot, RepoSnapshot, RepoSpec};
 use crate::core::template_meta_global::{
     find_template, global_templates_root, list_installed_templates, InstalledTemplate,
@@ -93,9 +94,37 @@ fn cmd_install(
     let snapshot = RepoSnapshot::fetch(repo)?;
 
     // 4. Resolve name + version, prompting only when not provided.
-    let (name, version) = resolve_name_and_version(&snapshot, parsed.as_ref())?;
+    // The version picker labels each entry with its on-disk status (installed
+    // / locally-modified / repo-updated) and, when an installed version is
+    // picked, asks to confirm a reinstall — effectively promoting `force`.
+    let (name, version, picker_force) =
+        resolve_name_and_version(&snapshot, parsed.as_ref(), &dest_root)?;
+    let effective_force = force || picker_force;
 
-    let installed = install_from_snapshot(&snapshot, &name, version.as_deref(), &dest_root, force)?;
+    let installed = install_from_snapshot(
+        &snapshot,
+        &name,
+        version.as_deref(),
+        &dest_root,
+        effective_force,
+    )?;
+
+    // 5. Doc picker — only when the template doesn't bundle its own doc/
+    // (we never overwrite author-shipped doc) AND we're in an interactive
+    // session. Non-TTY installs land with no doc bundles by design; users
+    // can rerun `template install --force` interactively to add them.
+    let doc_cats =
+        pick_doc_categories(&snapshot, &installed.name, &installed.version, parsed.as_ref())?;
+    if !doc_cats.is_empty() {
+        snapshot.copy_shared_doc(&installed.path, &doc_cats)?;
+        record_doc_categories(&installed.path, &doc_cats).map_err(|e| ErrorEnvelope {
+            kind: Kind::ConfigError,
+            msg: format!("record doc categories: {e}"),
+            exit_code: Kind::ConfigError.exit_code(),
+            hint: String::new(),
+            details: serde_json::Map::new(),
+        })?;
+    }
 
     let done = i18n::tf(
         keys::TEMPLATE_INSTALL_DONE,
@@ -113,11 +142,16 @@ fn cmd_install(
 
 /// Resolves the install target, asking the user to pick whatever's missing.
 ///
-/// `(Some(name), Some(version))` short-circuits both prompts.
+/// Returns `(name, version, picker_force)`. `picker_force` is `true` when the
+/// user picked an already-installed version from the picker and confirmed a
+/// reinstall — semantically equivalent to passing `--force` on the CLI.
+/// `(Some(name), Some(version))` short-circuits both pickers (and yields
+/// `picker_force = false`; the caller's `--force` still applies).
 fn resolve_name_and_version(
     snapshot: &RepoSnapshot,
     parsed: Option<&TemplateRef>,
-) -> Result<(String, Option<String>), ErrorEnvelope> {
+    dest_root: &Path,
+) -> Result<(String, Option<String>, bool), ErrorEnvelope> {
     let catalog = snapshot.catalog();
     if catalog.is_empty() {
         return Err(ErrorEnvelope::user_error(
@@ -149,24 +183,156 @@ fn resolve_name_and_version(
         ));
     }
 
-    let version = match parsed.and_then(|t| t.version.clone()) {
-        Some(v) => Some(v),
+    let (version, picker_force) = match parsed.and_then(|t| t.version.clone()) {
+        Some(v) => (Some(v), false),
         None => {
-            // `template install <name>` always prompts; sole-version repos still
-            // get a confirmation prompt, which costs ~one keypress and avoids a
-            // surprising silent install.
             require_interactive("template version")?;
-            let chosen = Select::new(
-                &i18n::tf(keys::TEMPLATE_INSTALL_PROMPT_VERSION, &[("name", &name)]),
-                versions,
-            )
-            .prompt()
-            .map_err(prompt_to_user_error)?;
-            Some(chosen)
+            let labels = label_versions_with_status(snapshot, &name, &versions, dest_root);
+            let prompt = i18n::tf(keys::TEMPLATE_INSTALL_PROMPT_VERSION, &[("name", &name)]);
+            let chosen_label = Select::new(&prompt, labels.iter().map(|(l, _)| l.clone()).collect())
+                .prompt()
+                .map_err(prompt_to_user_error)?;
+            let chosen_idx = labels
+                .iter()
+                .position(|(l, _)| l == &chosen_label)
+                .expect("Select returns one of the offered labels");
+            let (_, status) = &labels[chosen_idx];
+            let v = versions[chosen_idx].clone();
+            let force_flag = match status {
+                VersionStatus::NotInstalled => false,
+                VersionStatus::Installed
+                | VersionStatus::Modified
+                | VersionStatus::Outdated => {
+                    let prompt = i18n::tf(
+                        keys::TEMPLATE_INSTALL_CONFIRM_OVERWRITE,
+                        &[("name", &name), ("version", &v)],
+                    );
+                    let proceed = Confirm::new(&prompt)
+                        .with_default(false)
+                        .prompt()
+                        .map_err(prompt_to_user_error)?;
+                    if !proceed {
+                        return Err(ErrorEnvelope::user_error(
+                            "install cancelled by user",
+                            None,
+                            None,
+                            "",
+                        ));
+                    }
+                    true
+                }
+            };
+            (Some(v), force_flag)
         }
     };
 
-    Ok((name, version))
+    Ok((name, version, picker_force))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum VersionStatus {
+    NotInstalled,
+    Installed,
+    Modified,
+    Outdated,
+}
+
+/// Annotates each version with an installation status by comparing the
+/// installed sidecar's `source_hash` against the on-disk re-hash (→ modified)
+/// and against the snapshot's hash of the same version (→ outdated). Versions
+/// without a sidecar are treated as not installed.
+fn label_versions_with_status(
+    snapshot: &RepoSnapshot,
+    name: &str,
+    versions: &[String],
+    dest_root: &Path,
+) -> Vec<(String, VersionStatus)> {
+    versions
+        .iter()
+        .map(|v| {
+            let status = classify_version(snapshot, name, v, dest_root);
+            let label = match status {
+                VersionStatus::NotInstalled => v.clone(),
+                VersionStatus::Installed => {
+                    format!("{v}  [{}]", i18n::t(keys::TEMPLATE_INSTALL_STATUS_INSTALLED))
+                }
+                VersionStatus::Modified => {
+                    format!("{v}  [{}]", i18n::t(keys::TEMPLATE_INSTALL_STATUS_MODIFIED))
+                }
+                VersionStatus::Outdated => {
+                    format!("{v}  [{}]", i18n::t(keys::TEMPLATE_INSTALL_STATUS_OUTDATED))
+                }
+            };
+            (label, status)
+        })
+        .collect()
+}
+
+fn classify_version(
+    snapshot: &RepoSnapshot,
+    name: &str,
+    version: &str,
+    dest_root: &Path,
+) -> VersionStatus {
+    let installed_dir = dest_root.join(name).join(version);
+    let Some(meta) = load_install_meta(&installed_dir) else {
+        // Either not installed at all, or installed before the sidecar
+        // existed. Either way, treat as "not installed" so the picker
+        // doesn't flag it as modified for everyone upgrading the CLI.
+        if installed_dir.join("template.toml").is_file() {
+            return VersionStatus::Modified;
+        }
+        return VersionStatus::NotInstalled;
+    };
+    let local_hash = hash_dir(&installed_dir).unwrap_or_default();
+    if local_hash != meta.source_hash {
+        return VersionStatus::Modified;
+    }
+    let Some(repo_dir) = snapshot.template_dir(name, version) else {
+        // Version was deleted upstream; "installed" is still accurate from
+        // the user's perspective for this run.
+        return VersionStatus::Installed;
+    };
+    let repo_hash = hash_dir(&repo_dir).unwrap_or_default();
+    if repo_hash != meta.source_hash {
+        VersionStatus::Outdated
+    } else {
+        VersionStatus::Installed
+    }
+}
+
+/// Prompts the user to pick which subdirectories of the snapshot's shared
+/// `doc/` to layer. Returns `[]` when:
+/// * the template bundles its own `doc/` (we never overwrite author-shipped
+///   doc with the shared bundle);
+/// * the shared bundle has no per-category subdirectories;
+/// * the session is non-interactive (agent / piped stdin);
+/// * the user passed both name and version on the CLI (treated as a scripted
+///   install — don't surprise the caller with a prompt).
+fn pick_doc_categories(
+    snapshot: &RepoSnapshot,
+    name: &str,
+    version: &str,
+    parsed: Option<&TemplateRef>,
+) -> Result<Vec<String>, ErrorEnvelope> {
+    if snapshot.template_has_doc(name, version) {
+        return Ok(Vec::new());
+    }
+    let cats = snapshot.shared_doc_categories();
+    if cats.is_empty() {
+        return Ok(Vec::new());
+    }
+    if parsed.and_then(|t| t.version.as_ref()).is_some() {
+        return Ok(Vec::new());
+    }
+    if is_agent_active() || !std::io::stdin().is_terminal() {
+        return Ok(Vec::new());
+    }
+    let picked = MultiSelect::new(&i18n::t(keys::TEMPLATE_INSTALL_PROMPT_DOC), cats)
+        .with_default(&[])
+        .prompt()
+        .map_err(prompt_to_user_error)?;
+    Ok(picked)
 }
 
 fn require_interactive(what: &'static str) -> Result<(), ErrorEnvelope> {

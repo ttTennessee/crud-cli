@@ -23,6 +23,9 @@ use std::path::{Path, PathBuf};
 use flate2::read::GzDecoder;
 
 use super::error::{ErrorEnvelope, Kind};
+use super::template_install_meta::{
+    hash_dir, write_install_meta, InstallMeta, INSTALL_META_FILENAME,
+};
 use super::template_meta_global::{
     load_manifest, version_cmp, InstalledTemplate, MANIFEST_FILENAME,
 };
@@ -176,6 +179,80 @@ impl RepoSnapshot {
         }
         out
     }
+
+    /// Absolute path to a `<name>/<version>/` directory inside the snapshot,
+    /// if one exists with a parseable `template.toml`.
+    #[must_use]
+    pub fn template_dir(&self, name: &str, version: &str) -> Option<PathBuf> {
+        let p = self.root.join(name).join(version);
+        if p.join(MANIFEST_FILENAME).is_file() {
+            Some(p)
+        } else {
+            None
+        }
+    }
+
+    /// `true` when the template author ships their own `<name>/<version>/doc/`
+    /// — in that case the shared bundle is ignored entirely.
+    #[must_use]
+    pub fn template_has_doc(&self, name: &str, version: &str) -> bool {
+        self.root.join(name).join(version).join(SHARED_DOC_DIR).is_dir()
+    }
+
+    /// Subdirectories of the repo-level `doc/` (e.g. `["html", "markdown"]`),
+    /// sorted. Empty when the snapshot has no shared doc bundle or it contains
+    /// only files. Per the new repo layout, doc is organised as
+    /// `doc/<category>/*.hbs`; loose files at `doc/*.hbs` are ignored.
+    #[must_use]
+    pub fn shared_doc_categories(&self) -> Vec<String> {
+        let doc = self.root.join(SHARED_DOC_DIR);
+        let Ok(entries) = fs::read_dir(&doc) else {
+            return Vec::new();
+        };
+        let mut out: Vec<String> = entries
+            .flatten()
+            .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
+            .filter_map(|e| e.file_name().to_str().map(str::to_owned))
+            .collect();
+        out.sort();
+        out
+    }
+
+    /// Copies the named subdirectories of the snapshot's shared `doc/` into
+    /// `<dest_version_dir>/doc/<category>/`. No-op when `categories` is empty.
+    /// Existing per-category dirs at the destination are replaced.
+    pub fn copy_shared_doc(
+        &self,
+        dest_version_dir: &Path,
+        categories: &[String],
+    ) -> Result<(), ErrorEnvelope> {
+        if categories.is_empty() {
+            return Ok(());
+        }
+        let shared = self.root.join(SHARED_DOC_DIR);
+        let dest_doc = dest_version_dir.join(SHARED_DOC_DIR);
+        fs::create_dir_all(&dest_doc)
+            .map_err(|e| io_error(format!("create {}", dest_doc.display()), e))?;
+        for cat in categories {
+            let src = shared.join(cat);
+            if !src.is_dir() {
+                return Err(ErrorEnvelope::user_error(
+                    format!("doc category not in repo: {cat}"),
+                    None,
+                    Some(cat),
+                    "",
+                ));
+            }
+            let dst = dest_doc.join(cat);
+            if dst.exists() {
+                fs::remove_dir_all(&dst)
+                    .map_err(|e| io_error(format!("remove {}", dst.display()), e))?;
+            }
+            copy_dir_all(&src, &dst)
+                .map_err(|e| io_error(format!("copy doc/{cat}"), e))?;
+        }
+        Ok(())
+    }
 }
 
 /// Install `<name>[@<version>]` from a `RepoSnapshot` into
@@ -183,9 +260,10 @@ impl RepoSnapshot {
 ///
 /// When `version` is `None`, picks the highest-sorting version directory
 /// (matching the precedence used by `template_meta_global::find_template`).
-/// If the repo has a top-level `doc/` and the chosen template does NOT
-/// ship its own `<name>/<version>/doc/`, the shared bundle is copied into
-/// `dest_dir/doc/`.
+///
+/// Writes `<dest>/.install.json` with the source hash + repo provenance so
+/// `template install`'s next-run picker can label the version. Doc bundling
+/// is handled separately by the caller via [`RepoSnapshot::copy_shared_doc`].
 pub fn install_from_snapshot(
     snapshot: &RepoSnapshot,
     name: &str,
@@ -239,15 +317,19 @@ pub fn install_from_snapshot(
     copy_dir_all(&src, &dest_dir)
         .map_err(|e| io_error(format!("copy into {}", dest_dir.display()), e))?;
 
-    // Layer the shared doc/ bundle only if the template author didn't ship
-    // their own. Per the install contract this is a clean "override or use",
-    // not a per-file merge.
-    let template_doc = src.join(SHARED_DOC_DIR);
-    let shared_doc = snapshot.root.join(SHARED_DOC_DIR);
-    if !template_doc.is_dir() && shared_doc.is_dir() {
-        copy_dir_all(&shared_doc, &dest_dir.join(SHARED_DOC_DIR))
-            .map_err(|e| io_error(format!("copy shared {SHARED_DOC_DIR}/"), e))?;
-    }
+    // Pin provenance + content hash so the next `template install` can label
+    // this version as "已安装" / "已修改" / "有新版本" without trusting mtimes.
+    let source_hash = hash_dir(&dest_dir)
+        .map_err(|e| io_error(format!("hash {}", dest_dir.display()), e))?;
+    let meta = InstallMeta {
+        source_hash,
+        repo: format!("{}/{}", snapshot.spec.owner, snapshot.spec.repo),
+        repo_ref: snapshot.spec.git_ref.clone(),
+        installed_at: now_rfc3339(),
+        doc_categories: Vec::new(),
+    };
+    write_install_meta(&dest_dir, &meta)
+        .map_err(|e| io_error(format!("write {INSTALL_META_FILENAME}"), e))?;
 
     Ok(InstalledTemplate {
         name: installed_name,
@@ -316,6 +398,12 @@ fn copy_dir_all(src: &Path, dst: &Path) -> io::Result<()> {
         // skip symlinks; templates shouldn't ship any.
     }
     Ok(())
+}
+
+fn now_rfc3339() -> String {
+    time::OffsetDateTime::now_utc()
+        .format(&time::format_description::well_known::Rfc3339)
+        .unwrap_or_else(|_| "1970-01-01T00:00:00Z".into())
 }
 
 fn io_error(ctx: impl Into<String>, e: io::Error) -> ErrorEnvelope {
@@ -514,7 +602,7 @@ mod tests {
     }
 
     #[test]
-    fn install_layers_shared_doc_when_template_omits_it() {
+    fn install_writes_install_meta_sidecar() {
         let tmp = tempfile::tempdir().expect("tmp");
         let root = tmp.path().join("repo");
         write_manifest(
@@ -526,19 +614,59 @@ mod tests {
             "",
         )
         .expect("write");
-        fs::create_dir_all(root.join("doc")).expect("mkdir");
-        fs::write(root.join("doc").join("api.md.hbs"), "api").expect("write");
 
         let snap = snapshot_from(root);
         let dest = tmp.path().join("home");
         let installed =
             install_from_snapshot(&snap, "ruoyi", None, &dest, false).expect("install");
-        assert_eq!(installed.name, "ruoyi");
-        assert!(installed.path.join("doc").join("api.md.hbs").is_file());
+
+        let meta = crate::core::template_install_meta::load_install_meta(&installed.path)
+            .expect("sidecar written");
+        assert_eq!(meta.source_hash.len(), 64);
+        assert!(meta.repo.ends_with("/crud-templates"));
+        assert!(meta.doc_categories.is_empty());
     }
 
     #[test]
-    fn install_skips_shared_doc_when_template_has_its_own() {
+    fn shared_doc_categories_lists_top_level_subdirs() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let root = tmp.path().join("repo");
+        fs::create_dir_all(root.join("doc").join("markdown")).expect("mkdir");
+        fs::create_dir_all(root.join("doc").join("html")).expect("mkdir");
+        fs::write(root.join("doc").join("README.md"), "x").expect("write");
+        fs::write(root.join("doc").join("markdown").join("a.hbs"), "a").expect("write");
+
+        let snap = snapshot_from(root);
+        let cats = snap.shared_doc_categories();
+        assert_eq!(cats, vec!["html".to_string(), "markdown".to_string()]);
+    }
+
+    #[test]
+    fn copy_shared_doc_only_copies_selected_categories() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let root = tmp.path().join("repo");
+        write_manifest(
+            &root.join("ruoyi").join("1.0.0"),
+            "backend = \"java\"\nfrontend = \"vue\"\n",
+        );
+        fs::create_dir_all(root.join("doc").join("markdown")).expect("mkdir");
+        fs::write(root.join("doc").join("markdown").join("a.md.hbs"), "a").expect("write");
+        fs::create_dir_all(root.join("doc").join("html")).expect("mkdir");
+        fs::write(root.join("doc").join("html").join("b.html.hbs"), "b").expect("write");
+
+        let snap = snapshot_from(root);
+        let dest = tmp.path().join("home");
+        let installed =
+            install_from_snapshot(&snap, "ruoyi", None, &dest, false).expect("install");
+
+        snap.copy_shared_doc(&installed.path, &["markdown".into()])
+            .expect("copy");
+        assert!(installed.path.join("doc").join("markdown").join("a.md.hbs").is_file());
+        assert!(!installed.path.join("doc").join("html").exists());
+    }
+
+    #[test]
+    fn template_has_doc_detects_bundled_doc_dir() {
         let tmp = tempfile::tempdir().expect("tmp");
         let root = tmp.path().join("repo");
         write_manifest(
@@ -546,20 +674,14 @@ mod tests {
             "backend = \"java\"\nfrontend = \"vue\"\n",
         );
         fs::create_dir_all(root.join("ruoyi").join("1.0.0").join("doc")).expect("mkdir");
-        fs::write(
-            root.join("ruoyi").join("1.0.0").join("doc").join("custom.md.hbs"),
-            "custom",
-        )
-        .expect("write");
-        fs::create_dir_all(root.join("doc")).expect("mkdir");
-        fs::write(root.join("doc").join("global.md.hbs"), "global").expect("write");
+        write_manifest(
+            &root.join("eladmin").join("2.0.0"),
+            "backend = \"java\"\nfrontend = \"vue\"\n",
+        );
 
         let snap = snapshot_from(root);
-        let dest = tmp.path().join("home");
-        let installed =
-            install_from_snapshot(&snap, "ruoyi", None, &dest, false).expect("install");
-        assert!(installed.path.join("doc").join("custom.md.hbs").is_file());
-        assert!(!installed.path.join("doc").join("global.md.hbs").exists());
+        assert!(snap.template_has_doc("ruoyi", "1.0.0"));
+        assert!(!snap.template_has_doc("eladmin", "2.0.0"));
     }
 
     #[test]
