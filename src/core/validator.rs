@@ -12,6 +12,7 @@ use super::paths::{project_setup_toml, project_setup_user_toml};
 use super::error::ErrorEnvelope;
 use super::i18n::{self, keys};
 use super::field_dsl::Field;
+use super::field_types;
 use super::gen_context::{self, AsContextField, UserIdentity};
 use super::git_info::GitInfo;
 use super::template_engine;
@@ -30,6 +31,7 @@ pub enum IssueKind {
     FrontMatterError,
     InvalidFilename,
     PathTraversal,
+    FieldTypeUnmapped,
 }
 
 /// One validate finding (VAL-04 field names).
@@ -119,6 +121,7 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
     let templates_root =
         crate::core::template_loader::resolve_templates_root(&cwd, setup)?;
     let schema = template_variables::load_schema(&templates_root)?;
+    let field_type_schema = field_types::load_schema(&templates_root)?;
 
     let implicit_filter = params
         .type_filter
@@ -171,6 +174,17 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
     )?;
 
     let mut issues = Vec::new();
+
+    for suggestion in field_types::type_map_coverage_issues(&templates_root, &field_type_schema)? {
+        issues.push(ValidateIssue {
+            template_path: field_types::SCHEMA_FILE_NAME.to_string(),
+            line: None,
+            column: None,
+            kind: IssueKind::FieldTypeUnmapped,
+            variable: None,
+            suggestion: Some(suggestion),
+        });
+    }
 
     for entry in &entries {
         let rel = normalize_rel_path(&entry.rel_path);

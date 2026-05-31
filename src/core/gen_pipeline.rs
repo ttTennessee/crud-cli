@@ -12,6 +12,7 @@ use crate::core::gen_run::GenRunParams;
 use crate::core::error::ErrorEnvelope;
 use crate::core::i18n::{self, keys};
 use crate::core::field_dsl;
+use crate::core::field_types;
 use crate::core::fs_writer::{commit, plan, OverwriteContext, WriteTarget};
 use crate::core::gen_context::{self, AsContextField, UserIdentity};
 use crate::core::gen_input::{GenCliOverrides, GenInput};
@@ -293,9 +294,10 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
 
     let templates_root = template_loader::resolve_templates_root(&cwd, setup)?;
     let schema = template_variables::load_schema(&templates_root)?;
+    let field_type_schema = field_types::load_schema(&templates_root)?;
 
     let (mut context, json_vars) = if let Some(ref path) = params.file {
-        let loaded = super::gen_input::load_gen_input_with_specs_from_json(
+        let mut loaded = super::gen_input::load_gen_input_with_specs_from_json(
             path,
             GenCliOverrides {
                 name: params.name.clone(),
@@ -304,6 +306,10 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
                 table_comment: params.table_comment.clone(),
             },
         )?;
+        field_types::normalize_and_validate(&field_type_schema, &mut loaded.input.fields)?;
+        for (field, spec) in loaded.input.fields.iter().zip(loaded.field_specs.iter_mut()) {
+            spec.ty = field.ty.clone();
+        }
         let refs: Vec<&dyn AsContextField> = loaded
             .field_specs
             .iter()
@@ -321,12 +327,13 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
         )?;
         (ctx, loaded.variables)
     } else {
-        let fields = field_dsl::parse_fields(
+        let mut fields = field_dsl::parse_fields(
             params
                 .fields_src
                 .as_deref()
                 .ok_or_else(|| missing_pipeline_input("fields"))?,
         )?;
+        field_types::normalize_and_validate(&field_type_schema, &mut fields)?;
         let input = GenInput {
             name: params
                 .name

@@ -72,6 +72,13 @@ pub const ERROR_FIELD_DUPLICATE: &str = "error.field.duplicate";
 pub const ERROR_FIELD_NO_FIELDS: &str = "error.field.no_fields";
 pub const ERROR_FIELD_RESERVED: &str = "error.field.reserved";
 
+// ── field type schema error hints ───────────────────────────────────────────
+pub const ERROR_FIELD_TYPE_UNSUPPORTED: &str = "error.field_type.unsupported";
+pub const ERROR_FIELD_TYPE_UNSUPPORTED_DID_YOU_MEAN: &str =
+    "error.field_type.unsupported_did_you_mean";
+pub const ERROR_FIELD_TYPE_SCHEMA_FIX: &str = "error.field_type.schema_fix";
+pub const ERROR_FIELD_TYPE_UNMAPPED_IN_BUNDLES: &str = "error.field_type.unmapped_in_bundles";
+
 // ── type_map error hints ────────────────────────────────────────────────────
 pub const ERROR_TYPE_MAP_READ_FAILED: &str = "error.type_map.read_failed";
 pub const ERROR_TYPE_MAP_PARSE_FAILED: &str = "error.type_map.parse_failed";
@@ -194,6 +201,10 @@ pub const ALL_KEYS: &[&str] = &[
     ERROR_FIELD_DUPLICATE,
     ERROR_FIELD_NO_FIELDS,
     ERROR_FIELD_RESERVED,
+    ERROR_FIELD_TYPE_UNSUPPORTED,
+    ERROR_FIELD_TYPE_UNSUPPORTED_DID_YOU_MEAN,
+    ERROR_FIELD_TYPE_SCHEMA_FIX,
+    ERROR_FIELD_TYPE_UNMAPPED_IN_BUNDLES,
     ERROR_TYPE_MAP_READ_FAILED,
     ERROR_TYPE_MAP_PARSE_FAILED,
     ERROR_TYPE_MAP_UNMAPPED_BUNDLE,
