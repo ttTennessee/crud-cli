@@ -639,8 +639,7 @@ fn render_issue(
 ) -> Option<ValidateIssue> {
     match template_engine::render_template(body, ctx) {
         Ok(rendered) => {
-            if let Some(idx) = rendered.find("{{") {
-                let tail = &rendered[idx..];
+            if let Some(tail) = find_unrendered_handlebars_residue(&rendered) {
                 return Some(ValidateIssue {
                     template_path: rel.to_string(),
                     line: None,
@@ -688,6 +687,52 @@ fn extract_residue_handle(fragment: &str) -> Option<String> {
     } else {
         Some(name.to_string())
     }
+}
+
+/// Returns the tail after the first `{{` only when it looks like unrendered Handlebars,
+/// not intentional Vue-style `{{param}}` output from helpers such as `vue_param`.
+fn find_unrendered_handlebars_residue(rendered: &str) -> Option<&str> {
+    let mut from = 0;
+    while let Some(rel) = rendered[from..].find("{{") {
+        let idx = from + rel;
+        let tail = &rendered[idx..];
+        if is_intentional_vue_mustache(tail) {
+            from = idx + 2;
+            if let Some(close) = tail.find("}}") {
+                from = idx + close + 2;
+            }
+            continue;
+        }
+        return Some(tail);
+    }
+    None
+}
+
+/// True when `text` begins with a simple Vue binding such as `{{userName}}` or `{{form.id}}`.
+fn is_intentional_vue_mustache(text: &str) -> bool {
+    let rest = match text.strip_prefix("{{") {
+        Some(r) => r,
+        None => return false,
+    };
+    let trimmed = rest.trim_start();
+    if trimmed.starts_with('#')
+        || trimmed.starts_with('/')
+        || trimmed.starts_with('!')
+        || trimmed.starts_with('>')
+    {
+        return false;
+    }
+    let end = match trimmed.find("}}") {
+        Some(i) => i,
+        None => return false,
+    };
+    let inner = trimmed[..end].trim();
+    !inner.is_empty()
+        && inner.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
+        && inner
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
 }
 
 fn extract_helper_name(msg: &str) -> Option<String> {

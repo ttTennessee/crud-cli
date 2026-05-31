@@ -12,6 +12,24 @@ handlebars_helper!(PascalCaseHelper: |v: str| v.to_case(Case::Pascal));
 handlebars_helper!(SnakeCaseHelper: |v: str| v.to_case(Case::Snake));
 handlebars_helper!(CamelCaseHelper: |v: str| v.to_case(Case::Camel));
 handlebars_helper!(KebabCaseHelper: |v: str| v.to_case(Case::Kebab));
+handlebars_helper!(MybatisParamHelper: |v: str| wrap_mybatis_param(v));
+handlebars_helper!(VueParamHelper: |v: str| wrap_vue_param(v));
+
+/// Wraps `value` as a MyBatis `#{}` placeholder, e.g. `userName` → `#{userName}`.
+fn wrap_mybatis_param(value: &str) -> String {
+    format!("#{{{value}}}")
+}
+
+/// Wraps `value` as a Vue `{{}}` interpolation, e.g. `userName` → `{{userName}}`.
+fn wrap_vue_param(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + 4);
+    out.push('{');
+    out.push('{');
+    out.push_str(value);
+    out.push('}');
+    out.push('}');
+    out
+}
 
 /// Captured by the `ty_map` helper closure for a single render.
 #[derive(Debug, Clone)]
@@ -49,6 +67,8 @@ pub fn new_engine_with_type_map(binding: TypeMapBinding) -> Handlebars<'static> 
     engine.register_helper("snake_case", Box::new(SnakeCaseHelper));
     engine.register_helper("camel_case", Box::new(CamelCaseHelper));
     engine.register_helper("kebab_case", Box::new(KebabCaseHelper));
+    engine.register_helper("mybatis_param", Box::new(MybatisParamHelper));
+    engine.register_helper("vue_param", Box::new(VueParamHelper));
     engine.register_helper("ty_map", Box::new(make_ty_map_helper(binding)));
     engine
 }
@@ -120,6 +140,30 @@ mod case_helper_tests {
             .render_template(tpl, &serde_json::json!({ "x": "hello_world" }))
             .expect("render");
         assert_eq!(out, "HelloWorld|hello_world|helloWorld|hello-world");
+    }
+
+    #[test]
+    fn mybatis_helper_wraps_hash_placeholder() {
+        let engine = new_engine();
+        let out = engine
+            .render_template(
+                "WHERE id = {{mybatis_param name_camel}}",
+                &serde_json::json!({ "name_camel": "userId" }),
+            )
+            .expect("render");
+        assert_eq!(out, "WHERE id = #{userId}");
+    }
+
+    #[test]
+    fn vue_helper_wraps_mustache_interpolation() {
+        let engine = new_engine();
+        let out = engine
+            .render_template(
+                "<span>{{vue_param name_camel}}</span>",
+                &serde_json::json!({ "name_camel": "userName" }),
+            )
+            .expect("render");
+        assert_eq!(out, "<span>{{userName}}</span>");
     }
 
     #[test]

@@ -82,6 +82,23 @@ fn render_passes_on_field_each_with_fixture() {
 }
 
 #[test]
+fn render_passes_when_vue_helper_emits_mustache() {
+    let dir = TempDir::new().unwrap();
+    let root = dir.path();
+    seed_setup(root);
+    let templates = root.join(".crud/templates");
+    fs::create_dir_all(&templates).unwrap();
+    fs::write(
+        templates.join("Vue.hbs"),
+        "{{#each fields}}<td>{{vue_param name_camel}}</td>{{/each}}",
+    )
+    .unwrap();
+
+    let report = run_validate_in(root).expect("should pass");
+    assert_eq!(report.issue_count, 0);
+}
+
+#[test]
 fn aggregate_multiple_templates() {
     let dir = TempDir::new().unwrap();
     let root = dir.path();
