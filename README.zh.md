@@ -202,7 +202,12 @@ filename: "{{model_pascal}}Service.java"
 - `{{date}}`、`{{datetime}}`、`{{year}}`
 
 Helper：`pascal_case`、`snake_case`、`camel_case`、`kebab_case`（例如
-`{{pascal_case "hello_world"}}` → `HelloWorld`）。
+`{{pascal_case "hello_world"}}` → `HelloWorld`）；`single_brace`、`double_brace`
+（输出一层/两层大括号，用于 MyBatis 与 Vue 占位符）：
+
+- `{{single_brace name_camel}}` → `{userId}`；模板里写 `#{{single_brace …}}` 得 `#{…}`，
+  `${{single_brace …}}` 得 `${…}`（支持 `#{}` 与 `${}` 两种 MyBatis 写法）。
+- `{{double_brace name_camel}}` → `{{userName}}`（Vue 模板插值）。
 
 ### 每次调用的变量（`_variables.toml`）
 

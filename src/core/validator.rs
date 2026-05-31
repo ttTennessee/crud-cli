@@ -704,7 +704,7 @@ fn extract_residue_handle(fragment: &str) -> Option<String> {
 }
 
 /// Returns the tail after the first `{{` only when it looks like unrendered Handlebars,
-/// not intentional Vue-style `{{param}}` output from helpers such as `vue_param`.
+/// not intentional Vue-style `{{param}}` output from helpers such as `double_brace`.
 fn find_unrendered_handlebars_residue(rendered: &str) -> Option<&str> {
     let mut from = 0;
     while let Some(rel) = rendered[from..].find("{{") {

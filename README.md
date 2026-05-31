@@ -213,7 +213,12 @@ Always available in templates:
 - `{{date}}`, `{{datetime}}`, `{{year}}`
 
 Helpers: `pascal_case`, `snake_case`, `camel_case`, `kebab_case` (e.g.
-`{{pascal_case "hello_world"}}` → `HelloWorld`).
+`{{pascal_case "hello_world"}}` → `HelloWorld`); `single_brace`, `double_brace`
+(one/two brace layers for MyBatis and Vue placeholders):
+
+- `{{single_brace name_camel}}` → `{userId}`; prefix in template: `#{{single_brace …}}` → `#{…}`,
+  `${{single_brace …}}` → `${…}`.
+- `{{double_brace name_camel}}` → `{{userName}}` (Vue interpolation).
 
 ### Per-call variables (`_variables.toml`)
 

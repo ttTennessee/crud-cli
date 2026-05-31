@@ -12,16 +12,17 @@ handlebars_helper!(PascalCaseHelper: |v: str| v.to_case(Case::Pascal));
 handlebars_helper!(SnakeCaseHelper: |v: str| v.to_case(Case::Snake));
 handlebars_helper!(CamelCaseHelper: |v: str| v.to_case(Case::Camel));
 handlebars_helper!(KebabCaseHelper: |v: str| v.to_case(Case::Kebab));
-handlebars_helper!(MybatisParamHelper: |v: str| wrap_mybatis_param(v));
-handlebars_helper!(VueParamHelper: |v: str| wrap_vue_param(v));
+handlebars_helper!(SingleBraceHelper: |v: str| wrap_single_brace(v));
+handlebars_helper!(DoubleBraceHelper: |v: str| wrap_double_brace(v));
 
-/// Wraps `value` as a MyBatis `#{}` placeholder, e.g. `userName` → `#{userName}`.
-fn wrap_mybatis_param(value: &str) -> String {
-    format!("#{{{value}}}")
+/// Wraps `value` in one brace pair, e.g. `userId` → `{userId}`.
+/// Prefix in the template for MyBatis: `#{{single_brace name}}` → `#{name}`, `${{single_brace name}}` → `${name}`.
+fn wrap_single_brace(value: &str) -> String {
+    format!("{{{value}}}")
 }
 
-/// Wraps `value` as a Vue `{{}}` interpolation, e.g. `userName` → `{{userName}}`.
-fn wrap_vue_param(value: &str) -> String {
+/// Wraps `value` in Vue-style mustache, e.g. `userName` → `{{userName}}`.
+fn wrap_double_brace(value: &str) -> String {
     let mut out = String::with_capacity(value.len() + 4);
     out.push('{');
     out.push('{');
@@ -67,8 +68,8 @@ pub fn new_engine_with_type_map(binding: TypeMapBinding) -> Handlebars<'static> 
     engine.register_helper("snake_case", Box::new(SnakeCaseHelper));
     engine.register_helper("camel_case", Box::new(CamelCaseHelper));
     engine.register_helper("kebab_case", Box::new(KebabCaseHelper));
-    engine.register_helper("mybatis_param", Box::new(MybatisParamHelper));
-    engine.register_helper("vue_param", Box::new(VueParamHelper));
+    engine.register_helper("single_brace", Box::new(SingleBraceHelper));
+    engine.register_helper("double_brace", Box::new(DoubleBraceHelper));
     engine.register_helper("ty_map", Box::new(make_ty_map_helper(binding)));
     engine
 }
@@ -143,23 +144,31 @@ mod case_helper_tests {
     }
 
     #[test]
-    fn mybatis_helper_wraps_hash_placeholder() {
+    fn single_brace_helper_for_mybatis_hash_and_dollar() {
         let engine = new_engine();
-        let out = engine
+        let data = &serde_json::json!({ "name_camel": "userId" });
+        let hash = engine
             .render_template(
-                "WHERE id = {{mybatis_param name_camel}}",
-                &serde_json::json!({ "name_camel": "userId" }),
+                "WHERE id = #{{single_brace name_camel}}",
+                data,
             )
             .expect("render");
-        assert_eq!(out, "WHERE id = #{userId}");
+        assert_eq!(hash, "WHERE id = #{userId}");
+        let dollar = engine
+            .render_template(
+                "ORDER BY ${{single_brace name_camel}}",
+                data,
+            )
+            .expect("render");
+        assert_eq!(dollar, "ORDER BY ${userId}");
     }
 
     #[test]
-    fn vue_helper_wraps_mustache_interpolation() {
+    fn double_brace_helper_wraps_mustache_interpolation() {
         let engine = new_engine();
         let out = engine
             .render_template(
-                "<span>{{vue_param name_camel}}</span>",
+                "<span>{{double_brace name_camel}}</span>",
                 &serde_json::json!({ "name_camel": "userName" }),
             )
             .expect("render");

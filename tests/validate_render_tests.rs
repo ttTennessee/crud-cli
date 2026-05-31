@@ -82,7 +82,7 @@ fn render_passes_on_field_each_with_fixture() {
 }
 
 #[test]
-fn render_passes_when_vue_helper_emits_mustache() {
+fn render_passes_when_double_brace_helper_emits_mustache() {
     let dir = TempDir::new().unwrap();
     let root = dir.path();
     seed_setup(root);
@@ -90,7 +90,7 @@ fn render_passes_when_vue_helper_emits_mustache() {
     fs::create_dir_all(&templates).unwrap();
     fs::write(
         templates.join("Vue.hbs"),
-        "{{#each fields}}<td>{{vue_param name_camel}}</td>{{/each}}",
+        "{{#each fields}}<td>{{double_brace name_camel}}</td>{{/each}}",
     )
     .unwrap();
 
