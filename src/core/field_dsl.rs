@@ -20,6 +20,7 @@ pub struct Field {
 pub const RESERVED_VARIABLE_NAMES: &[&str] = &[
     "model",
     "table",
+    "table_comment",
     "package",
     "package_path",
     "fields",
@@ -34,6 +35,20 @@ pub const RESERVED_VARIABLE_NAMES: &[&str] = &[
     "date",
     "datetime",
     "year",
+    "is_sub",
+    "sub_table",
+    "sub_table_comment",
+    "sub_fields",
+    "sub_model",
+    "sub_model_snake",
+    "sub_model_pascal",
+    "sub_model_camel",
+    "sub_model_kebab",
+    "sub_model_fk",
+    "sub_model_fk_pascal",
+    "pk_field",
+    "pk_field_type",
+    "pk_field_pascal",
 ];
 
 /**

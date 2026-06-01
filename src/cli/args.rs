@@ -108,11 +108,20 @@ pub struct GenArgs {
     #[arg(long = "table")]
     pub table: Option<String>,
 
+    /// Business description of the table/entity (`{{table_comment}}` in templates).
+    #[arg(long = "table-comment")]
+    pub table_comment: Option<String>,
+
     #[arg(long = "type")]
     pub type_: Option<String>,
 
     #[arg(long = "dry-run")]
     pub dry_run: bool,
+
+    /// Render to stdout instead of writing files (preview, e.g. confirm DDL
+    /// before generating). Combine with `--type` to scope to one template set.
+    #[arg(long = "stdout")]
+    pub stdout: bool,
 
     #[arg(long = "force", default_value_t = false)]
     pub force: bool,

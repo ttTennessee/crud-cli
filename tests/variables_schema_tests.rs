@@ -51,9 +51,11 @@ fn base_args() -> GenArgs {
         fields: Some("id:Long".into()),
         package: Some("com.x".into()),
         table: Some("u".into()),
+        table_comment: None,
         file: None,
         type_: None,
         dry_run: false,
+        stdout: false,
         force: false,
         output: None,
         var: vec![],
@@ -96,8 +98,8 @@ fn missing_required_fails() {
     let root = dir.path();
     seed(
         root,
-        "[table_comment]\ndescription = \"caption\"\ntype = \"string\"\nrequired = true\n",
-        "comment={{table_comment}}\n",
+        "[entity_caption]\ndescription = \"caption\"\ntype = \"string\"\nrequired = true\n",
+        "comment={{entity_caption}}\n",
     );
     assert_ne!(run_in(root, base_args()), 0);
 }

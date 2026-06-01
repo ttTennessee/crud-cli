@@ -1,6 +1,8 @@
 //! `_variables.toml` schema — per-template-set variable declarations.
 //!
-//! Lives at `.crud/templates/_variables.toml`. Declares the set of per-call
+//! Lives at `<templates_root>/_variables.toml` (project `.crud/templates/` or
+//! `~/.crud/templates/<name>/<version>/` when a global bundle is pinned).
+//! Declares the set of per-call
 //! variables a template family expects (e.g. `has_import`, `btn_permission`).
 //! Values come at gen time via `--var k=v` or JSON `variables`; this file is
 //! the schema that validators and agents read.
@@ -59,14 +61,14 @@ impl VariableSchema {
     }
 }
 
-/// Returns the schema path under `.crud/templates/`.
-pub fn schema_path(project_root: &Path) -> PathBuf {
-    project_root.join(".crud/templates").join(SCHEMA_FILE_NAME)
+/// Returns `_variables.toml` under a template bundle root.
+pub fn schema_path(templates_root: &Path) -> PathBuf {
+    templates_root.join(SCHEMA_FILE_NAME)
 }
 
-/// Loads `_variables.toml` if present; absent file returns an empty schema.
-pub fn load_schema(project_root: &Path) -> Result<VariableSchema, ErrorEnvelope> {
-    let path = schema_path(project_root);
+/// Loads `_variables.toml` from `templates_root` if present; absent file returns an empty schema.
+pub fn load_schema(templates_root: &Path) -> Result<VariableSchema, ErrorEnvelope> {
+    let path = schema_path(templates_root);
     if !path.exists() {
         return Ok(VariableSchema::default());
     }
@@ -304,4 +306,31 @@ fn bad_var_arg(raw: &str, why: &'static str) -> ErrorEnvelope {
         details,
         i18n::t(keys::ERROR_VARIABLE_INVALID_VAR_ARG),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used)]
+
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn load_schema_reads_bundle_root_not_project_crud_templates() {
+        let dir = TempDir::new().expect("tmp");
+        let bundle = dir.path().join("mytmpl").join("1.0.0");
+        fs::create_dir_all(&bundle).expect("mkdir");
+        fs::write(
+            bundle.join(SCHEMA_FILE_NAME),
+            "[has_import]\ndescription = \"toggle\"\ntype = \"bool\"\ndefault = true\n",
+        )
+        .expect("write schema");
+        let schema = load_schema(&bundle).expect("load");
+        assert!(schema.0.contains_key("has_import"));
+        assert!(
+            !dir.path().join(".crud").join("templates").exists(),
+            "schema must not require project-local path"
+        );
+    }
 }

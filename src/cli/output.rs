@@ -71,6 +71,40 @@ pub fn emit_dry_run_listing(lines: &[crate::core::gen_report::DryRunLine]) {
     }
 }
 
+/// Prints rendered files to stdout under `--stdout` (preview mode). Content is
+/// emitted in both human and agent modes — it is the explicitly requested
+/// output. A `==> path <==` header precedes each file only when more than one
+/// is rendered, so the common single-file case (e.g. `--type sql`) stays raw
+/// and directly usable.
+pub fn emit_stdout_render(files: &[crate::core::gen_report::RenderedFile]) {
+    let multi = files.len() > 1;
+    let mut stdout = io::stdout().lock();
+    for (i, f) in files.iter().enumerate() {
+        if multi {
+            if i > 0 {
+                let _ = writeln!(stdout);
+            }
+            let _ = writeln!(stdout, "==> {} <==", f.path.display());
+        }
+        let _ = write!(stdout, "{}", f.content);
+        if !f.content.ends_with('\n') {
+            let _ = writeln!(stdout);
+        }
+    }
+}
+
+/// Lists files intentionally not generated due to a `generateWhen`/`skipWhen`
+/// condition. Human-only; agent success stdout stays empty (FOUND-09).
+pub fn emit_condition_skips(paths: &[std::path::PathBuf]) {
+    if paths.is_empty() || is_agent_active() {
+        return;
+    }
+    let mut stdout = io::stdout().lock();
+    for p in paths {
+        let _ = writeln!(stdout, "{}  [skipped: condition]", p.display());
+    }
+}
+
 /// Success path: agent mode keeps stdout empty.
 pub fn emit_success(human_line: Option<&str>) {
     if is_agent_active() {

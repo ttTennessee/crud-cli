@@ -12,6 +12,25 @@ handlebars_helper!(PascalCaseHelper: |v: str| v.to_case(Case::Pascal));
 handlebars_helper!(SnakeCaseHelper: |v: str| v.to_case(Case::Snake));
 handlebars_helper!(CamelCaseHelper: |v: str| v.to_case(Case::Camel));
 handlebars_helper!(KebabCaseHelper: |v: str| v.to_case(Case::Kebab));
+handlebars_helper!(SingleBraceHelper: |v: str| wrap_single_brace(v));
+handlebars_helper!(DoubleBraceHelper: |v: str| wrap_double_brace(v));
+
+/// Wraps `value` in one brace pair, e.g. `userId` → `{userId}`.
+/// Prefix in the template for MyBatis: `#{{single_brace name}}` → `#{name}`, `${{single_brace name}}` → `${name}`.
+fn wrap_single_brace(value: &str) -> String {
+    format!("{{{value}}}")
+}
+
+/// Wraps `value` in Vue-style mustache, e.g. `userName` → `{{userName}}`.
+fn wrap_double_brace(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + 4);
+    out.push('{');
+    out.push('{');
+    out.push_str(value);
+    out.push('}');
+    out.push('}');
+    out
+}
 
 /// Captured by the `ty_map` helper closure for a single render.
 #[derive(Debug, Clone)]
@@ -49,6 +68,8 @@ pub fn new_engine_with_type_map(binding: TypeMapBinding) -> Handlebars<'static> 
     engine.register_helper("snake_case", Box::new(SnakeCaseHelper));
     engine.register_helper("camel_case", Box::new(CamelCaseHelper));
     engine.register_helper("kebab_case", Box::new(KebabCaseHelper));
+    engine.register_helper("single_brace", Box::new(SingleBraceHelper));
+    engine.register_helper("double_brace", Box::new(DoubleBraceHelper));
     engine.register_helper("ty_map", Box::new(make_ty_map_helper(binding)));
     engine
 }
@@ -120,6 +141,38 @@ mod case_helper_tests {
             .render_template(tpl, &serde_json::json!({ "x": "hello_world" }))
             .expect("render");
         assert_eq!(out, "HelloWorld|hello_world|helloWorld|hello-world");
+    }
+
+    #[test]
+    fn single_brace_helper_for_mybatis_hash_and_dollar() {
+        let engine = new_engine();
+        let data = &serde_json::json!({ "name_camel": "userId" });
+        let hash = engine
+            .render_template(
+                "WHERE id = #{{single_brace name_camel}}",
+                data,
+            )
+            .expect("render");
+        assert_eq!(hash, "WHERE id = #{userId}");
+        let dollar = engine
+            .render_template(
+                "ORDER BY ${{single_brace name_camel}}",
+                data,
+            )
+            .expect("render");
+        assert_eq!(dollar, "ORDER BY ${userId}");
+    }
+
+    #[test]
+    fn double_brace_helper_wraps_mustache_interpolation() {
+        let engine = new_engine();
+        let out = engine
+            .render_template(
+                "<span>{{double_brace name_camel}}</span>",
+                &serde_json::json!({ "name_camel": "userName" }),
+            )
+            .expect("render");
+        assert_eq!(out, "<span>{{userName}}</span>");
     }
 
     #[test]

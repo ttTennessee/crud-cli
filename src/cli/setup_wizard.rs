@@ -15,11 +15,12 @@ use crate::core::git_info;
 use crate::core::global_config::{lang_env_override, GlobalConfig};
 use crate::core::i18n::{self, keys, Lang};
 use crate::core::paths::global_config_toml;
-use crate::core::template_meta_global::{list_installed_templates, InstalledTemplate};
+use crate::core::template_meta_global::{find_template, list_installed_templates, InstalledTemplate};
 use crate::core::type_map::Fallback;
 
 use super::agent_mode::is_agent_active;
 use super::args::{SetupEnabledTypes, SetupOverwritePolicy};
+use super::output::emit_success;
 
 /// Ensures a UI language preference exists before running a wizard (first-run).
 pub fn ensure_language_preference() {
@@ -65,6 +66,13 @@ pub fn prompt_language() -> Result<Lang, ErrorEnvelope> {
 pub fn run_project_wizard() -> Result<SetupConfig, ErrorEnvelope> {
     let selections = collect_project_selections()?;
     let mut cfg = SetupConfig::from_selections(selections);
+    if let Some(tref) = &cfg.project.template.clone() {
+        if let Ok(installed) = find_template(&tref.name, tref.version.as_deref()) {
+            if let Some(paths) = installed.manifest.paths {
+                cfg.paths = paths;
+            }
+        }
+    }
     cfg.paths = prompt_paths(cfg.paths)?;
     cfg.type_map.fallback = prompt_type_map_fallback()?;
     Ok(cfg)
@@ -136,7 +144,7 @@ fn prompt_template_choice(
     installed: &[InstalledTemplate],
 ) -> Result<Option<InstalledTemplate>, ErrorEnvelope> {
     if installed.is_empty() {
-        println!("{}", i18n::t(keys::WIZARD_TEMPLATE_NO_TEMPLATES));
+        emit_success(Some(i18n::t(keys::WIZARD_TEMPLATE_NO_TEMPLATES)));
         return Ok(None);
     }
     let manual_label = i18n::t(keys::WIZARD_TEMPLATE_MANUAL_OPTION).to_string();
@@ -155,7 +163,7 @@ fn prompt_template_choice(
     labels.push(manual_label.clone());
 
     let header = i18n::t(keys::WIZARD_TEMPLATE_DETECTED_HEADER);
-    println!("{header}");
+    emit_success(Some(header));
     let choice = Select::new("template", labels.clone())
         .prompt()
         .map_err(inquire_to_user_error)?;

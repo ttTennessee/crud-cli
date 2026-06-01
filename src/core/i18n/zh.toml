@@ -42,7 +42,9 @@ done = "已安装 {name}@{version}（{backend} + {frontend}）→ {path}"
 prompt_fetch = "模板"
 prompt_name = "选择模板"
 prompt_version = "选择 {name} 的版本"
-prompt_doc = "安装哪些 doc 子目录？（空格切换，回车不装）"
+prompt_doc = "选择要安装的文档格式（doc 子目录）"
+prompt_sql = "选择要安装的数据库类型（sql 子目录）"
+bundle_none = "（不安装）"
 confirm_overwrite = "{name}@{version} 已安装，是否覆盖重装？"
 status_installed = "已安装"
 status_modified = "已安装·已修改"
@@ -76,7 +78,13 @@ invalid_identifier = "字段名必须以字母开头，且仅含字母、数字�
 too_many_segments = "字段格式为 name:Type，最多一个冒号（去掉多余的 :extra）"
 duplicate = "字段名重复：每个字段必须唯一"
 no_fields = "--fields 不能为空，至少提供一个 name:Type"
-reserved = "字段名与内置变量冲突：避开 model/table/package/package_path/fields/model_*"
+reserved = "字段名与内置变量冲突：避开 model/table/fields/pk_field/is_sub/sub_* 等内置名"
+
+[error.field_type]
+unsupported = "字段 `{name}` 的类型 `{type}` 不在模板允许列表中；允许：{allowed}；见 `_field_types.toml`"
+unsupported_did_you_mean = "字段 `{name}` 的类型 `{type}` 无效；是否指 `{candidate}`？允许：{allowed}"
+schema_fix = "检查 `_field_types.toml` 语法：每个类型需 description，aliases 不可重复或与 canonical 冲突"
+unmapped_in_bundles = "类型 `{type}` 已在 `_field_types.toml` 声明，但所有 bundle 的 type_map.toml 均未映射；bundle：{bundles}"
 
 [error.type_map]
 read_failed = "检查 type_map.toml 是否可读"
@@ -136,7 +144,7 @@ empty_flag = "请为 --{flag} 提供非空值"
 exists_non_interactive = "使用 --force 覆盖，或以交互方式运行 setup"
 
 [error.config]
-reserved_variable = "重命名该变量；保留名：model、table、package、package_path、fields、model_*"
+reserved_variable = "重命名该变量；保留名含 model、table、fields、pk_field、is_sub、sub_* 等内置变量"
 legacy_schema = "该 setup.toml 仍使用旧版基于框架名的结构；请运行 `crud-cli setup --project --force` 迁移到基于语言的新结构"
 
 [error.variable]

@@ -3,7 +3,9 @@
 use std::collections::BTreeMap;
 
 use crate::cli::args::{exit_with_envelope, GenArgs};
-use crate::cli::output::{emit_dry_run_listing, emit_success};
+use crate::cli::output::{
+    emit_condition_skips, emit_dry_run_listing, emit_stdout_render, emit_success,
+};
 use crate::core::error::ErrorEnvelope;
 use crate::core::i18n::{self, keys};
 use crate::core::gen_pipeline;
@@ -17,6 +19,7 @@ pub fn run_gen(args: GenArgs) -> i32 {
     }
 
     let dry_run = args.dry_run;
+    let to_stdout = args.stdout;
     let params = match gen_run_params_from_args(args) {
         Ok(p) => p,
         Err(envelope) => return exit_with_envelope(&envelope),
@@ -24,6 +27,14 @@ pub fn run_gen(args: GenArgs) -> i32 {
 
     match gen_pipeline::run(params) {
         Ok(report) => {
+            if to_stdout {
+                // Preview mode: stdout carries only the rendered content so it
+                // can be captured/piped verbatim (no success line, no skip
+                // notices to avoid corrupting it).
+                emit_stdout_render(&report.rendered);
+                return 0;
+            }
+            emit_condition_skips(&report.skipped_by_condition);
             if dry_run {
                 emit_dry_run_listing(&report.dry_run_lines);
                 let line = i18n::tf(
@@ -68,9 +79,11 @@ fn gen_run_params_from_args(args: GenArgs) -> Result<GenRunParams, ErrorEnvelope
             fields_src: None,
             package: args.package,
             table: args.table,
+            table_comment: args.table_comment,
             file: Some(path.clone()),
             type_filter,
             dry_run: args.dry_run,
+            stdout: args.stdout,
             force: args.force,
             output_dir: args.output,
             cli_vars,
@@ -94,9 +107,11 @@ fn gen_run_params_from_args(args: GenArgs) -> Result<GenRunParams, ErrorEnvelope
         fields_src: Some(fields_src),
         package: Some(package),
         table: Some(table),
+        table_comment: args.table_comment,
         file: None,
         type_filter,
         dry_run: args.dry_run,
+        stdout: args.stdout,
         force: args.force,
         output_dir: args.output,
         cli_vars,

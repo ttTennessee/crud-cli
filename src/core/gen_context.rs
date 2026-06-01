@@ -16,6 +16,15 @@ use super::git_info::GitInfo;
 
 static EMPTY_EXTRA: OnceLock<Map<String, Value>> = OnceLock::new();
 
+/// Optional sub-table slice passed into [`build_context`].
+pub struct SubTableContext<'a> {
+    pub name: &'a str,
+    pub table: &'a str,
+    pub table_comment: &'a str,
+    pub fk_field: &'a str,
+    pub fields: &'a [&'a dyn AsContextField],
+}
+
 fn empty_extra() -> &'static Map<String, Value> {
     EMPTY_EXTRA.get_or_init(Map::new)
 }
@@ -36,11 +45,18 @@ pub struct UserIdentity {
 }
 
 /// Common field surface for DSL [`Field`] and JSON [`FieldSpec`].
+///
+/// `comment`/`length`/`unique`/`default` originate in the JSON [`FieldSpec`];
+/// the DSL [`Field`] has no syntax for them and returns neutral defaults.
 pub trait AsContextField {
     fn name(&self) -> &str;
     fn ty(&self) -> &str;
     fn is_pk(&self) -> bool;
     fn nullable(&self) -> bool;
+    fn comment(&self) -> &str;
+    fn length(&self) -> Option<u32>;
+    fn unique(&self) -> bool;
+    fn default_value(&self) -> Option<&Value>;
     fn extra(&self) -> &Map<String, Value>;
 }
 
@@ -56,6 +72,18 @@ impl AsContextField for Field {
     }
     fn nullable(&self) -> bool {
         self.nullable
+    }
+    fn comment(&self) -> &str {
+        ""
+    }
+    fn length(&self) -> Option<u32> {
+        None
+    }
+    fn unique(&self) -> bool {
+        false
+    }
+    fn default_value(&self) -> Option<&Value> {
+        None
     }
     fn extra(&self) -> &Map<String, Value> {
         empty_extra()
@@ -75,6 +103,18 @@ impl AsContextField for super::gen_input::FieldSpec {
     fn nullable(&self) -> bool {
         self.nullable
     }
+    fn comment(&self) -> &str {
+        &self.comment
+    }
+    fn length(&self) -> Option<u32> {
+        self.length
+    }
+    fn unique(&self) -> bool {
+        self.unique
+    }
+    fn default_value(&self) -> Option<&Value> {
+        self.default.as_ref()
+    }
     fn extra(&self) -> &Map<String, Value> {
         &self.extra
     }
@@ -89,7 +129,9 @@ pub fn build_context(
     name: &str,
     table: &str,
     package: &str,
+    table_comment: &str,
     fields: &[&dyn AsContextField],
+    sub: Option<&SubTableContext<'_>>,
     setup: &SetupConfig,
     git: &GitInfo,
     user: &UserIdentity,
@@ -114,6 +156,10 @@ pub fn build_context(
         Value::String(model.to_case(Case::Kebab)),
     );
     map.insert("table".into(), Value::String(table.to_string()));
+    map.insert(
+        "table_comment".into(),
+        Value::String(table_comment.to_string()),
+    );
     map.insert("package".into(), Value::String(package.to_string()));
     map.insert(
         "package_path".into(),
@@ -123,6 +169,8 @@ pub fn build_context(
         "fields".into(),
         Value::Array(fields.iter().map(|f| field_to_json(*f)).collect()),
     );
+    insert_pk_builtins(&mut map, fields);
+    insert_sub_builtins(&mut map, sub);
     map.insert("git_user_name".into(), Value::String(git.user_name.clone()));
     map.insert(
         "git_user_email".into(),
@@ -191,15 +239,114 @@ pub fn build_context_from_input(
         .iter()
         .map(|f| f as &dyn AsContextField)
         .collect();
+    if let Some(sub) = &input.sub {
+        let sub_field_refs: Vec<&dyn AsContextField> = sub
+            .fields
+            .iter()
+            .map(|f| f as &dyn AsContextField)
+            .collect();
+        let sub_ctx = SubTableContext {
+            name: &sub.name,
+            table: &sub.table,
+            table_comment: &sub.table_comment,
+            fk_field: &sub.fk_field,
+            fields: &sub_field_refs,
+        };
+        return build_context(
+            &input.name,
+            &input.table,
+            &input.package,
+            &input.table_comment,
+            &refs,
+            Some(&sub_ctx),
+            setup,
+            git,
+            user,
+        );
+    }
     build_context(
         &input.name,
         &input.table,
         &input.package,
+        &input.table_comment,
         &refs,
+        None,
         setup,
         git,
         user,
     )
+}
+
+fn insert_pk_builtins(map: &mut Map<String, Value>, fields: &[&dyn AsContextField]) {
+    let (pk_field, pk_field_type, pk_field_pascal) = resolve_pk(fields);
+    map.insert("pk_field".into(), Value::String(pk_field));
+    map.insert("pk_field_type".into(), Value::String(pk_field_type));
+    map.insert("pk_field_pascal".into(), Value::String(pk_field_pascal));
+}
+
+fn insert_sub_builtins(map: &mut Map<String, Value>, sub: Option<&SubTableContext<'_>>) {
+    let Some(sub) = sub else {
+        map.insert("is_sub".into(), Value::Bool(false));
+        map.insert("sub_table".into(), Value::String(String::new()));
+        map.insert("sub_table_comment".into(), Value::String(String::new()));
+        map.insert("sub_fields".into(), Value::Array(vec![]));
+        map.insert("sub_model".into(), Value::String(String::new()));
+        map.insert("sub_model_snake".into(), Value::String(String::new()));
+        map.insert("sub_model_pascal".into(), Value::String(String::new()));
+        map.insert("sub_model_camel".into(), Value::String(String::new()));
+        map.insert("sub_model_kebab".into(), Value::String(String::new()));
+        map.insert("sub_model_fk".into(), Value::String(String::new()));
+        map.insert("sub_model_fk_pascal".into(), Value::String(String::new()));
+        return;
+    };
+
+    map.insert("is_sub".into(), Value::Bool(true));
+    map.insert("sub_table".into(), Value::String(sub.table.to_string()));
+    map.insert(
+        "sub_table_comment".into(),
+        Value::String(sub.table_comment.to_string()),
+    );
+    map.insert(
+        "sub_fields".into(),
+        Value::Array(sub.fields.iter().map(|f| field_to_json(*f)).collect()),
+    );
+    let sub_model = sub.name;
+    map.insert("sub_model".into(), Value::String(sub_model.to_string()));
+    map.insert(
+        "sub_model_snake".into(),
+        Value::String(sub_model.to_case(Case::Snake)),
+    );
+    map.insert(
+        "sub_model_pascal".into(),
+        Value::String(sub_model.to_case(Case::Pascal)),
+    );
+    map.insert(
+        "sub_model_camel".into(),
+        Value::String(sub_model.to_case(Case::Camel)),
+    );
+    map.insert(
+        "sub_model_kebab".into(),
+        Value::String(sub_model.to_case(Case::Kebab)),
+    );
+    let fk_camel = sub.fk_field.to_case(Case::Camel);
+    map.insert("sub_model_fk".into(), Value::String(fk_camel.clone()));
+    map.insert(
+        "sub_model_fk_pascal".into(),
+        Value::String(fk_camel.to_case(Case::Pascal)),
+    );
+}
+
+/// Resolves primary-key builtins: camelCase name, raw type, PascalCase name.
+fn resolve_pk(fields: &[&dyn AsContextField]) -> (String, String, String) {
+    if let Some(pk) = fields.iter().copied().find(|f| f.is_pk()) {
+        let camel = pk.name().to_case(Case::Camel);
+        return (
+            camel.clone(),
+            pk.ty().to_string(),
+            pk.name().to_case(Case::Pascal),
+        );
+    }
+    ("id".into(), "Long".into(), "Id".into())
 }
 
 fn field_to_json(field: &dyn AsContextField) -> Value {
@@ -225,6 +372,19 @@ fn field_to_json(field: &dyn AsContextField) -> Value {
     m.insert("type".into(), Value::String(field.ty().to_string()));
     m.insert("is_pk".into(), Value::Bool(field.is_pk()));
     m.insert("nullable".into(), Value::Bool(field.nullable()));
+    m.insert("comment".into(), Value::String(field.comment().to_string()));
+    m.insert(
+        "length".into(),
+        field
+            .length()
+            .map(|l| Value::Number(l.into()))
+            .unwrap_or(Value::Null),
+    );
+    m.insert("unique".into(), Value::Bool(field.unique()));
+    m.insert(
+        "default".into(),
+        field.default_value().cloned().unwrap_or(Value::Null),
+    );
     for (k, v) in field.extra() {
         m.insert(k.clone(), v.clone());
     }

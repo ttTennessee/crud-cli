@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use super::config::{Backend, Frontend};
+use super::config::{Backend, Frontend, PathsSection};
 use super::error::{ErrorEnvelope, Kind};
 
 /// File name of the per-template manifest.
@@ -35,6 +35,10 @@ pub struct TemplateManifest {
     /// Optional one-line description shown in `template list`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// Optional path overrides to apply to the project when this template is
+    /// selected. When present, completely replaces the project's `[paths]`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paths: Option<PathsSection>,
 }
 
 /// A successfully-loaded installed template.
@@ -51,9 +55,16 @@ pub struct InstalledTemplate {
 }
 
 /// Returns `~/.crud/templates` for the current user. `None` when the home
-/// directory cannot be resolved.
+/// directory cannot be resolved. Honors `CRUD_HOME` (same override as
+/// [`crate::core::paths::global_crud_dir`]).
 #[must_use]
 pub fn global_templates_root() -> Option<PathBuf> {
+    if let Some(override_home) = std::env::var_os("CRUD_HOME") {
+        let p = PathBuf::from(override_home);
+        if !p.as_os_str().is_empty() {
+            return Some(p.join(".crud").join("templates"));
+        }
+    }
     dirs::home_dir().map(|h| h.join(".crud").join("templates"))
 }
 

@@ -167,6 +167,34 @@ fn gen_agent_failure_stdout_empty_json_stderr() {
 }
 
 #[test]
+fn gen_stdout_flag_prints_raw_content_and_writes_nothing() {
+    let _eg = env_guard();
+    std::env::remove_var("CRUD_AGENT");
+
+    let dir = tempfile::TempDir::new().unwrap();
+    seed_gen_project(dir.path());
+
+    let output = Command::new(exe())
+        .current_dir(dir.path())
+        .env("CRUD_LANG", "en")
+        .args([
+            "gen", "User", "--fields", "id:Long", "--package", "com.x", "--table", "u",
+            "--stdout",
+        ])
+        .output()
+        .expect("run");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success());
+    // Single rendered file → raw content, no header, directly capturable.
+    assert_eq!(stdout, "User\n", "got: {stdout:?}");
+    assert!(
+        !dir.path().join("out.txt").exists(),
+        "--stdout must not write files"
+    );
+}
+
+#[test]
 fn gen_non_agent_failure_human_stderr() {
     let _eg = env_guard();
     std::env::remove_var("CRUD_AGENT");

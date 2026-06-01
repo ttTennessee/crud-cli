@@ -35,6 +35,14 @@ use super::template_meta_global::{
 /// overrides it: when present, the global directory is not copied.
 pub const SHARED_DOC_DIR: &str = "doc";
 
+/// Top-level repo directories holding shared "pick-one" bundles that can be
+/// layered onto a template at install time. Each is organised as
+/// `<kind>/<category>/*.hbs` (e.g. `doc/html/…`, `sql/mysql/…`). A template
+/// that ships its own `<kind>/` overrides the shared bundle for that kind, and
+/// these names never appear as template names in [`RepoSnapshot::catalog`].
+/// Keep in sync with `template_install_meta::SHARED_BUNDLE_DIRNAMES`.
+pub const SHARED_BUNDLE_KINDS: &[&str] = &["doc", "sql"];
+
 /// Git ref used when callers don't specify one (codeload accepts `HEAD`).
 pub const DEFAULT_GIT_REF: &str = "HEAD";
 
@@ -157,7 +165,7 @@ impl RepoSnapshot {
             let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
                 continue;
             };
-            if name == SHARED_DOC_DIR {
+            if SHARED_BUNDLE_KINDS.contains(&name.as_str()) {
                 continue;
             }
             let mut versions: Vec<String> = fs::read_dir(entry.path())
@@ -192,21 +200,23 @@ impl RepoSnapshot {
         }
     }
 
-    /// `true` when the template author ships their own `<name>/<version>/doc/`
-    /// — in that case the shared bundle is ignored entirely.
+    /// `true` when the template author ships their own
+    /// `<name>/<version>/<kind>/` — in that case the shared bundle for `kind`
+    /// (e.g. `doc`, `sql`) is ignored entirely.
     #[must_use]
-    pub fn template_has_doc(&self, name: &str, version: &str) -> bool {
-        self.root.join(name).join(version).join(SHARED_DOC_DIR).is_dir()
+    pub fn template_has_bundle(&self, name: &str, version: &str, kind: &str) -> bool {
+        self.root.join(name).join(version).join(kind).is_dir()
     }
 
-    /// Subdirectories of the repo-level `doc/` (e.g. `["html", "markdown"]`),
-    /// sorted. Empty when the snapshot has no shared doc bundle or it contains
-    /// only files. Per the new repo layout, doc is organised as
-    /// `doc/<category>/*.hbs`; loose files at `doc/*.hbs` are ignored.
+    /// Subdirectories of the repo-level `<kind>/` (e.g. doc → `["html",
+    /// "markdown"]`, sql → `["mysql", "postgres"]`), sorted. Empty when the
+    /// snapshot has no such shared bundle or it contains only files. Bundles
+    /// are organised as `<kind>/<category>/*.hbs`; loose files at
+    /// `<kind>/*.hbs` are ignored.
     #[must_use]
-    pub fn shared_doc_categories(&self) -> Vec<String> {
-        let doc = self.root.join(SHARED_DOC_DIR);
-        let Ok(entries) = fs::read_dir(&doc) else {
+    pub fn shared_categories(&self, kind: &str) -> Vec<String> {
+        let base = self.root.join(kind);
+        let Ok(entries) = fs::read_dir(&base) else {
             return Vec::new();
         };
         let mut out: Vec<String> = entries
@@ -218,39 +228,35 @@ impl RepoSnapshot {
         out
     }
 
-    /// Copies the named subdirectories of the snapshot's shared `doc/` into
-    /// `<dest_version_dir>/doc/<category>/`. No-op when `categories` is empty.
-    /// Existing per-category dirs at the destination are replaced.
-    pub fn copy_shared_doc(
+    /// Copies one subdirectory of the snapshot's shared `<kind>/` into
+    /// `<dest_version_dir>/<kind>/<category>/`. The bundle picker is
+    /// single-select, so exactly one category is layered per kind. An existing
+    /// destination dir for that category is replaced.
+    pub fn copy_shared_category(
         &self,
         dest_version_dir: &Path,
-        categories: &[String],
+        kind: &str,
+        category: &str,
     ) -> Result<(), ErrorEnvelope> {
-        if categories.is_empty() {
-            return Ok(());
+        let src = self.root.join(kind).join(category);
+        if !src.is_dir() {
+            return Err(ErrorEnvelope::user_error(
+                format!("{kind} category not in repo: {category}"),
+                None,
+                Some(category),
+                "",
+            ));
         }
-        let shared = self.root.join(SHARED_DOC_DIR);
-        let dest_doc = dest_version_dir.join(SHARED_DOC_DIR);
-        fs::create_dir_all(&dest_doc)
-            .map_err(|e| io_error(format!("create {}", dest_doc.display()), e))?;
-        for cat in categories {
-            let src = shared.join(cat);
-            if !src.is_dir() {
-                return Err(ErrorEnvelope::user_error(
-                    format!("doc category not in repo: {cat}"),
-                    None,
-                    Some(cat),
-                    "",
-                ));
-            }
-            let dst = dest_doc.join(cat);
-            if dst.exists() {
-                fs::remove_dir_all(&dst)
-                    .map_err(|e| io_error(format!("remove {}", dst.display()), e))?;
-            }
-            copy_dir_all(&src, &dst)
-                .map_err(|e| io_error(format!("copy doc/{cat}"), e))?;
+        let dst = dest_version_dir.join(kind).join(category);
+        if let Some(parent) = dst.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| io_error(format!("create {}", parent.display()), e))?;
         }
+        if dst.exists() {
+            fs::remove_dir_all(&dst)
+                .map_err(|e| io_error(format!("remove {}", dst.display()), e))?;
+        }
+        copy_dir_all(&src, &dst).map_err(|e| io_error(format!("copy {kind}/{category}"), e))?;
         Ok(())
     }
 }
@@ -262,8 +268,9 @@ impl RepoSnapshot {
 /// (matching the precedence used by `template_meta_global::find_template`).
 ///
 /// Writes `<dest>/.install.json` with the source hash + repo provenance so
-/// `template install`'s next-run picker can label the version. Doc bundling
-/// is handled separately by the caller via [`RepoSnapshot::copy_shared_doc`].
+/// `template install`'s next-run picker can label the version. Shared bundle
+/// layering (doc, sql) is handled separately by the caller via
+/// [`RepoSnapshot::copy_shared_category`].
 pub fn install_from_snapshot(
     snapshot: &RepoSnapshot,
     name: &str,
@@ -330,6 +337,7 @@ pub fn install_from_snapshot(
         repo_ref: snapshot.spec.git_ref.clone(),
         installed_at: now_rfc3339(),
         doc_categories: Vec::new(),
+        sql_categories: Vec::new(),
     };
     write_install_meta(&dest_dir, &meta)
         .map_err(|e| io_error(format!("write {INSTALL_META_FILENAME}"), e))?;
@@ -631,45 +639,88 @@ mod tests {
     }
 
     #[test]
-    fn shared_doc_categories_lists_top_level_subdirs() {
+    fn shared_categories_lists_top_level_subdirs() {
         let tmp = tempfile::tempdir().expect("tmp");
         let root = tmp.path().join("repo");
         fs::create_dir_all(root.join("doc").join("markdown")).expect("mkdir");
         fs::create_dir_all(root.join("doc").join("html")).expect("mkdir");
         fs::write(root.join("doc").join("README.md"), "x").expect("write");
         fs::write(root.join("doc").join("markdown").join("a.hbs"), "a").expect("write");
+        fs::create_dir_all(root.join("sql").join("mysql")).expect("mkdir");
+        fs::create_dir_all(root.join("sql").join("postgres")).expect("mkdir");
 
         let snap = snapshot_from(root);
-        let cats = snap.shared_doc_categories();
-        assert_eq!(cats, vec!["html".to_string(), "markdown".to_string()]);
+        assert_eq!(
+            snap.shared_categories("doc"),
+            vec!["html".to_string(), "markdown".to_string()]
+        );
+        assert_eq!(
+            snap.shared_categories("sql"),
+            vec!["mysql".to_string(), "postgres".to_string()]
+        );
+        assert!(snap.shared_categories("missing").is_empty());
     }
 
     #[test]
-    fn copy_shared_doc_only_copies_selected_categories() {
+    fn catalog_filters_sql_bundle_dir() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let root = tmp.path().to_path_buf();
+        write_manifest(
+            &root.join("ruoyi").join("1.0.0"),
+            "backend = \"java\"\nfrontend = \"vue\"\n",
+        );
+        fs::create_dir_all(root.join("sql").join("mysql")).expect("mkdir");
+        fs::write(root.join("sql").join("mysql").join("schema.sql.hbs"), "x").expect("write");
+
+        let snap = snapshot_from(root);
+        let cat = snap.catalog();
+        assert!(cat.contains_key("ruoyi"));
+        assert!(!cat.contains_key("sql"));
+    }
+
+    #[test]
+    fn copy_shared_category_copies_only_the_picked_one() {
         let tmp = tempfile::tempdir().expect("tmp");
         let root = tmp.path().join("repo");
         write_manifest(
             &root.join("ruoyi").join("1.0.0"),
             "backend = \"java\"\nfrontend = \"vue\"\n",
         );
-        fs::create_dir_all(root.join("doc").join("markdown")).expect("mkdir");
-        fs::write(root.join("doc").join("markdown").join("a.md.hbs"), "a").expect("write");
-        fs::create_dir_all(root.join("doc").join("html")).expect("mkdir");
-        fs::write(root.join("doc").join("html").join("b.html.hbs"), "b").expect("write");
+        fs::create_dir_all(root.join("sql").join("mysql")).expect("mkdir");
+        fs::write(root.join("sql").join("mysql").join("a.sql.hbs"), "a").expect("write");
+        fs::create_dir_all(root.join("sql").join("postgres")).expect("mkdir");
+        fs::write(root.join("sql").join("postgres").join("b.sql.hbs"), "b").expect("write");
 
         let snap = snapshot_from(root);
         let dest = tmp.path().join("home");
         let installed =
             install_from_snapshot(&snap, "ruoyi", None, &dest, false).expect("install");
 
-        snap.copy_shared_doc(&installed.path, &["markdown".into()])
+        snap.copy_shared_category(&installed.path, "sql", "mysql")
             .expect("copy");
-        assert!(installed.path.join("doc").join("markdown").join("a.md.hbs").is_file());
-        assert!(!installed.path.join("doc").join("html").exists());
+        assert!(installed.path.join("sql").join("mysql").join("a.sql.hbs").is_file());
+        assert!(!installed.path.join("sql").join("postgres").exists());
     }
 
     #[test]
-    fn template_has_doc_detects_bundled_doc_dir() {
+    fn copy_shared_category_rejects_missing_category() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let root = tmp.path().join("repo");
+        write_manifest(
+            &root.join("ruoyi").join("1.0.0"),
+            "backend = \"java\"\nfrontend = \"vue\"\n",
+        );
+        let snap = snapshot_from(root);
+        let dest = tmp.path().join("home");
+        let installed =
+            install_from_snapshot(&snap, "ruoyi", None, &dest, false).expect("install");
+        assert!(snap
+            .copy_shared_category(&installed.path, "sql", "nope")
+            .is_err());
+    }
+
+    #[test]
+    fn template_has_bundle_detects_bundled_dir() {
         let tmp = tempfile::tempdir().expect("tmp");
         let root = tmp.path().join("repo");
         write_manifest(
@@ -677,14 +728,17 @@ mod tests {
             "backend = \"java\"\nfrontend = \"vue\"\n",
         );
         fs::create_dir_all(root.join("ruoyi").join("1.0.0").join("doc")).expect("mkdir");
+        fs::create_dir_all(root.join("ruoyi").join("1.0.0").join("sql")).expect("mkdir");
         write_manifest(
             &root.join("eladmin").join("2.0.0"),
             "backend = \"java\"\nfrontend = \"vue\"\n",
         );
 
         let snap = snapshot_from(root);
-        assert!(snap.template_has_doc("ruoyi", "1.0.0"));
-        assert!(!snap.template_has_doc("eladmin", "2.0.0"));
+        assert!(snap.template_has_bundle("ruoyi", "1.0.0", "doc"));
+        assert!(snap.template_has_bundle("ruoyi", "1.0.0", "sql"));
+        assert!(!snap.template_has_bundle("eladmin", "2.0.0", "doc"));
+        assert!(!snap.template_has_bundle("eladmin", "2.0.0", "sql"));
     }
 
     #[test]

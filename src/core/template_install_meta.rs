@@ -21,10 +21,11 @@ use sha2::{Digest, Sha256};
 /// Filename of the sidecar under `<name>/<version>/`.
 pub const INSTALL_META_FILENAME: &str = ".install.json";
 
-/// Top-level directory name that holds doc bundles, excluded from the
-/// template hash so layering shared docs after install does not flip the
-/// modification flag. Keep in sync with `template_installer::SHARED_DOC_DIR`.
-const DOC_DIRNAME: &str = "doc";
+/// Top-level directory names that hold layered "pick-one" bundles (doc, sql),
+/// excluded from the template hash so layering a shared bundle after install
+/// does not flip the modification flag. Keep in sync with
+/// `template_installer::SHARED_BUNDLE_KINDS`.
+const SHARED_BUNDLE_DIRNAMES: &[&str] = &["doc", "sql"];
 
 /// Persisted install metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,11 +39,17 @@ pub struct InstallMeta {
     pub repo_ref: String,
     /// RFC-3339 UTC timestamp of the install.
     pub installed_at: String,
-    /// Doc categories layered on top of the template at install time
-    /// (subdirectories of the repo-level `doc/`). Empty when the template
-    /// shipped its own `doc/` or the user picked nothing.
+    /// Doc category layered on top of the template at install time
+    /// (a subdirectory of the repo-level `doc/`). Empty when the template
+    /// shipped its own `doc/` or the user picked nothing. Holds at most one
+    /// entry since the doc picker is single-select.
     #[serde(default)]
     pub doc_categories: Vec<String>,
+    /// SQL category layered on top of the template at install time
+    /// (a subdirectory of the repo-level `sql/`, e.g. `mysql`). Same semantics
+    /// and single-entry shape as [`Self::doc_categories`].
+    #[serde(default)]
+    pub sql_categories: Vec<String>,
 }
 
 /// `Some(meta)` if `<version>/.install.json` exists AND parses; `None`
@@ -62,21 +69,30 @@ pub fn write_install_meta(version_dir: &Path, meta: &InstallMeta) -> io::Result<
     fs::write(path, body)
 }
 
-/// Updates `<version>/.install.json`'s `doc_categories` field in place.
-/// Fails when no sidecar exists yet; only the doc-copy step calls this.
-pub fn record_doc_categories(version_dir: &Path, categories: &[String]) -> io::Result<()> {
+/// Updates `<version>/.install.json`'s layered-category field for `kind`
+/// (`"sql"` writes `sql_categories`; anything else writes `doc_categories`)
+/// in place. Fails when no sidecar exists yet; only the bundle-copy step calls
+/// this.
+pub fn record_bundle_categories(
+    version_dir: &Path,
+    kind: &str,
+    categories: &[String],
+) -> io::Result<()> {
     let mut meta = load_install_meta(version_dir)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no .install.json"))?;
-    meta.doc_categories = categories.to_vec();
+    match kind {
+        "sql" => meta.sql_categories = categories.to_vec(),
+        _ => meta.doc_categories = categories.to_vec(),
+    }
     write_install_meta(version_dir, &meta)
 }
 
 /// SHA-256 of `dir`'s recursive contents. Files are folded in sorted order of
 /// their path relative to `dir`; each contribution is `len(rel) | rel | 0 |
-/// len(bytes) | bytes | 0`. The top-level `doc/` subtree and `.install.json`
-/// at any depth are skipped so layering shared docs and writing the sidecar
-/// itself do not change the hash. Symlinks are skipped (templates don't
-/// ship any).
+/// len(bytes) | bytes | 0`. The top-level shared-bundle subtrees (`doc/`,
+/// `sql/`) and `.install.json` at any depth are skipped so layering a shared
+/// bundle and writing the sidecar itself do not change the hash. Symlinks are
+/// skipped (templates don't ship any).
 pub fn hash_dir(dir: &Path) -> io::Result<String> {
     let mut files: Vec<(PathBuf, Vec<u8>)> = Vec::new();
     collect(dir, dir, &mut files)?;
@@ -103,7 +119,12 @@ fn collect(root: &Path, dir: &Path, out: &mut Vec<(PathBuf, Vec<u8>)>) -> io::Re
         if name == INSTALL_META_FILENAME {
             continue;
         }
-        if at_root && name == DOC_DIRNAME && ft.is_dir() {
+        if at_root
+            && ft.is_dir()
+            && name
+                .to_str()
+                .is_some_and(|n| SHARED_BUNDLE_DIRNAMES.contains(&n))
+        {
             continue;
         }
         let path = entry.path();
@@ -181,6 +202,17 @@ mod tests {
     }
 
     #[test]
+    fn top_level_sql_dir_is_excluded_from_hash() {
+        let tmp = TempDir::new().expect("tmp");
+        fs::write(tmp.path().join("a.txt"), "x").expect("w");
+        let before = hash_dir(tmp.path()).expect("h");
+        fs::create_dir_all(tmp.path().join("sql").join("mysql")).expect("mkdir");
+        fs::write(tmp.path().join("sql").join("mysql").join("z.hbs"), "z").expect("w");
+        let after = hash_dir(tmp.path()).expect("h");
+        assert_eq!(before, after);
+    }
+
+    #[test]
     fn nested_doc_dir_is_not_excluded() {
         // Only the TOP-LEVEL doc/ is special; a doc/ deeper in the tree is
         // ordinary template content.
@@ -214,11 +246,32 @@ mod tests {
             repo_ref: "HEAD".into(),
             installed_at: "2026-05-29T00:00:00Z".into(),
             doc_categories: vec!["markdown".into()],
+            sql_categories: vec!["mysql".into()],
         };
         write_install_meta(tmp.path(), &meta).expect("write");
         let back = load_install_meta(tmp.path()).expect("load");
         assert_eq!(back.source_hash, "abc");
         assert_eq!(back.doc_categories, vec!["markdown".to_string()]);
+        assert_eq!(back.sql_categories, vec!["mysql".to_string()]);
+    }
+
+    #[test]
+    fn record_bundle_categories_routes_by_kind() {
+        let tmp = TempDir::new().expect("tmp");
+        let meta = InstallMeta {
+            source_hash: "abc".into(),
+            repo: "owner/repo".into(),
+            repo_ref: "HEAD".into(),
+            installed_at: "2026-05-29T00:00:00Z".into(),
+            doc_categories: Vec::new(),
+            sql_categories: Vec::new(),
+        };
+        write_install_meta(tmp.path(), &meta).expect("write");
+        record_bundle_categories(tmp.path(), "doc", &["html".into()]).expect("doc");
+        record_bundle_categories(tmp.path(), "sql", &["postgres".into()]).expect("sql");
+        let back = load_install_meta(tmp.path()).expect("load");
+        assert_eq!(back.doc_categories, vec!["html".to_string()]);
+        assert_eq!(back.sql_categories, vec!["postgres".to_string()]);
     }
 
     #[test]

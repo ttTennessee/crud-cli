@@ -48,6 +48,8 @@ pub const TEMPLATE_INSTALL_PROMPT_FETCH: &str = "template.install.prompt_fetch";
 pub const TEMPLATE_INSTALL_PROMPT_NAME: &str = "template.install.prompt_name";
 pub const TEMPLATE_INSTALL_PROMPT_VERSION: &str = "template.install.prompt_version";
 pub const TEMPLATE_INSTALL_PROMPT_DOC: &str = "template.install.prompt_doc";
+pub const TEMPLATE_INSTALL_PROMPT_SQL: &str = "template.install.prompt_sql";
+pub const TEMPLATE_INSTALL_BUNDLE_NONE: &str = "template.install.bundle_none";
 pub const TEMPLATE_INSTALL_CONFIRM_OVERWRITE: &str = "template.install.confirm_overwrite";
 pub const TEMPLATE_INSTALL_STATUS_INSTALLED: &str = "template.install.status_installed";
 pub const TEMPLATE_INSTALL_STATUS_MODIFIED: &str = "template.install.status_modified";
@@ -69,6 +71,13 @@ pub const ERROR_FIELD_TOO_MANY_SEGMENTS: &str = "error.field.too_many_segments";
 pub const ERROR_FIELD_DUPLICATE: &str = "error.field.duplicate";
 pub const ERROR_FIELD_NO_FIELDS: &str = "error.field.no_fields";
 pub const ERROR_FIELD_RESERVED: &str = "error.field.reserved";
+
+// ── field type schema error hints ───────────────────────────────────────────
+pub const ERROR_FIELD_TYPE_UNSUPPORTED: &str = "error.field_type.unsupported";
+pub const ERROR_FIELD_TYPE_UNSUPPORTED_DID_YOU_MEAN: &str =
+    "error.field_type.unsupported_did_you_mean";
+pub const ERROR_FIELD_TYPE_SCHEMA_FIX: &str = "error.field_type.schema_fix";
+pub const ERROR_FIELD_TYPE_UNMAPPED_IN_BUNDLES: &str = "error.field_type.unmapped_in_bundles";
 
 // ── type_map error hints ────────────────────────────────────────────────────
 pub const ERROR_TYPE_MAP_READ_FAILED: &str = "error.type_map.read_failed";
@@ -173,6 +182,8 @@ pub const ALL_KEYS: &[&str] = &[
     TEMPLATE_INSTALL_PROMPT_NAME,
     TEMPLATE_INSTALL_PROMPT_VERSION,
     TEMPLATE_INSTALL_PROMPT_DOC,
+    TEMPLATE_INSTALL_PROMPT_SQL,
+    TEMPLATE_INSTALL_BUNDLE_NONE,
     TEMPLATE_INSTALL_CONFIRM_OVERWRITE,
     TEMPLATE_INSTALL_STATUS_INSTALLED,
     TEMPLATE_INSTALL_STATUS_MODIFIED,
@@ -190,6 +201,10 @@ pub const ALL_KEYS: &[&str] = &[
     ERROR_FIELD_DUPLICATE,
     ERROR_FIELD_NO_FIELDS,
     ERROR_FIELD_RESERVED,
+    ERROR_FIELD_TYPE_UNSUPPORTED,
+    ERROR_FIELD_TYPE_UNSUPPORTED_DID_YOU_MEAN,
+    ERROR_FIELD_TYPE_SCHEMA_FIX,
+    ERROR_FIELD_TYPE_UNMAPPED_IN_BUNDLES,
     ERROR_TYPE_MAP_READ_FAILED,
     ERROR_TYPE_MAP_PARSE_FAILED,
     ERROR_TYPE_MAP_UNMAPPED_BUNDLE,

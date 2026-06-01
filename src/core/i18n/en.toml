@@ -42,7 +42,9 @@ done = "Installed {name}@{version} ({backend} + {frontend}) → {path}"
 prompt_fetch = "templates"
 prompt_name = "Pick a template"
 prompt_version = "Pick a version for {name}"
-prompt_doc = "Install doc bundles? (space to toggle, enter for none)"
+prompt_doc = "Pick a doc format to install (doc subdirectory)"
+prompt_sql = "Pick a database type to install (sql subdirectory)"
+bundle_none = "(none)"
 confirm_overwrite = "{name}@{version} is already installed. Reinstall?"
 status_installed = "installed"
 status_modified = "installed, locally modified"
@@ -76,7 +78,13 @@ invalid_identifier = "field name must start with a letter and contain only lette
 too_many_segments = "field format is name:Type with at most one colon (drop the extra :extra)"
 duplicate = "duplicate field name: each field must be unique"
 no_fields = "--fields must not be empty; provide at least one name:Type"
-reserved = "field name collides with a built-in variable: avoid model/table/package/package_path/fields/model_*"
+reserved = "field name collides with a built-in variable: avoid model/table/fields/pk_field/is_sub/sub_* and other built-ins"
+
+[error.field_type]
+unsupported = "field `{name}` has unsupported type `{type}`; allowed: {allowed}; see `_field_types.toml`"
+unsupported_did_you_mean = "field `{name}` has invalid type `{type}`; did you mean `{candidate}`? allowed: {allowed}"
+schema_fix = "fix `_field_types.toml`: each type needs description; aliases must be unique and differ from canonical names"
+unmapped_in_bundles = "type `{type}` is declared in `_field_types.toml` but missing from every bundle type_map.toml; bundles: {bundles}"
 
 [error.type_map]
 read_failed = "check that type_map.toml is readable"
@@ -136,7 +144,7 @@ empty_flag = "provide a non-empty value for --{flag}"
 exists_non_interactive = "pass --force to overwrite, or run setup interactively"
 
 [error.config]
-reserved_variable = "rename the variable; reserved: model, table, package, package_path, fields, model_*"
+reserved_variable = "rename the variable; reserved names include model, table, fields, pk_field, is_sub, sub_*, and other built-ins"
 legacy_schema = "this setup.toml uses the old framework-based schema; rerun `crud-cli setup --project --force` to migrate to the language-based schema"
 
 [error.variable]

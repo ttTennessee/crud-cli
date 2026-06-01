@@ -20,6 +20,8 @@ Agent 只下发一条短命令 + 结构化数据，`crud-cli` 在本地完成模
   `.crud/setup.toml` 或开发者级 `.crud/setup.user.toml`。
 - `crud-cli gen` — 用字段 DSL 或 JSON 文件渲染模板。支持通过可重复的
   `--var key=value` 或 JSON 中的 `variables` 字段注入每次调用的变量。
+  `--dry-run` 只列出将写入的文件不落盘；`--stdout` 把渲染结果直接打到标准输出
+  而不写文件（配合 `--type sql` 可让 Agent 先把建表 SQL 给用户确认，再正式生成）。
 - `crud-cli validate` — 上线前体检：Handlebars 语法、未声明变量、
   YAML front-matter、`filename`/`basePath` 安全性、fixture 渲染。
 - Front-matter 三件套 `basePath` / `filename` / `overwrite`，且自动按
@@ -159,21 +161,60 @@ overwrite: force-only          # never | force-only | always
 `basePath` 里可以引用任何内置变量或 schema 声明的变量。`filename` 必须是
 单段（不能含 `/`）。
 
+**条件渲染** —— `generateWhen` / `skipWhen` 控制这个文件是否生成（二者互斥，
+同时出现会报错）。值是 `{{#if ...}}` 的判断部分（不带 `{{ }}`），按 Handlebars
+真值规则求值：`false`、缺失、空串、`0`、空数组都算假。典型用法是配合
+`_variables.toml` 里的开关，只在需要时才生成某个文件：
+
+```yaml
+---
+generateWhen: has_import          # has_import 为真才生成；为假则整个文件跳过
+filename: "{{model_pascal}}ImportDTO.java"
+---
+```
+
+```yaml
+---
+skipWhen: is_readonly             # generateWhen 的反向：为真则跳过
+filename: "{{model_pascal}}Service.java"
+---
+```
+
+被条件跳过的文件会在 `gen` 输出里单独标记 `[skipped: condition]`，与"已存在
+而跳过"区分开。`validate` 会检查条件里引用的变量是否声明 —— 拼错的变量在生成时
+会被当成假而**静默跳过**，所以务必先 `validate`。
+
 ### 内置上下文
 
 模板里永远可用：
 
 - `{{model}}`、`{{model_pascal}}`、`{{model_snake}}`、`{{model_camel}}`、
   `{{model_kebab}}`
-- `{{table}}`、`{{package}}`、`{{package_path}}`（点替换为斜杠）
+- `{{table}}`、`{{table_comment}}`（表/实体业务说明，可选；`--table-comment`、JSON
+  `table_comment` 或省略为空串）、`{{package}}`、`{{package_path}}`（点替换为斜杠）
 - `{{fields}}` —— 用 `{{#each fields}}` 遍历；每一项暴露 `name`、
   `name_pascal`、`name_snake`、`name_camel`、`name_kebab`、`type`、
-  `is_pk`、`nullable`
+  `is_pk`、`nullable`、`comment`、`length`、`unique`、`default`。后四项
+  来自 JSON `--file`（见下文 FieldSpec）；`--fields` DSL 不带这些元数据，
+  此时 `comment` 为空串、`length`/`default` 为 `null`、`unique` 为 `false`。
+  用 DDL 模板生成建表语句时正好用到 `comment`/`length`/`unique`。
+- `{{pk_field}}`、`{{pk_field_type}}`、`{{pk_field_pascal}}` —— 由主表
+  `fields` 中 `is_pk: true` 的字段推导（camelCase 名、原始类型、PascalCase
+  名）；若无主键标记则默认为 `id` / `Long` / `Id`。
+- `{{is_sub}}`、`{{sub_table}}`、`{{sub_table_comment}}`、`{{sub_fields}}` ——
+  主子表：JSON 含 `sub` 块时为真并填充；否则 `is_sub` 为 false，其余为空。
+  `sub_fields` 与 `fields` 同为对象数组。另含 `sub_model` 及 `sub_model_*` 大小写变体、
+  `sub_model_fk`（子表外键 camelCase）、`sub_model_fk_pascal`（供 Java setter 使用）。
 - `{{git_user_name}}`、`{{git_user_email}}`、`{{user_name}}`、`{{user_email}}`
 - `{{date}}`、`{{datetime}}`、`{{year}}`
 
 Helper：`pascal_case`、`snake_case`、`camel_case`、`kebab_case`（例如
-`{{pascal_case "hello_world"}}` → `HelloWorld`）。
+`{{pascal_case "hello_world"}}` → `HelloWorld`）；`single_brace`、`double_brace`
+（输出一层/两层大括号，用于 MyBatis 与 Vue 占位符）：
+
+- `{{single_brace name_camel}}` → `{userId}`；模板里写 `#{{single_brace …}}` 得 `#{…}`，
+  `${{single_brace …}}` 得 `${…}`（支持 `#{}` 与 `${}` 两种 MyBatis 写法）。
+- `{{double_brace name_camel}}` → `{{userName}}`（Vue 模板插值）。
 
 ### 每次调用的变量（`_variables.toml`）
 
@@ -189,18 +230,13 @@ default     = false
 description = "是否生成导出接口"
 type        = "bool"
 default     = false
-
-[table_comment]
-description = "表的业务说明，用于 Swagger 注解和类文档"
-type        = "string"
-required    = true
 ```
 
 gen 时传值：
 
 ```bash
 crud-cli gen User --fields "..." --package ... --table ... \
-  --var has_import=true --var table_comment="系统用户"
+  --table-comment "系统用户" --var has_import=true
 ```
 
 优先级：`--var` > JSON `variables` > schema `default`。缺失 required → 报错；
@@ -211,20 +247,47 @@ crud-cli gen User --fields "..." --package ... --table ... \
 
 ### JSON 实体输入
 
-需要更丰富的字段元数据时用 `--file`：
+编写 JSON 的完整说明见 [docs/zh-CN/json-entity-input.md](docs/zh-CN/json-entity-input.md)（英文：[docs/json-entity-input.md](docs/json-entity-input.md)）。
+
+需要更丰富的字段元数据时用 `--file`。每个字段（FieldSpec）支持 `name`、
+`type`、`is_pk`、`nullable`、`length`、`unique`、`default`、`comment`，以及
+自由形式的 `extra`；这些都会进入 `{{#each fields}}` 上下文。
 
 ```json
 {
   "name": "User",
   "table": "sys_user",
+  "table_comment": "系统用户",
   "package": "com.acme.demo",
   "fields": [
-    { "name": "id", "type": "Long", "is_pk": true },
-    { "name": "email", "type": "String", "extra": { "unique": true } }
+    { "name": "id", "type": "Long", "is_pk": true, "comment": "主键" },
+    { "name": "email", "type": "String", "length": 128, "unique": true, "comment": "登录邮箱" }
   ],
   "variables": {
-    "has_import": true,
-    "table_comment": "系统用户"
+    "has_import": true
+  }
+}
+```
+
+主子表示例（`sub` 与顶层 `name`/`table`/`fields` 对称）：
+
+```json
+{
+  "name": "Order",
+  "table": "biz_order",
+  "package": "com.acme.demo",
+  "fields": [
+    { "name": "order_id", "type": "Long", "is_pk": true, "comment": "订单主键" }
+  ],
+  "sub": {
+    "name": "OrderItem",
+    "table": "biz_order_item",
+    "table_comment": "订单明细",
+    "fk_field": "order_id",
+    "fields": [
+      { "name": "item_id", "type": "Long", "is_pk": true, "comment": "明细主键" },
+      { "name": "order_id", "type": "Long", "comment": "订单外键" }
+    ]
   }
 }
 ```
@@ -233,7 +296,7 @@ crud-cli gen User --fields "..." --package ... --table ... \
 crud-cli gen --file user.json
 ```
 
-CLI flag（`--name`、`--package`、`--table`、`--var`）覆盖 JSON 里的同名值。
+CLI flag（`--name`、`--package`、`--table`、`--table-comment`、`--var`）覆盖 JSON 里的同名值。
 
 ## 配置文件
 

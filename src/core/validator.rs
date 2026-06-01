@@ -12,6 +12,7 @@ use super::paths::{project_setup_toml, project_setup_user_toml};
 use super::error::ErrorEnvelope;
 use super::i18n::{self, keys};
 use super::field_dsl::Field;
+use super::field_types;
 use super::gen_context::{self, AsContextField, UserIdentity};
 use super::git_info::GitInfo;
 use super::template_engine;
@@ -30,6 +31,7 @@ pub enum IssueKind {
     FrontMatterError,
     InvalidFilename,
     PathTraversal,
+    FieldTypeUnmapped,
 }
 
 /// One validate finding (VAL-04 field names).
@@ -60,6 +62,7 @@ pub struct ValidateParams {
 const BUILTINS: &[&str] = &[
     "model",
     "table",
+    "table_comment",
     "package",
     "package_path",
     "fields",
@@ -67,6 +70,20 @@ const BUILTINS: &[&str] = &[
     "model_pascal",
     "model_camel",
     "model_kebab",
+    "pk_field",
+    "pk_field_type",
+    "pk_field_pascal",
+    "is_sub",
+    "sub_table",
+    "sub_table_comment",
+    "sub_fields",
+    "sub_model",
+    "sub_model_snake",
+    "sub_model_pascal",
+    "sub_model_camel",
+    "sub_model_kebab",
+    "sub_model_fk",
+    "sub_model_fk_pascal",
     "git_user_name",
     "git_user_email",
     "user_name",
@@ -89,6 +106,10 @@ const FIELD_EACH_EXTRA: &[&str] = &[
     "type",
     "is_pk",
     "nullable",
+    "comment",
+    "length",
+    "unique",
+    "default",
 ];
 
 /**
@@ -111,21 +132,15 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
     )?;
     let setup = &runtime.project;
 
-    let schema = template_variables::load_schema(&cwd)?;
+    let templates_root =
+        crate::core::template_loader::resolve_templates_root(&cwd, setup)?;
+    let schema = template_variables::load_schema(&templates_root)?;
+    let field_type_schema = field_types::load_schema(&templates_root)?;
 
     let implicit_filter = params
         .type_filter
         .clone()
         .or_else(|| implicit_type_prefixes(setup, runtime.enabled_types()));
-    let templates_root = if let Some(tref) = &setup.project.template {
-        crate::core::template_meta_global::find_template(
-            &tref.name,
-            tref.version.as_deref(),
-        )?
-        .path
-    } else {
-        cwd.join(".crud/templates")
-    };
     let entries =
         template_loader::discover_templates(&templates_root, implicit_filter.as_deref())?;
     let templates_checked = entries.len();
@@ -165,13 +180,26 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
         "ValidateFixture",
         "validate_fixture",
         "com.example.validate",
+        "",
         &fixture_fields,
+        None,
         setup,
         &git,
         &user,
     )?;
 
     let mut issues = Vec::new();
+
+    for suggestion in field_types::type_map_coverage_issues(&templates_root, &field_type_schema)? {
+        issues.push(ValidateIssue {
+            template_path: field_types::SCHEMA_FILE_NAME.to_string(),
+            line: None,
+            column: None,
+            kind: IssueKind::FieldTypeUnmapped,
+            variable: None,
+            suggestion: Some(suggestion),
+        });
+    }
 
     for entry in &entries {
         let rel = normalize_rel_path(&entry.rel_path);
@@ -208,6 +236,9 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
 
         if let Some(m) = meta {
             for issue in meta_path_issues(&m, &fixture_ctx, &rel) {
+                issues.push(issue);
+            }
+            for issue in condition_issues(&m, &base_allow, &suggest_pool, &rel) {
                 issues.push(issue);
             }
         }
@@ -407,13 +438,16 @@ fn each_only_allow() -> BTreeSet<String> {
 }
 
 fn is_each_on_fields(ht: &HelperTemplate) -> bool {
-    helper_name(ht).as_deref() == Some("each")
-        && ht
-            .params
+    if helper_name(ht).as_deref() != Some("each") {
+        return false;
+    }
+    matches!(
+        ht.params
             .first()
             .and_then(first_segment_from_param)
-            .as_deref()
-            == Some("fields")
+            .as_deref(),
+        Some("fields") | Some("sub_fields")
+    )
 }
 
 fn is_each_block(ht: &HelperTemplate) -> bool {
@@ -551,6 +585,35 @@ fn front_matter_issue(rel: &str, msg: &str) -> ValidateIssue {
     }
 }
 
+/// Validates `generateWhen`/`skipWhen` conditions: a typo'd or undeclared
+/// variable would silently evaluate falsy at gen time (engine is non-strict),
+/// skipping the file with no error — so we catch unknown vars here.
+fn condition_issues(
+    meta: &template_meta::TemplateMeta,
+    base_allow: &BTreeSet<String>,
+    suggest_pool: &[String],
+    rel: &str,
+) -> Vec<ValidateIssue> {
+    let mut out = Vec::new();
+    for expr in [meta.generate_when.as_deref(), meta.skip_when.as_deref()]
+        .into_iter()
+        .flatten()
+    {
+        let wrapped = format!("{{{{#if {expr}}}}}1{{{{/if}}}}");
+        match Template::compile(&wrapped) {
+            Ok(template) => {
+                if let Some(issue) =
+                    first_unknown_variable_issue(&template, base_allow, suggest_pool, rel)
+                {
+                    out.push(issue);
+                }
+            }
+            Err(err) => out.push(front_matter_issue(rel, err.reason().to_string().as_str())),
+        }
+    }
+    out
+}
+
 fn meta_path_issues(
     meta: &template_meta::TemplateMeta,
     ctx: &serde_json::Value,
@@ -608,8 +671,7 @@ fn render_issue(
 ) -> Option<ValidateIssue> {
     match template_engine::render_template(body, ctx) {
         Ok(rendered) => {
-            if let Some(idx) = rendered.find("{{") {
-                let tail = &rendered[idx..];
+            if let Some(tail) = find_unrendered_handlebars_residue(&rendered) {
                 return Some(ValidateIssue {
                     template_path: rel.to_string(),
                     line: None,
@@ -657,6 +719,52 @@ fn extract_residue_handle(fragment: &str) -> Option<String> {
     } else {
         Some(name.to_string())
     }
+}
+
+/// Returns the tail after the first `{{` only when it looks like unrendered Handlebars,
+/// not intentional Vue-style `{{param}}` output from helpers such as `double_brace`.
+fn find_unrendered_handlebars_residue(rendered: &str) -> Option<&str> {
+    let mut from = 0;
+    while let Some(rel) = rendered[from..].find("{{") {
+        let idx = from + rel;
+        let tail = &rendered[idx..];
+        if is_intentional_vue_mustache(tail) {
+            from = idx + 2;
+            if let Some(close) = tail.find("}}") {
+                from = idx + close + 2;
+            }
+            continue;
+        }
+        return Some(tail);
+    }
+    None
+}
+
+/// True when `text` begins with a simple Vue binding such as `{{userName}}` or `{{form.id}}`.
+fn is_intentional_vue_mustache(text: &str) -> bool {
+    let rest = match text.strip_prefix("{{") {
+        Some(r) => r,
+        None => return false,
+    };
+    let trimmed = rest.trim_start();
+    if trimmed.starts_with('#')
+        || trimmed.starts_with('/')
+        || trimmed.starts_with('!')
+        || trimmed.starts_with('>')
+    {
+        return false;
+    }
+    let end = match trimmed.find("}}") {
+        Some(i) => i,
+        None => return false,
+    };
+    let inner = trimmed[..end].trim();
+    !inner.is_empty()
+        && inner.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
+        && inner
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
 }
 
 fn extract_helper_name(msg: &str) -> Option<String> {
