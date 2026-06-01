@@ -70,6 +70,20 @@ const BUILTINS: &[&str] = &[
     "model_pascal",
     "model_camel",
     "model_kebab",
+    "pk_field",
+    "pk_field_type",
+    "pk_field_pascal",
+    "is_sub",
+    "sub_table",
+    "sub_table_comment",
+    "sub_fields",
+    "sub_model",
+    "sub_model_snake",
+    "sub_model_pascal",
+    "sub_model_camel",
+    "sub_model_kebab",
+    "sub_model_fk",
+    "sub_model_fk_pascal",
     "git_user_name",
     "git_user_email",
     "user_name",
@@ -424,13 +438,16 @@ fn each_only_allow() -> BTreeSet<String> {
 }
 
 fn is_each_on_fields(ht: &HelperTemplate) -> bool {
-    helper_name(ht).as_deref() == Some("each")
-        && ht
-            .params
+    if helper_name(ht).as_deref() != Some("each") {
+        return false;
+    }
+    matches!(
+        ht.params
             .first()
             .and_then(first_segment_from_param)
-            .as_deref()
-            == Some("fields")
+            .as_deref(),
+        Some("fields") | Some("sub_fields")
+    )
 }
 
 fn is_each_block(ht: &HelperTemplate) -> bool {

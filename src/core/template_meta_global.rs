@@ -55,9 +55,16 @@ pub struct InstalledTemplate {
 }
 
 /// Returns `~/.crud/templates` for the current user. `None` when the home
-/// directory cannot be resolved.
+/// directory cannot be resolved. Honors `CRUD_HOME` (same override as
+/// [`crate::core::paths::global_crud_dir`]).
 #[must_use]
 pub fn global_templates_root() -> Option<PathBuf> {
+    if let Some(override_home) = std::env::var_os("CRUD_HOME") {
+        let p = PathBuf::from(override_home);
+        if !p.as_os_str().is_empty() {
+            return Some(p.join(".crud").join("templates"));
+        }
+    }
     dirs::home_dir().map(|h| h.join(".crud").join("templates"))
 }
 

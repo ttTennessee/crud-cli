@@ -77,7 +77,7 @@ fn seed_project_with_global_template(project: &Path, template: &str) {
 fn run_gen_in(project: &Path, home: &Path, args: GenArgs) -> i32 {
     let _cwd_lock = CWD_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap();
     let _home_lock = HOME_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap();
-    let _home = EnvVarGuard::set("HOME", home);
+    let _home = EnvVarGuard::set("CRUD_HOME", home);
     let prev = std::env::current_dir().unwrap();
     std::env::set_current_dir(project).unwrap();
     let code = run_gen(args);

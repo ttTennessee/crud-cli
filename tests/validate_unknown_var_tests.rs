@@ -117,6 +117,27 @@ fn each_loop_locals_allowed() {
 }
 
 #[test]
+fn pk_and_sub_builtins_allowed() {
+    let dir = TempDir::new().unwrap();
+    let root = dir.path();
+    seed_setup(root);
+    let templates = root.join(".crud/templates");
+    fs::create_dir_all(&templates).unwrap();
+    fs::write(
+        templates.join("Ok.hbs"),
+        "{{pk_field}} {{pk_field_type}} {{pk_field_pascal}} \
+         {{#if is_sub}}{{sub_table}} {{sub_table_comment}} {{sub_model}} \
+         {{sub_model_snake}} {{sub_model_pascal}} {{sub_model_camel}} {{sub_model_kebab}} \
+         {{sub_model_fk}} {{sub_model_fk_pascal}}\
+         {{#each sub_fields}}{{name}}{{/each}}{{/if}}",
+    )
+    .unwrap();
+
+    let report = run_validate_in(root).expect("should pass");
+    assert_eq!(report.issue_count, 0);
+}
+
+#[test]
 fn nested_path_only_first_segment_checked() {
     let dir = TempDir::new().unwrap();
     let root = dir.path();

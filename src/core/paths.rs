@@ -7,7 +7,17 @@ use super::error::{ErrorEnvelope, Kind};
 use super::i18n::{self, keys};
 
 /// Resolves the global CRUD directory under the user home (`~/.crud`).
+///
+/// Honors `CRUD_HOME` as an explicit override (used by tests and CI to avoid
+/// `dirs::home_dir()` quirks — notably Windows where the home is read from
+/// `SHGetKnownFolderPath` and ignores env vars entirely).
 pub fn global_crud_dir() -> Result<PathBuf, ErrorEnvelope> {
+    if let Some(override_home) = std::env::var_os("CRUD_HOME") {
+        let p = PathBuf::from(override_home);
+        if !p.as_os_str().is_empty() {
+            return Ok(p.join(".crud"));
+        }
+    }
     let home = dirs::home_dir().ok_or_else(|| {
         ErrorEnvelope {
             kind: Kind::ConfigError,

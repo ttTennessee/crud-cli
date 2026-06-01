@@ -16,6 +16,9 @@ struct EnvVarGuard {
 }
 
 impl EnvVarGuard {
+    /// `crud-cli` honors `CRUD_HOME` as an explicit override for the global
+    /// home (`~/.crud`). We use it instead of `$HOME` because Windows resolves
+    /// the user home via `SHGetKnownFolderPath` and ignores env vars entirely.
     fn set(key: &'static str, value: &std::path::Path) -> Self {
         let prev = std::env::var(key).ok();
         unsafe { std::env::set_var(key, value) };
@@ -109,7 +112,7 @@ fn install_template_without_paths(home: &std::path::Path, name: &str, version: &
 fn run_template_use(project: &std::path::Path, home: &std::path::Path, template_ref: &str) -> i32 {
     let _home_lock = HOME_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap();
     let _cwd_lock = CWD_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap();
-    let _home = EnvVarGuard::set("HOME", home);
+    let _home = EnvVarGuard::set("CRUD_HOME", home);
     let prev = std::env::current_dir().unwrap();
     std::env::set_current_dir(project).unwrap();
     let args = crud_cli::cli::args::TemplateArgs {
