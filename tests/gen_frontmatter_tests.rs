@@ -164,12 +164,14 @@ fn generate_when_false_skips_file_and_reports_it() {
     );
     assert!(root.join("User.java").is_file(), "entity always generated");
     assert_eq!(report.written.len(), 1);
-    // On macOS `TempDir` returns `/var/...` while `current_dir()` after `set_current_dir`
-    // resolves to `/private/var/...`; compare canonical paths to stay platform-portable.
-    let canon_root = fs::canonicalize(root).unwrap();
+    // Pipeline derives its output paths from `current_dir()` (not `canonicalize`),
+    // which on macOS resolves /var → /private/var, and on Windows uses the short form
+    // C:\... rather than the UNC \\?\C:\... that `fs::canonicalize` returns.
+    // Compare just the basename to stay portable across platforms.
+    assert_eq!(report.skipped_by_condition.len(), 1);
     assert_eq!(
-        report.skipped_by_condition,
-        vec![canon_root.join("UserImportDTO.java")]
+        report.skipped_by_condition[0].file_name(),
+        Some(std::ffi::OsStr::new("UserImportDTO.java"))
     );
 }
 
