@@ -25,6 +25,7 @@ fn outputs_map_handlebars_template_renders() {
         table: "u".into(),
         package: "com.x".into(),
         table_comment: String::new(),
+        sub: None,
         fields: vec![Field {
             name: "id".into(),
             ty: "Long".into(),

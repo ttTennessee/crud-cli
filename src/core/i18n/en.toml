@@ -78,7 +78,7 @@ invalid_identifier = "field name must start with a letter and contain only lette
 too_many_segments = "field format is name:Type with at most one colon (drop the extra :extra)"
 duplicate = "duplicate field name: each field must be unique"
 no_fields = "--fields must not be empty; provide at least one name:Type"
-reserved = "field name collides with a built-in variable: avoid model/table/table_comment/package/package_path/fields/model_*"
+reserved = "field name collides with a built-in variable: avoid model/table/fields/pk_field/is_sub/sub_* and other built-ins"
 
 [error.field_type]
 unsupported = "field `{name}` has unsupported type `{type}`; allowed: {allowed}; see `_field_types.toml`"
@@ -144,7 +144,7 @@ empty_flag = "provide a non-empty value for --{flag}"
 exists_non_interactive = "pass --force to overwrite, or run setup interactively"
 
 [error.config]
-reserved_variable = "rename the variable; reserved: model, table, table_comment, package, package_path, fields, model_*"
+reserved_variable = "rename the variable; reserved names include model, table, fields, pk_field, is_sub, sub_*, and other built-ins"
 legacy_schema = "this setup.toml uses the old framework-based schema; rerun `crud-cli setup --project --force` to migrate to the language-based schema"
 
 [error.variable]

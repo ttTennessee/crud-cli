@@ -78,7 +78,7 @@ invalid_identifier = "字段名必须以字母开头，且仅含字母、数字�
 too_many_segments = "字段格式为 name:Type，最多一个冒号（去掉多余的 :extra）"
 duplicate = "字段名重复：每个字段必须唯一"
 no_fields = "--fields 不能为空，至少提供一个 name:Type"
-reserved = "字段名与内置变量冲突：避开 model/table/table_comment/package/package_path/fields/model_*"
+reserved = "字段名与内置变量冲突：避开 model/table/fields/pk_field/is_sub/sub_* 等内置名"
 
 [error.field_type]
 unsupported = "字段 `{name}` 的类型 `{type}` 不在模板允许列表中；允许：{allowed}；见 `_field_types.toml`"
@@ -144,7 +144,7 @@ empty_flag = "请为 --{flag} 提供非空值"
 exists_non_interactive = "使用 --force 覆盖，或以交互方式运行 setup"
 
 [error.config]
-reserved_variable = "重命名该变量；保留名：model、table、table_comment、package、package_path、fields、model_*"
+reserved_variable = "重命名该变量；保留名含 model、table、fields、pk_field、is_sub、sub_* 等内置变量"
 legacy_schema = "该 setup.toml 仍使用旧版基于框架名的结构；请运行 `crud-cli setup --project --force` 迁移到基于语言的新结构"
 
 [error.variable]

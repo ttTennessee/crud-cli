@@ -12,6 +12,22 @@ use super::error::ErrorEnvelope;
 use super::field_dsl::Field;
 use super::i18n::{self, keys};
 
+/// Sub-table (detail) entity paired with a master [`GenInput`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SubTableInput {
+    /// Entity / class name (PascalCase recommended), like top-level `name`.
+    pub name: String,
+    /// Physical table name, like top-level `table`.
+    pub table: String,
+    /// Business description of the sub table/entity, like top-level `table_comment`.
+    #[serde(default)]
+    pub table_comment: String,
+    /// FK column in the sub table pointing at the master PK (snake_case identifier).
+    pub fk_field: String,
+    pub fields: Vec<Field>,
+}
+
 /// Entity input consumed by `build_context` and `gen_pipeline`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -23,6 +39,9 @@ pub struct GenInput {
     #[serde(default)]
     pub table_comment: String,
     pub fields: Vec<Field>,
+    /// Master–detail sub entity; when present, `is_sub` is true in template context.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sub: Option<SubTableInput>,
 }
 
 /// JSON field shape (`--file`); converted to [`Field`] for [`GenInput`].
@@ -48,6 +67,18 @@ pub struct FieldSpec {
     pub extra: Map<String, Value>,
 }
 
+/// Sub-table block in a JSON entity file.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JsonSubTable {
+    pub name: String,
+    pub table: String,
+    #[serde(default)]
+    pub table_comment: String,
+    pub fk_field: String,
+    pub fields: Vec<FieldSpec>,
+}
+
 /// On-disk JSON entity file (not the in-memory [`GenInput`]).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -59,6 +90,8 @@ pub struct JsonInputFile {
     #[serde(default)]
     pub table_comment: String,
     pub fields: Vec<FieldSpec>,
+    #[serde(default)]
+    pub sub: Option<JsonSubTable>,
     /// Per-call variable values declared in `.crud/templates/_variables.toml`.
     #[serde(default)]
     pub variables: BTreeMap<String, Value>,
@@ -78,6 +111,8 @@ pub struct GenCliOverrides {
 pub struct JsonLoadResult {
     pub input: GenInput,
     pub field_specs: Vec<FieldSpec>,
+    /// Field specs for `sub.fields` when master–detail JSON is present.
+    pub sub_field_specs: Option<Vec<FieldSpec>>,
     pub variables: BTreeMap<String, Value>,
 }
 
@@ -139,6 +174,47 @@ pub fn load_gen_input_with_specs_from_json(
         ));
     }
 
+    let (sub, sub_field_specs) = match parsed.sub {
+        None => (None, None),
+        Some(sub_json) => {
+            if sub_json.name.trim().is_empty() {
+                return Err(sub_json_error(
+                    "sub.name must not be empty",
+                    "sub_missing_name",
+                ));
+            }
+            if sub_json.table.trim().is_empty() {
+                return Err(sub_json_error(
+                    "sub.table must not be empty",
+                    "sub_missing_table",
+                ));
+            }
+            if sub_json.fk_field.trim().is_empty() {
+                return Err(sub_json_error(
+                    "sub.fk_field must not be empty",
+                    "sub_missing_fk_field",
+                ));
+            }
+            if sub_json.fields.is_empty() {
+                return Err(sub_json_error(
+                    "sub.fields must not be empty",
+                    "sub_no_fields",
+                ));
+            }
+            let sub_fields: Vec<Field> = sub_json.fields.iter().map(field_spec_to_field).collect();
+            (
+                Some(SubTableInput {
+                    name: sub_json.name,
+                    table: sub_json.table,
+                    table_comment: sub_json.table_comment,
+                    fk_field: sub_json.fk_field,
+                    fields: sub_fields,
+                }),
+                Some(sub_json.fields),
+            )
+        }
+    };
+
     Ok(JsonLoadResult {
         input: GenInput {
             name,
@@ -146,10 +222,21 @@ pub fn load_gen_input_with_specs_from_json(
             package,
             table_comment,
             fields,
+            sub,
         },
         field_specs: parsed.fields,
+        sub_field_specs,
         variables: parsed.variables,
     })
+}
+
+fn sub_json_error(msg: impl Into<String>, reason: &'static str) -> ErrorEnvelope {
+    ErrorEnvelope::user_error_with_reason(
+        msg,
+        reason,
+        serde_json::Map::new(),
+        i18n::t(keys::ERROR_JSON_INVALID_VALUE),
+    )
 }
 
 fn resolve_scalar(

@@ -168,6 +168,7 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
         "com.example.validate",
         "",
         &fixture_fields,
+        None,
         setup,
         &git,
         &user,

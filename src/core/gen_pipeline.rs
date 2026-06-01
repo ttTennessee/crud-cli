@@ -307,20 +307,51 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
             },
         )?;
         field_types::normalize_and_validate(&field_type_schema, &mut loaded.input.fields)?;
+        if let Some(sub) = loaded.input.sub.as_mut() {
+            field_types::normalize_and_validate(&field_type_schema, &mut sub.fields)?;
+        }
         for (field, spec) in loaded.input.fields.iter().zip(loaded.field_specs.iter_mut()) {
             spec.ty = field.ty.clone();
+        }
+        if let (Some(sub), Some(sub_specs)) = (
+            loaded.input.sub.as_mut(),
+            loaded.sub_field_specs.as_mut(),
+        ) {
+            for (field, spec) in sub.fields.iter().zip(sub_specs.iter_mut()) {
+                spec.ty = field.ty.clone();
+            }
         }
         let refs: Vec<&dyn AsContextField> = loaded
             .field_specs
             .iter()
             .map(|s| s as &dyn AsContextField)
             .collect();
+        let sub_field_refs: Vec<&dyn AsContextField> = loaded
+            .sub_field_specs
+            .as_ref()
+            .map(|specs| {
+                specs
+                    .iter()
+                    .map(|s| s as &dyn AsContextField)
+                    .collect()
+            })
+            .unwrap_or_default();
+        let sub_ctx = loaded.input.sub.as_ref().map(|sub| {
+            gen_context::SubTableContext {
+                name: &sub.name,
+                table: &sub.table,
+                table_comment: &sub.table_comment,
+                fk_field: &sub.fk_field,
+                fields: &sub_field_refs,
+            }
+        });
         let ctx = gen_context::build_context(
             &loaded.input.name,
             &loaded.input.table,
             &loaded.input.package,
             &loaded.input.table_comment,
             &refs,
+            sub_ctx.as_ref(),
             setup,
             &git,
             &user,
@@ -349,6 +380,7 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
                 .ok_or_else(|| missing_pipeline_input("package"))?,
             table_comment: params.table_comment.clone().unwrap_or_default(),
             fields,
+            sub: None,
         };
         let ctx = gen_context::build_context_from_input(&input, setup, &git, &user)?;
         (ctx, std::collections::BTreeMap::new())

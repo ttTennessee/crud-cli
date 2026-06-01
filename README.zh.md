@@ -198,6 +198,13 @@ filename: "{{model_pascal}}Service.java"
   来自 JSON `--file`（见下文 FieldSpec）；`--fields` DSL 不带这些元数据，
   此时 `comment` 为空串、`length`/`default` 为 `null`、`unique` 为 `false`。
   用 DDL 模板生成建表语句时正好用到 `comment`/`length`/`unique`。
+- `{{pk_field}}`、`{{pk_field_type}}`、`{{pk_field_pascal}}` —— 由主表
+  `fields` 中 `is_pk: true` 的字段推导（camelCase 名、原始类型、PascalCase
+  名）；若无主键标记则默认为 `id` / `Long` / `Id`。
+- `{{is_sub}}`、`{{sub_table}}`、`{{sub_table_comment}}`、`{{sub_fields}}` ——
+  主子表：JSON 含 `sub` 块时为真并填充；否则 `is_sub` 为 false，其余为空。
+  `sub_fields` 与 `fields` 同为对象数组。另含 `sub_model` 及 `sub_model_*` 大小写变体、
+  `sub_model_fk`（子表外键 camelCase）、`sub_model_fk_pascal`（供 Java setter 使用）。
 - `{{git_user_name}}`、`{{git_user_email}}`、`{{user_name}}`、`{{user_email}}`
 - `{{date}}`、`{{datetime}}`、`{{year}}`
 
@@ -256,6 +263,29 @@ crud-cli gen User --fields "..." --package ... --table ... \
   ],
   "variables": {
     "has_import": true
+  }
+}
+```
+
+主子表示例（`sub` 与顶层 `name`/`table`/`fields` 对称）：
+
+```json
+{
+  "name": "Order",
+  "table": "biz_order",
+  "package": "com.acme.demo",
+  "fields": [
+    { "name": "order_id", "type": "Long", "is_pk": true, "comment": "订单主键" }
+  ],
+  "sub": {
+    "name": "OrderItem",
+    "table": "biz_order_item",
+    "table_comment": "订单明细",
+    "fk_field": "order_id",
+    "fields": [
+      { "name": "item_id", "type": "Long", "is_pk": true, "comment": "明细主键" },
+      { "name": "order_id", "type": "Long", "comment": "订单外键" }
+    ]
   }
 }
 ```
