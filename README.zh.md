@@ -247,6 +247,8 @@ crud-cli gen User --fields "..." --package ... --table ... \
 
 ### JSON 实体输入
 
+编写 JSON 的完整说明见 [docs/zh-CN/json-entity-input.md](docs/zh-CN/json-entity-input.md)（英文：[docs/json-entity-input.md](docs/json-entity-input.md)）。
+
 需要更丰富的字段元数据时用 `--file`。每个字段（FieldSpec）支持 `name`、
 `type`、`is_pk`、`nullable`、`length`、`unique`、`default`、`comment`，以及
 自由形式的 `extra`；这些都会进入 `{{#each fields}}` 上下文。

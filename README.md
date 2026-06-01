@@ -255,6 +255,8 @@ The `description` field is the contract agents read to understand what to fill.
 
 ### JSON entity input
 
+Authoring guide: [docs/json-entity-input.md](docs/json-entity-input.md) ([zh-CN](docs/zh-CN/json-entity-input.md)).
+
 For rich field metadata, use `--file`. Each field (FieldSpec) accepts `name`,
 `type`, `is_pk`, `nullable`, `length`, `unique`, `default`, `comment`, and a
 free-form `extra` map; all of them surface in the `{{#each fields}}` context.
