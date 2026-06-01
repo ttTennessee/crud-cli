@@ -1,7 +1,7 @@
 //! Template [paths] propagation: manifest parsing + cmd_use application.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use crud_cli::core::config::{Backend, Frontend, PathsSection, SetupConfig, SetupSelections};
+use crud_cli::core::config::{Backend, Frontend, SetupConfig, SetupSelections};
 use crud_cli::core::template_meta_global::{TemplateManifest, MANIFEST_FILENAME};
 use std::fs;
 use std::sync::{Mutex, OnceLock};
@@ -49,7 +49,10 @@ liquibase  = "src/main/resources/db/changelog"
 "#;
     let manifest: TemplateManifest = toml::from_str(toml).expect("parse");
     let paths = manifest.paths.expect("paths should be Some");
-    assert_eq!(paths.lang.get("java").map(String::as_str), Some("src/main/java"));
+    assert_eq!(
+        paths.lang.get("java").map(String::as_str),
+        Some("src/main/java")
+    );
     assert_eq!(
         paths.aux.get("liquibase").map(String::as_str),
         Some("src/main/resources/db/changelog")
@@ -101,19 +104,6 @@ fn install_template_without_paths(home: &std::path::Path, name: &str, version: &
         "backend = \"java\"\nfrontend = \"vue\"\n",
     )
     .unwrap();
-}
-
-fn setup_project(project: &std::path::Path, template_ref: &str) {
-    let crud = project.join(".crud");
-    fs::create_dir_all(&crud).unwrap();
-    let cfg = SetupConfig::from_selections(SetupSelections {
-        backend: Backend::Java,
-        frontend: Frontend::Vue,
-        template: Some(
-            crud_cli::core::config::TemplateRef::parse(template_ref).expect("template ref"),
-        ),
-    });
-    fs::write(crud.join("setup.toml"), cfg.to_toml_pretty().unwrap()).unwrap();
 }
 
 fn run_template_use(project: &std::path::Path, home: &std::path::Path, template_ref: &str) -> i32 {

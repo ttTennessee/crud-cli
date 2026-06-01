@@ -20,6 +20,7 @@ use crate::core::type_map::Fallback;
 
 use super::agent_mode::is_agent_active;
 use super::args::{SetupEnabledTypes, SetupOverwritePolicy};
+use super::output::emit_success;
 
 /// Ensures a UI language preference exists before running a wizard (first-run).
 pub fn ensure_language_preference() {
@@ -143,7 +144,7 @@ fn prompt_template_choice(
     installed: &[InstalledTemplate],
 ) -> Result<Option<InstalledTemplate>, ErrorEnvelope> {
     if installed.is_empty() {
-        println!("{}", i18n::t(keys::WIZARD_TEMPLATE_NO_TEMPLATES));
+        emit_success(Some(i18n::t(keys::WIZARD_TEMPLATE_NO_TEMPLATES)));
         return Ok(None);
     }
     let manual_label = i18n::t(keys::WIZARD_TEMPLATE_MANUAL_OPTION).to_string();
@@ -162,7 +163,7 @@ fn prompt_template_choice(
     labels.push(manual_label.clone());
 
     let header = i18n::t(keys::WIZARD_TEMPLATE_DETECTED_HEADER);
-    println!("{header}");
+    emit_success(Some(header));
     let choice = Select::new("template", labels.clone())
         .prompt()
         .map_err(inquire_to_user_error)?;
