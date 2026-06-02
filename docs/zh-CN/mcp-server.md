@@ -39,20 +39,39 @@ MCP 客户端配置示例：
 
 2. **编写 entity.json**（Agent 根据上述 schema 生成）
 
-3. **`validate_entity`** — 校验 JSON（不落盘）
+3. **`preview`** — 校验 entity.json，并返回归一化后的字段结构表（不渲染代码、不落盘），供用户确认字段类型 / 必填 / 长度等
 
-4. **`preview`** — 可选；`type=ddl` 仅预览建表 DDL（见下文 `ddl/` 前缀）
+4. **`generate`** — 确认无误后写入项目
 
-5. **`generate`** — 校验通过后写入项目
+> `preview` 已合并原 `validate_entity` 的校验职责：解析、字段类型、变量出错时返回 `ok:false` 错误信息；校验通过则返回结构表。
 
 ## MCP 工具
 
 | 工具 | 说明 |
 |------|------|
 | `describe_templates` | 聚合返回 `variables` / `field_types`（由 TOML schema 解析后的 JSON）、类型前缀、`paths` 映射 |
-| `validate_entity` | 校验 `entity_json` 字符串 |
-| `preview` | 渲染预览（`type` 可选，如 `ddl`） |
-| `generate` | 生成并落盘（`force` 可选） |
+| `preview` | 校验 `entity_json` 并返回归一化后的字段结构：`fields`（机器可读）、`table_markdown`（给用户渲染确认）、`prompt`（展示指引）；不渲染代码、不落盘 |
+| `generate` | 生成并落盘（`type` / `force` 可选） |
+
+### `preview` 返回结构
+
+```json
+{
+  "ok": true,
+  "entity": { "name": "Order", "table": "biz_order", "pk": "orderId", "...": "..." },
+  "fields": [
+    { "name": "orderNo", "column": "order_no", "type": "String", "pk": false,
+      "required": true, "length": 32, "default": null, "unique": false,
+      "comment": "订单编号", "tags": ["insert", "list", "query"] }
+  ],
+  "sub": { "fk_field": "orderId", "fields": [/* 同上结构 */], "...": "..." },
+  "table_markdown": "## Order (biz_order)\n\n### 主表字段\n\n| 字段名 | ... |\n...",
+  "prompt": "Render `table_markdown` to the user ..."
+}
+```
+
+- `fields` / `sub.fields` 为**归一化后**的值（驼峰 → 列名、字段类型经 `_field_types.toml` 归一、长度/默认填充），`name` 为稳定锚点，便于改回原 entity.json。
+- `table_markdown` 由 `fields` 派生，供 Agent 直接渲染给用户确认。
 
 ## MCP 资源（`crud://`）
 
@@ -72,7 +91,7 @@ MCP 客户端配置示例：
 
 ## DDL 与数据 SQL 分离
 
-- **`ddl/`** — 建表 DDL（如 `schema.sql.hbs`），可用 `preview` / `gen` 的 `type=ddl` 单独预览。  
+- **`ddl/`** — 建表 DDL（如 `schema.sql.hbs`），可用 `generate` 的 `type=ddl` 或 CLI `gen --type ddl` 单独生成。  
 - **`sql/`** — 数据/菜单类 SQL（如 `menu.sql.hbs`）。  
 
 两者在 `setup.toml` 的 `[paths.aux]` 中可映射到同一物理目录（默认 `ddl` → `sql` 输出目录）。

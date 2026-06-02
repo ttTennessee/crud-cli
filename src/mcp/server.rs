@@ -26,11 +26,9 @@ use crate::core::gen_pipeline;
 use crate::core::gen_run::GenRunParams;
 
 use super::context::{load_project_context, ProjectContext};
-use super::convert::{
-    envelope_to_value, generate_report_value, preview_report_value, validate_ok_value,
-};
+use super::convert::{envelope_to_value, generate_report_value};
 use super::resources::{list_static_resources, read_resource};
-use super::validate_logic::{describe_templates, entity_json_to_temp_path, validate_entity_json};
+use super::validate_logic::{describe_templates, entity_json_to_temp_path, preview_entity_structure};
 
 /**
  * MCP server state: tool/prompt routers plus lazily resolved project context.
@@ -78,24 +76,13 @@ impl CrudMcpServer {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-struct ValidateEntityParams {
+struct PreviewParams {
     /// Full entity.json document (UTF-8).
     #[schemars(description = "entity.json content")]
     entity_json: String,
     /// Optional JSON object of template variables (same keys as _variables.toml).
     #[schemars(description = "Optional variables object as JSON")]
     variables: Option<Value>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct PreviewParams {
-    #[schemars(description = "entity.json content")]
-    entity_json: String,
-    #[schemars(description = "Optional variables object as JSON")]
-    variables: Option<Value>,
-    /// Template prefix filter, e.g. `ddl`, `java`, `vue` (comma-separated).
-    #[schemars(description = "Optional type prefix filter (comma-separated)")]
-    r#type: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -140,6 +127,26 @@ fn tool_json_result(value: Value) -> Result<CallToolResult, McpError> {
     Ok(CallToolResult::success(vec![Content::text(text)]))
 }
 
+/**
+ * Returns markdown first (for direct user display), then JSON payload.
+ */
+fn tool_preview_result(value: Value) -> Result<CallToolResult, McpError> {
+    let text = serde_json::to_string_pretty(&value).map_err(|e| internal_err(&e.to_string()))?;
+    let markdown = value
+        .get("display_markdown")
+        .or_else(|| value.get("table_markdown"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .unwrap_or_default();
+    if markdown.is_empty() {
+        return Ok(CallToolResult::success(vec![Content::text(text)]));
+    }
+    Ok(CallToolResult::success(vec![
+        Content::text(markdown),
+        Content::text(text),
+    ]))
+}
+
 fn tool_error_result(value: Value) -> Result<CallToolResult, McpError> {
     let text = serde_json::to_string_pretty(&value).map_err(|e| internal_err(&e.to_string()))?;
     Ok(CallToolResult::error(vec![Content::text(text)]))
@@ -150,14 +157,13 @@ fn run_gen_blocking(
     entity_json: String,
     cli_vars: BTreeMap<String, Value>,
     type_filter: Option<Vec<String>>,
-    stdout: bool,
     force: bool,
 ) -> Result<Value, ErrorEnvelope> {
     let temp = entity_json_to_temp_path(&entity_json)?;
     let params = GenRunParams {
         file: Some(temp.to_path_buf()),
         type_filter,
-        stdout,
+        stdout: false,
         force,
         cli_vars,
         ..GenRunParams::default()
@@ -171,11 +177,7 @@ fn run_gen_blocking(
         )
     })?;
     let report = gen_pipeline::run(params)?;
-    if stdout {
-        Ok(preview_report_value(&report))
-    } else {
-        Ok(generate_report_value(&report))
-    }
+    Ok(generate_report_value(&report))
 }
 
 #[tool_router]
@@ -198,46 +200,25 @@ impl CrudMcpServer {
     }
 
     /**
-     * Validates entity.json against template schemas without writing files.
+     * Validates entity.json and returns its normalized structure as a confirmation
+     * table (no template code is rendered or written).
      */
-    #[tool(description = "Validate entity.json (syntax, field types, variables)")]
-    async fn validate_entity(
-        &self,
-        Parameters(p): Parameters<ValidateEntityParams>,
-    ) -> Result<CallToolResult, McpError> {
-        let ctx = self.with_project(None)?;
-        let cli_vars = vars_from_optional(p.variables);
-        let json = p.entity_json;
-        let result = tokio::task::spawn_blocking(move || {
-            validate_entity_json(&ctx, &json, &cli_vars).map(|()| validate_ok_value())
-        })
-        .await
-        .map_err(|e| internal_err(&e.to_string()))?;
-        match result {
-            Ok(v) => tool_json_result(v),
-            Err(envelope) => tool_error_result(envelope_to_value(&envelope)),
-        }
-    }
-
-    /**
-     * Renders templates to in-memory preview (no disk writes). Use `type=ddl` for DDL only.
-     */
-    #[tool(description = "Preview generated files (optional type filter, e.g. ddl)")]
+    #[tool(
+        description = "Validate entity.json and preview its normalized field structure as a table"
+    )]
     async fn preview(
         &self,
         Parameters(p): Parameters<PreviewParams>,
     ) -> Result<CallToolResult, McpError> {
         let ctx = self.with_project(None)?;
         let cli_vars = vars_from_optional(p.variables);
-        let type_filter = parse_type_filter(p.r#type.as_deref());
         let json = p.entity_json;
-        let result = tokio::task::spawn_blocking(move || {
-            run_gen_blocking(ctx, json, cli_vars, type_filter, true, false)
-        })
-        .await
-        .map_err(|e| internal_err(&e.to_string()))?;
+        let result =
+            tokio::task::spawn_blocking(move || preview_entity_structure(&ctx, &json, &cli_vars))
+                .await
+                .map_err(|e| internal_err(&e.to_string()))?;
         match result {
-            Ok(v) => tool_json_result(v),
+            Ok(v) => tool_preview_result(v),
             Err(envelope) => tool_error_result(envelope_to_value(&envelope)),
         }
     }
@@ -256,7 +237,7 @@ impl CrudMcpServer {
         let json = p.entity_json;
         let force = p.force;
         let result = tokio::task::spawn_blocking(move || {
-            run_gen_blocking(ctx, json, cli_vars, type_filter, false, force)
+            run_gen_blocking(ctx, json, cli_vars, type_filter, force)
         })
         .await
         .map_err(|e| internal_err(&e.to_string()))?;
@@ -303,7 +284,8 @@ impl ServerHandler for CrudMcpServer {
         )
         .with_instructions(
             "crud-cli MCP: read crud:// resources for schemas, call describe_templates, \
-             validate_entity, preview (type=ddl for DDL), then generate.",
+             then preview (validates entity.json and returns its normalized field table \
+             for user confirmation), then generate.",
         )
     }
 

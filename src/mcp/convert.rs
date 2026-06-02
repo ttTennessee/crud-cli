@@ -20,38 +20,6 @@ pub fn envelope_to_value(envelope: &ErrorEnvelope) -> Value {
 }
 
 /**
- * Serializes a successful validate result.
- */
-pub fn validate_ok_value() -> Value {
-    json!({ "ok": true })
-}
-
-/**
- * Maps a preview [`GenReport`] to JSON (`rendered` paths + contents).
- */
-pub fn preview_report_value(report: &GenReport) -> Value {
-    let rendered: Vec<Value> = report
-        .rendered
-        .iter()
-        .map(|f| {
-            json!({
-                "path": f.path.display().to_string(),
-                "content": f.content,
-            })
-        })
-        .collect();
-    json!({
-        "ok": true,
-        "rendered": rendered,
-        "skipped_by_condition": report
-            .skipped_by_condition
-            .iter()
-            .map(|p| p.display().to_string())
-            .collect::<Vec<_>>(),
-    })
-}
-
-/**
  * Maps a generate [`GenReport`] to JSON (`written` paths).
  */
 pub fn generate_report_value(report: &GenReport) -> Value {

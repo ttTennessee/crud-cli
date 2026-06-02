@@ -17,6 +17,6 @@ Configure your MCP client with `command`: `crud-cli`, `args`: `["mcp"]`, and `cw
 
 1. Read `crud://` resources or call `describe_templates`
 2. Author `entity.json`
-3. `validate_entity` → `preview` (optional, `type=ddl` for DDL only) → `generate`
+3. `preview` (validates `entity.json` and returns its normalized field table for user confirmation; no code is rendered or written) → `generate`
 
 See [zh-CN/mcp-server.md](zh-CN/mcp-server.md) for the full tool/resource/prompt tables and DDL prefix notes.
