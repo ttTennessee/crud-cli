@@ -1,7 +1,7 @@
 //! MCP resource URIs and read handlers (`crud://…`).
 //!
 //! Per-template `variables` / `field_types` schemas are intentionally **not**
-//! exposed as resources: the `describe_templates` tool already returns them
+//! exposed as resources: the `crud_describe_templates` tool already returns them
 //! (alongside paths and project info), so duplicating them here would drift.
 
 use crate::core::field_dsl::RESERVED_VARIABLE_NAMES;
@@ -11,7 +11,7 @@ use serde_json::json;
 pub const URI_ENTITY_SCHEMA: &str = "crud://schema/entity";
 
 /// Resource URI for built-in / reserved template variable names.
-pub const URI_BUILTINS: &str = "crud://builtins";
+pub const URI_BUILTINS: &str = "crud://schema/builtins";
 
 const MIME_JSON: &str = "application/json";
 const MIME_MARKDOWN: &str = "text/markdown";

@@ -222,13 +222,13 @@ pub fn preview_entity_structure(
     out["display_markdown"] = Value::String(md);
     out["must_display_to_user"] = Value::Bool(true);
     out["next_step"] = Value::String(
-        "Show the table to user and wait for confirmation before generate.".into(),
+        "Show the table to user and wait for confirmation before crud_generate.".into(),
     );
     out["prompt"] = Value::String(
         "Render `table_markdown` to the user to confirm field types, required flags, and \
          lengths. Do NOT echo the raw entity.json. To apply edits, modify the original \
-         entity.json using `fields[].name` as the stable key, then call `preview` again or \
-         `generate`."
+         entity.json using `fields[].name` as the stable key, then call crud_preview again or \
+         crud_generate."
             .into(),
     );
     Ok(out)

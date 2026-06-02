@@ -2,7 +2,7 @@
 
 > **Other languages:** [简体中文](zh-CN/json-entity-input.md)
 
-The `entity.json` you build for the MCP `preview` / `generate` tools (also accepted by `--file`).
+The `entity.json` you build for the MCP `crud_preview` / `crud_generate` tools (also accepted by `--file`).
 
 The schema uses `deny_unknown_fields`: only the properties listed below are allowed at each level.
 
@@ -115,5 +115,5 @@ Per-field flags, only meaningful when the template documents them (e.g. RuoYi: `
 
 ## See also
 
-- [MCP Server](mcp-server.md) — `preview` / `generate` tools and `crud://` resources
+- [MCP Server](mcp-server.md) — `crud_preview` / `crud_generate` tools and `crud://` resources
 - [Documentation index](./README.md)

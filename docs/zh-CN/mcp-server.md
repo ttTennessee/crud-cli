@@ -31,27 +31,27 @@ MCP 客户端配置示例：
 
 ## 推荐工作流（代码生成）
 
-1. **调用 `describe_templates`** 获取 `variables` / `field_types` schema、`paths`、`project` 等；再按需读取静态资源:
+1. **调用 `crud_describe_templates`** 获取 `variables` / `field_types` schema、`paths`、`project` 等；再按需读取静态资源:
    - `crud://schema/entity` — [entity.json 规范](json-entity-input.md)  
-   - `crud://builtins` — 内置/保留变量名  
+   - `crud://schema/builtins` — 内置/保留变量名  
 
 2. **编写 entity.json**（Agent 根据上述 schema 生成）
 
-3. **`preview`** — 校验 entity.json，并返回归一化后的字段结构表（不渲染代码、不落盘），供用户确认字段类型 / 必填 / 长度等
+3. **`crud_preview`** — 校验 entity.json，并返回归一化后的字段结构表（不渲染代码、不落盘），供用户确认字段类型 / 必填 / 长度等
 
-4. **`generate`** — 确认无误后写入项目
+4. **`crud_generate`** — 确认无误后写入项目
 
-> `preview` 已合并原 `validate_entity` 的校验职责：解析、字段类型、变量出错时返回 `ok:false` 错误信息；校验通过则返回结构表。
+> `crud_preview` 已合并原 `validate_entity` 的校验职责：解析、字段类型、变量出错时返回 `ok:false` 错误信息；校验通过则返回结构表。
 
 ## MCP 工具
 
 | 工具 | 说明 |
 |------|------|
-| `describe_templates` | 聚合返回 `variables` / `field_types`（由 TOML schema 解析后的 JSON）、类型前缀、`paths` 映射 |
-| `preview` | 校验 `entity_json` 并返回归一化后的字段结构：`fields`（机器可读）、`table_markdown`（给用户渲染确认）、`prompt`（展示指引）；不渲染代码、不落盘 |
-| `generate` | 生成并落盘（`type` / `force` 可选） |
+| `crud_describe_templates` | 聚合返回 `variables` / `field_types`（由 TOML schema 解析后的 JSON）、类型前缀、`paths` 映射 |
+| `crud_preview` | 校验 `entity_json` 并返回归一化后的字段结构：`fields`（机器可读）、`table_markdown`（给用户渲染确认）、`prompt`（展示指引）；不渲染代码、不落盘 |
+| `crud_generate` | 生成并落盘（`type` / `force` 可选） |
 
-### `preview` 返回结构
+### `crud_preview` 返回结构
 
 ```json
 {
@@ -76,19 +76,19 @@ MCP 客户端配置示例：
 | URI | 内容 | MIME |
 |-----|------|------|
 | `crud://schema/entity` | entity.json 文档 | `text/markdown` |
-| `crud://builtins` | 保留名 | `application/json` |
+| `crud://schema/builtins` | 保留名 | `application/json` |
 
-> `variables` / `field_types` schema 不再作为资源暴露,改由 `describe_templates` 工具统一返回（避免重复）。
+> `variables` / `field_types` schema 不再作为资源暴露,改由 `crud_describe_templates` 工具统一返回（避免重复）。
 
 ## MCP Prompts
 
 | 名称 | 说明 |
 |------|------|
-| `template_authoring` | 一次性模板包编写指南（对应 [template-authoring.md](template-authoring.md)） |
+| `crud_template_authoring` | 一次性模板包编写指南（对应 [template-authoring.md](template-authoring.md)） |
 
 ## DDL 与数据 SQL 分离
 
-- **`ddl/`** — 建表 DDL（如 `schema.sql.hbs`），可用 `generate` 的 `type=ddl` 或 CLI `gen --type ddl` 单独生成。  
+- **`ddl/`** — 建表 DDL（如 `schema.sql.hbs`），可用 `crud_generate` 的 `type=ddl` 或 CLI `gen --type ddl` 单独生成。  
 - **`sql/`** — 数据/菜单类 SQL（如 `menu.sql.hbs`）。  
 
 两者在 `setup.toml` 的 `[paths.aux]` 中可映射到同一物理目录（默认 `ddl` → `sql` 输出目录）。

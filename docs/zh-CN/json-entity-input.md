@@ -2,7 +2,7 @@
 
 > **Other languages:** [English](../json-entity-input.md)
 
-供 MCP `preview` / `generate` 工具使用的 `entity.json`（CLI `--file` 同样接受）。
+供 MCP `crud_preview` / `crud_generate` 工具使用的 `entity.json`（CLI `--file` 同样接受）。
 
 Schema 使用 `deny_unknown_fields`：每一层只能使用下文列出的属性。
 
@@ -115,5 +115,5 @@ Schema 使用 `deny_unknown_fields`：每一层只能使用下文列出的属性
 
 ## 延伸阅读
 
-- [MCP Server](mcp-server.md) — `preview` / `generate` 工具与 `crud://` 资源
+- [MCP Server](mcp-server.md) — `crud_preview` / `crud_generate` 工具与 `crud://` 资源
 - [文档索引](README.md)

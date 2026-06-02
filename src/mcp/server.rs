@@ -185,7 +185,10 @@ impl CrudMcpServer {
     /**
      * Returns variables/field-types schemas as JSON, type prefixes, and path mappings.
      */
-    #[tool(description = "Describe the active template bundle for entity.json authoring")]
+    #[tool(
+        name = "crud_describe_templates",
+        description = "Describe the active template bundle for entity.json authoring"
+    )]
     async fn describe_templates(
         &self,
         Parameters(p): Parameters<DescribeParams>,
@@ -204,6 +207,7 @@ impl CrudMcpServer {
      * table (no template code is rendered or written).
      */
     #[tool(
+        name = "crud_preview",
         description = "Validate entity.json and preview its normalized field structure as a table"
     )]
     async fn preview(
@@ -226,7 +230,10 @@ impl CrudMcpServer {
     /**
      * Validates and writes generated files to the project tree.
      */
-    #[tool(description = "Generate CRUD files from entity.json")]
+    #[tool(
+        name = "crud_generate",
+        description = "Generate CRUD files from entity.json"
+    )]
     async fn generate(
         &self,
         Parameters(p): Parameters<GenerateParams>,
@@ -254,7 +261,7 @@ impl CrudMcpServer {
      * Delivers the template authoring guide as a user message for the agent.
      */
     #[prompt(
-        name = "template_authoring",
+        name = "crud_template_authoring",
         description = "Guide for writing crud-cli Handlebars template bundles"
     )]
     async fn template_authoring_prompt(&self) -> GetPromptResult {
@@ -283,9 +290,10 @@ impl ServerHandler for CrudMcpServer {
                 .build(),
         )
         .with_instructions(
-            "crud-cli MCP: read crud:// resources for schemas, call describe_templates, \
-             then preview (validates entity.json and returns its normalized field table \
-             for user confirmation), then generate.",
+            "crud-cli MCP: call crud_describe_templates for the active bundle schemas, \
+             read crud:// resources for entity.json docs, then crud_preview (validates \
+             entity.json and returns its normalized field table for user confirmation), \
+             then crud_generate.",
         )
     }
 
