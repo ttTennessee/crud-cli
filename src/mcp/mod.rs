@@ -8,7 +8,7 @@ mod validate_logic;
 
 pub use context::load_project_context;
 pub use server::run_stdio_server;
-pub use validate_logic::validate_entity_json;
+pub use validate_logic::{describe_templates, validate_entity_json};
 
 /**
  * Runs the MCP stdio server on a fresh tokio runtime (for sync `main` / CLI subcommands).

@@ -10,7 +10,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::error::ErrorEnvelope;
@@ -21,7 +21,7 @@ use super::i18n::{self, keys};
 pub const SCHEMA_FILE_NAME: &str = "_variables.toml";
 
 /// Declared type for a schema variable.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum VarType {
     Bool,
@@ -39,7 +39,7 @@ impl VarType {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct VariableDef {
     pub description: String,

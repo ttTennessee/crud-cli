@@ -104,11 +104,25 @@ pub fn list_type_prefixes(templates_root: &Path) -> Result<Vec<String>, ErrorEnv
 }
 
 /**
+ * Serializes a parsed template schema map for MCP JSON output.
+ */
+fn schema_to_json<T: serde::Serialize>(value: &T) -> Result<Value, ErrorEnvelope> {
+    serde_json::to_value(value).map_err(|e| {
+        ErrorEnvelope::user_error(
+            format!("serialize schema: {e}"),
+            None,
+            None,
+            "could not serialize template schema to JSON",
+        )
+    })
+}
+
+/**
  * Builds aggregated template description for agents.
  */
 pub fn describe_templates(ctx: &ProjectContext) -> Result<Value, ErrorEnvelope> {
-    let variables_raw = super::context::read_bundle_file(&ctx.templates_root, "_variables.toml")?;
-    let field_types_raw = super::context::read_bundle_file(&ctx.templates_root, "_field_types.toml")?;
+    let variables_schema = template_variables::load_schema(&ctx.templates_root)?;
+    let field_types_schema = field_types::load_schema(&ctx.templates_root)?;
     let prefixes = list_type_prefixes(&ctx.templates_root)?;
 
     let runtime = RuntimeConfig::load(
@@ -119,8 +133,8 @@ pub fn describe_templates(ctx: &ProjectContext) -> Result<Value, ErrorEnvelope> 
     Ok(json!({
         "templates_root": ctx.templates_root.display().to_string(),
         "type_prefixes": prefixes,
-        "variables_toml": variables_raw,
-        "field_types_toml": field_types_raw,
+        "variables": schema_to_json(&variables_schema.0)?,
+        "field_types": schema_to_json(&field_types_schema.types)?,
         "paths": {
             "lang": runtime.project.paths.lang,
             "aux": runtime.project.paths.aux,

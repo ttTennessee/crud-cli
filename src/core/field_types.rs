@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use strsim::levenshtein;
 
@@ -19,7 +19,7 @@ use super::type_map;
 /// File name of the field-type schema (relative to template bundle root).
 pub const SCHEMA_FILE_NAME: &str = "_field_types.toml";
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct FieldTypeDef {
     pub description: String,

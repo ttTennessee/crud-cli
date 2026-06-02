@@ -181,7 +181,7 @@ fn run_gen_blocking(
 #[tool_router]
 impl CrudMcpServer {
     /**
-     * Returns variables schema, field types, type prefixes, and path mappings.
+     * Returns variables/field-types schemas as JSON, type prefixes, and path mappings.
      */
     #[tool(description = "Describe the active template bundle for entity.json authoring")]
     async fn describe_templates(

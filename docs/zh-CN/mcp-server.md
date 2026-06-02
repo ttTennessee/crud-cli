@@ -49,7 +49,7 @@ MCP 客户端配置示例：
 
 | 工具 | 说明 |
 |------|------|
-| `describe_templates` | 聚合返回 variables/field-types、类型前缀、`paths` 映射 |
+| `describe_templates` | 聚合返回 `variables` / `field_types`（由 TOML schema 解析后的 JSON）、类型前缀、`paths` 映射 |
 | `validate_entity` | 校验 `entity_json` 字符串 |
 | `preview` | 渲染预览（`type` 可选，如 `ddl`） |
 | `generate` | 生成并落盘（`force` 可选） |
