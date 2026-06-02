@@ -31,9 +31,7 @@ MCP 客户端配置示例：
 
 ## 推荐工作流（代码生成）
 
-1. **读取资源**（或调用 `describe_templates`）  
-   - `crud://templates/variables` — `_variables.toml`  
-   - `crud://templates/field-types` — `_field_types.toml`  
+1. **调用 `describe_templates`** 获取 `variables` / `field_types` schema、`paths`、`project` 等；再按需读取静态资源:
    - `crud://schema/entity` — [entity.json 规范](json-entity-input.md)  
    - `crud://builtins` — 内置/保留变量名  
 
@@ -75,12 +73,12 @@ MCP 客户端配置示例：
 
 ## MCP 资源（`crud://`）
 
-| URI | 内容 |
-|-----|------|
-| `crud://templates/variables` | `_variables.toml` |
-| `crud://templates/field-types` | `_field_types.toml` |
-| `crud://schema/entity` | entity.json 文档 |
-| `crud://builtins` | 保留名 JSON |
+| URI | 内容 | MIME |
+|-----|------|------|
+| `crud://schema/entity` | entity.json 文档 | `text/markdown` |
+| `crud://builtins` | 保留名 | `application/json` |
+
+> `variables` / `field_types` schema 不再作为资源暴露,改由 `describe_templates` 工具统一返回（避免重复）。
 
 ## MCP Prompts
 

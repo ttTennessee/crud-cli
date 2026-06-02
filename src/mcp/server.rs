@@ -296,7 +296,11 @@ impl ServerHandler for CrudMcpServer {
     ) -> Result<ListResourcesResult, McpError> {
         let resources: Vec<Resource> = list_static_resources()
             .into_iter()
-            .map(|(uri, name)| RawResource::new(uri, name).no_annotation())
+            .map(|(uri, name, mime)| {
+                RawResource::new(uri, name)
+                    .with_mime_type(mime)
+                    .no_annotation()
+            })
             .collect();
         Ok(ListResourcesResult {
             resources,
@@ -311,13 +315,12 @@ impl ServerHandler for CrudMcpServer {
         _context: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResult, McpError> {
         let root = self.templates_root()?;
-        let text = read_resource(&request.uri, &root).map_err(|msg| {
+        let (text, mime) = read_resource(&request.uri, &root).map_err(|msg| {
             McpError::resource_not_found("resource_not_found", Some(serde_json::json!({ "msg": msg })))
         })?;
-        Ok(ReadResourceResult::new(vec![ResourceContents::text(
-            text,
-            &request.uri,
-        )]))
+        Ok(ReadResourceResult::new(vec![
+            ResourceContents::text(text, &request.uri).with_mime_type(mime),
+        ]))
     }
 
     async fn list_resource_templates(

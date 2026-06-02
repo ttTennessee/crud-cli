@@ -1,6 +1,6 @@
 //! Project cwd and template-root resolution for MCP handlers.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::core::config::RuntimeConfig;
 use crate::core::error::ErrorEnvelope;
@@ -34,15 +34,3 @@ pub fn load_project_context(cwd: Option<PathBuf>) -> Result<ProjectContext, Erro
     })
 }
 
-/**
- * Reads a file under `templates_root` if it exists.
- */
-pub fn read_bundle_file(templates_root: &Path, name: &str) -> Result<String, ErrorEnvelope> {
-    let path = templates_root.join(name);
-    if !path.exists() {
-        return Ok(String::new());
-    }
-    std::fs::read_to_string(&path).map_err(|e| {
-        ErrorEnvelope::template_error(format!("read {}: {e}", path.display()))
-    })
-}
