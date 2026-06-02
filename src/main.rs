@@ -26,7 +26,7 @@ fn main() {
         Some(Commands::Validate(args)) => run_validate(args),
         Some(Commands::Template(args)) => run_template(args),
         #[cfg(feature = "mcp")]
-        Some(Commands::Mcp) => run_mcp(),
+        Some(Commands::Mcp(args)) => run_mcp(args),
     };
     std::process::exit(code);
 }

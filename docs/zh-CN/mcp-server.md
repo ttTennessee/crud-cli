@@ -20,14 +20,17 @@ MCP 客户端配置示例：
   "mcpServers": {
     "crud-cli": {
       "command": "/path/to/crud-cli",
-      "args": ["mcp"],
-      "cwd": "/path/to/your/project"
+      "args": ["mcp", "--path", "/path/to/your/project"]
     }
   }
 }
 ```
 
-`cwd` 必须指向已执行 `crud-cli setup` 且包含 `.crud/templates/` 或已 `template use` 的项目根目录。
+Cursor 可使用 `"args": ["mcp", "--path", "${workspaceFolder}"]`。
+
+项目根解析优先级：`--path` → MCP `roots/list`（客户端支持时）→ 进程 `cwd`（最后兜底）。从起始路径**向上**查找 `.crud/setup.toml`（在用户主目录内不会越过主目录；其他路径则止于当前盘符/卷根）。
+
+仍可将 `cwd` 设为项目根作为兜底，但推荐 `--path` 或 `roots`，避免宿主把子进程起在非工作区目录。
 
 ## 推荐工作流（代码生成）
 

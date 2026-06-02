@@ -37,7 +37,16 @@ pub enum Commands {
     Template(TemplateArgs),
     /// Start the Model Context Protocol server on stdio (for Cursor / MCP clients).
     #[cfg(feature = "mcp")]
-    Mcp,
+    Mcp(McpArgs),
+}
+
+/// `crud-cli mcp` flags.
+#[derive(Parser, Debug, Default)]
+#[cfg(feature = "mcp")]
+pub struct McpArgs {
+    /// Project root (overrides MCP workspace roots and process cwd).
+    #[arg(short = 'p', long = "path", value_name = "DIR")]
+    pub path: Option<String>,
 }
 
 /// `crud-cli setup` flags. Default scope = user; `--project` switches target.

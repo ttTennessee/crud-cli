@@ -11,7 +11,7 @@ cargo build --release --features full
 crud-cli mcp
 ```
 
-Configure your MCP client with `command`: `crud-cli`, `args`: `["mcp"]`, and `cwd` set to your project root (must contain `.crud/setup.toml` and templates).
+Configure your MCP client with `command`: `crud-cli` and `args`: `["mcp", "--path", "/abs/path/to/project"]` (Cursor: `"${workspaceFolder}"`). Resolution order: `--path` → MCP `roots/list` → process `cwd` (last resort), walking up for `.crud/setup.toml` with a home-directory ceiling when the start path is under `$HOME`.
 
 ## Workflow
 
