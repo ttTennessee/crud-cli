@@ -49,6 +49,7 @@ pub const TEMPLATE_INSTALL_PROMPT_NAME: &str = "template.install.prompt_name";
 pub const TEMPLATE_INSTALL_PROMPT_VERSION: &str = "template.install.prompt_version";
 pub const TEMPLATE_INSTALL_PROMPT_DOC: &str = "template.install.prompt_doc";
 pub const TEMPLATE_INSTALL_PROMPT_SQL: &str = "template.install.prompt_sql";
+pub const TEMPLATE_INSTALL_PROMPT_DDL: &str = "template.install.prompt_ddl";
 pub const TEMPLATE_INSTALL_BUNDLE_NONE: &str = "template.install.bundle_none";
 pub const TEMPLATE_INSTALL_CONFIRM_OVERWRITE: &str = "template.install.confirm_overwrite";
 pub const TEMPLATE_INSTALL_STATUS_INSTALLED: &str = "template.install.status_installed";
@@ -183,6 +184,7 @@ pub const ALL_KEYS: &[&str] = &[
     TEMPLATE_INSTALL_PROMPT_VERSION,
     TEMPLATE_INSTALL_PROMPT_DOC,
     TEMPLATE_INSTALL_PROMPT_SQL,
+    TEMPLATE_INSTALL_PROMPT_DDL,
     TEMPLATE_INSTALL_BUNDLE_NONE,
     TEMPLATE_INSTALL_CONFIRM_OVERWRITE,
     TEMPLATE_INSTALL_STATUS_INSTALLED,

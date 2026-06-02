@@ -111,7 +111,7 @@ fn cmd_install(
         effective_force,
     )?;
 
-    // 5. Shared-bundle pickers (doc, sql) — for each kind, only when the
+    // 5. Shared-bundle pickers (doc, ddl, sql) — for each kind, only when the
     // template doesn't bundle its own `<kind>/` (we never overwrite
     // author-shipped content) AND we're in an interactive session. Each picker
     // is single-select; a project normally targets one doc format and one
@@ -322,7 +322,7 @@ fn classify_version(
 }
 
 /// Prompts the user to pick one subdirectory of the snapshot's shared
-/// `<kind>/` (`doc`, `sql`) to layer. Single-select: a leading "(none)" option
+/// `<kind>/` (`doc`, `ddl`, `sql`) to layer. Single-select: a leading "(none)" option
 /// lets the user skip. Returns `None` when:
 /// * the template bundles its own `<kind>/` (we never overwrite author-shipped
 ///   content with the shared bundle);
@@ -370,6 +370,7 @@ fn pick_bundle_category(
 fn bundle_prompt_key(kind: &str) -> &'static str {
     match kind {
         "sql" => keys::TEMPLATE_INSTALL_PROMPT_SQL,
+        "ddl" => keys::TEMPLATE_INSTALL_PROMPT_DDL,
         _ => keys::TEMPLATE_INSTALL_PROMPT_DOC,
     }
 }
