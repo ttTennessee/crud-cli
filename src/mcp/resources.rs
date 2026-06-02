@@ -15,9 +15,6 @@ pub const URI_ENTITY_SCHEMA: &str = "crud://schema/entity";
 /// Resource URI for built-in / reserved template variable names.
 pub const URI_BUILTINS: &str = "crud://builtins";
 
-/// Resource URI for template authoring guide (markdown).
-pub const URI_TEMPLATE_AUTHORING: &str = "crud://docs/template-authoring";
-
 /// All static resource descriptors for `list_resources`.
 pub fn list_static_resources() -> Vec<(&'static str, &'static str)> {
     vec![
@@ -25,7 +22,6 @@ pub fn list_static_resources() -> Vec<(&'static str, &'static str)> {
         (URI_FIELD_TYPES, "Allowed field types schema (_field_types.toml)"),
         (URI_ENTITY_SCHEMA, "entity.json input specification for code generation"),
         (URI_BUILTINS, "Built-in template context names and reserved identifiers"),
-        (URI_TEMPLATE_AUTHORING, "Guide for writing crud-cli Handlebars templates"),
     ]
 }
 
@@ -41,11 +37,8 @@ pub fn read_resource(
             .map_err(|e| e.msg),
         URI_FIELD_TYPES => super::context::read_bundle_file(templates_root, "_field_types.toml")
             .map_err(|e| e.msg),
-        URI_ENTITY_SCHEMA => Ok(include_str!("../../docs/zh-CN/json-entity-input.md").to_string()),
+        URI_ENTITY_SCHEMA => Ok(include_str!("../../docs/json-entity-input.md").to_string()),
         URI_BUILTINS => Ok(builtins_json()),
-        URI_TEMPLATE_AUTHORING => {
-            Ok(include_str!("../../docs/zh-CN/template-authoring.md").to_string())
-        }
         _ => Err(format!("unknown resource uri: {uri}")),
     }
 }

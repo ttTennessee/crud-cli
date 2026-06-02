@@ -81,7 +81,6 @@ MCP 客户端配置示例：
 | `crud://templates/field-types` | `_field_types.toml` |
 | `crud://schema/entity` | entity.json 文档 |
 | `crud://builtins` | 保留名 JSON |
-| `crud://docs/template-authoring` | 模板编写指南 |
 
 ## MCP Prompts
 

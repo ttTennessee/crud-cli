@@ -258,7 +258,7 @@ impl CrudMcpServer {
         description = "Guide for writing crud-cli Handlebars template bundles"
     )]
     async fn template_authoring_prompt(&self) -> GetPromptResult {
-        let body = include_str!("../../docs/zh-CN/template-authoring.md");
+        let body = include_str!("../../docs/template-authoring.md");
         GetPromptResult::new(vec![PromptMessage::new_text(
             PromptMessageRole::User,
             format!(
