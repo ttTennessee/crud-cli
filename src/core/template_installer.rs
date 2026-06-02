@@ -231,9 +231,13 @@ impl RepoSnapshot {
     }
 
     /// Copies one subdirectory of the snapshot's shared `<kind>/` into
-    /// `<dest_version_dir>/<kind>/<category>/`. The bundle picker is
-    /// single-select, so exactly one category is layered per kind. An existing
-    /// destination dir for that category is replaced.
+    /// `<dest_version_dir>/<kind>/` (flattened).
+    ///
+    /// The bundle picker is single-select, so exactly one category is layered
+    /// per kind. We intentionally flatten `<kind>/<category>/...` from the
+    /// template repo into `<kind>/...` in the installed template, so render-time
+    /// bundle resolution can keep treating `<kind>` as the bundle root.
+    /// Existing destination `<kind>/` is replaced.
     pub fn copy_shared_category(
         &self,
         dest_version_dir: &Path,
@@ -249,7 +253,7 @@ impl RepoSnapshot {
                 "",
             ));
         }
-        let dst = dest_version_dir.join(kind).join(category);
+        let dst = dest_version_dir.join(kind);
         if let Some(parent) = dst.parent() {
             fs::create_dir_all(parent)
                 .map_err(|e| io_error(format!("create {}", parent.display()), e))?;
@@ -725,14 +729,7 @@ mod tests {
 
         snap.copy_shared_category(&installed.path, "ddl", "mysql")
             .expect("copy");
-        assert!(
-            installed
-                .path
-                .join("ddl")
-                .join("mysql")
-                .join("schema.sql.hbs")
-                .is_file()
-        );
+        assert!(installed.path.join("ddl").join("schema.sql.hbs").is_file());
     }
 
     #[test]
@@ -755,8 +752,8 @@ mod tests {
 
         snap.copy_shared_category(&installed.path, "sql", "mysql")
             .expect("copy");
-        assert!(installed.path.join("sql").join("mysql").join("a.sql.hbs").is_file());
-        assert!(!installed.path.join("sql").join("postgres").exists());
+        assert!(installed.path.join("sql").join("a.sql.hbs").is_file());
+        assert!(!installed.path.join("sql").join("b.sql.hbs").exists());
     }
 
     #[test]
