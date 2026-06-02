@@ -187,7 +187,7 @@ filename: "{{model_pascal}}Service.java"
 | `name_kebab` | string | kebab-case |
 | `type` | string | 字段类型字符串（与 `_field_types.toml` 中的 canonical 名一致） |
 | `is_pk` | bool | 是否主键 |
-| `nullable` | bool | 是否可空 |
+| `required` | bool | 是否必填（默认 `false`） |
 | `comment` | string | 注释/文案；未提供时为 `""` |
 | `length` | number \| null | 长度；未提供时为 `null` |
 | `unique` | bool | 是否唯一；未提供时为 `false` |
@@ -204,7 +204,7 @@ filename: "{{model_pascal}}Service.java"
 {{/each}}
 ```
 
-使用 `--fields` DSL 快速生成时，通常只有 `name`、`type`、`is_pk`、`nullable` 有值；`comment` 为空串，`length` / `default` 为 `null`，`unique` 为 `false`。需要完整元数据（注释、长度、唯一约束等）时，应通过带字段明细的 gen 输入提供。
+使用 `--fields` DSL 快速生成时，通常只有 `name`、`type`、`is_pk` 有值，`required` 默认为 `false`；`comment` 为空串，`length` / `default` 为 `null`，`unique` 为 `false`。需要完整元数据（注释、长度、唯一约束等）时，应通过带字段明细的 gen 输入提供。
 
 ### 扩展字段属性
 

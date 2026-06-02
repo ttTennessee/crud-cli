@@ -71,7 +71,7 @@ crud-cli gen --file entity.json --name User --package com.acme.app --table sys_u
 | `name` | 是 | 列名：字母开头，仅含字母、数字、下划线 |
 | `type` | 是 | 模板 `_field_types.toml` 中的类型，见下文 |
 | `is_pk` | 否 | 是否主键（默认 `false`） |
-| `nullable` | 否 | 是否可空 |
+| `required` | 否 | 是否必填（默认 `false`） |
 | `comment` | 否 | 注释/文案 |
 | `length` | 否 | 长度（建表等） |
 | `unique` | 否 | 唯一约束 |

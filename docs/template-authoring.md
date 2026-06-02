@@ -187,7 +187,7 @@ Each item in `fields` / `sub_fields` exposes these **default** properties in tem
 | `name_kebab` | string | kebab-case |
 | `type` | string | Field type string (matches canonical name in `_field_types.toml`) |
 | `is_pk` | bool | Primary key |
-| `nullable` | bool | Nullable |
+| `required` | bool | Required (`false` by default) |
 | `comment` | string | Comment/label; `""` when omitted |
 | `length` | number \| null | Length; `null` when omitted |
 | `unique` | bool | Unique constraint; `false` when omitted |
@@ -204,7 +204,7 @@ Example:
 {{/each}}
 ```
 
-With the `--fields` DSL, usually only `name`, `type`, `is_pk`, and `nullable` are populated; `comment` is `""`, `length` / `default` are `null`, and `unique` is `false`. For full metadata (comments, length, uniqueness, etc.), supply field details in the gen input.
+With the `--fields` DSL, usually only `name`, `type`, and `is_pk` are populated, while `required` defaults to `false`; `comment` is `""`, `length` / `default` are `null`, and `unique` is `false`. For full metadata (comments, length, uniqueness, etc.), supply field details in the gen input.
 
 ### Extended field properties
 

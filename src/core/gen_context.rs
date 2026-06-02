@@ -52,7 +52,7 @@ pub trait AsContextField {
     fn name(&self) -> &str;
     fn ty(&self) -> &str;
     fn is_pk(&self) -> bool;
-    fn nullable(&self) -> bool;
+    fn required(&self) -> bool;
     fn comment(&self) -> &str;
     fn length(&self) -> Option<u32>;
     fn unique(&self) -> bool;
@@ -70,8 +70,8 @@ impl AsContextField for Field {
     fn is_pk(&self) -> bool {
         self.is_pk
     }
-    fn nullable(&self) -> bool {
-        self.nullable
+    fn required(&self) -> bool {
+        false
     }
     fn comment(&self) -> &str {
         ""
@@ -100,8 +100,14 @@ impl AsContextField for super::gen_input::FieldSpec {
     fn is_pk(&self) -> bool {
         self.is_pk
     }
-    fn nullable(&self) -> bool {
-        self.nullable
+    fn required(&self) -> bool {
+        if self.required {
+            return true;
+        }
+        self.extra
+            .get("required")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
     }
     fn comment(&self) -> &str {
         &self.comment
@@ -371,7 +377,7 @@ fn field_to_json(field: &dyn AsContextField) -> Value {
     );
     m.insert("type".into(), Value::String(field.ty().to_string()));
     m.insert("is_pk".into(), Value::Bool(field.is_pk()));
-    m.insert("nullable".into(), Value::Bool(field.nullable()));
+    m.insert("required".into(), Value::Bool(field.required()));
     m.insert("comment".into(), Value::String(field.comment().to_string()));
     m.insert(
         "length".into(),

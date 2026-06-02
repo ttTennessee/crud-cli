@@ -194,7 +194,7 @@ filename: "{{model_pascal}}Service.java"
   `table_comment` 或省略为空串）、`{{package}}`、`{{package_path}}`（点替换为斜杠）
 - `{{fields}}` —— 用 `{{#each fields}}` 遍历；每一项暴露 `name`、
   `name_pascal`、`name_snake`、`name_camel`、`name_kebab`、`type`、
-  `is_pk`、`nullable`、`comment`、`length`、`unique`、`default`。后四项
+  `is_pk`、`required`、`comment`、`length`、`unique`、`default`。后四项
   来自 JSON `--file`（见下文 FieldSpec）；`--fields` DSL 不带这些元数据，
   此时 `comment` 为空串、`length`/`default` 为 `null`、`unique` 为 `false`。
   用 DDL 模板生成建表语句时正好用到 `comment`/`length`/`unique`。
@@ -250,7 +250,7 @@ crud-cli gen User --fields "..." --package ... --table ... \
 编写 JSON 的完整说明见 [docs/zh-CN/json-entity-input.md](docs/zh-CN/json-entity-input.md)（英文：[docs/json-entity-input.md](docs/json-entity-input.md)）。
 
 需要更丰富的字段元数据时用 `--file`。每个字段（FieldSpec）支持 `name`、
-`type`、`is_pk`、`nullable`、`length`、`unique`、`default`、`comment`，以及
+`type`、`is_pk`、`required`、`length`、`unique`、`default`、`comment`，以及
 自由形式的 `extra`；这些都会进入 `{{#each fields}}` 上下文。
 
 ```json

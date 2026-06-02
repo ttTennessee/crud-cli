@@ -205,7 +205,7 @@ Always available in templates:
   `{{package_path}}` (dots → slashes)
 - `{{fields}}` — iterate with `{{#each fields}}`; each item exposes `name`,
   `name_pascal`, `name_snake`, `name_camel`, `name_kebab`, `type`, `is_pk`,
-  `nullable`, `comment`, `length`, `unique`, `default`. The last four come from
+  `required`, `comment`, `length`, `unique`, `default`. The last four come from
   the JSON `--file` FieldSpec (see below); the `--fields` DSL omits this
   metadata, so `comment` is empty, `length`/`default` are `null`, and `unique`
   is `false`. A DDL template emitting `CREATE TABLE` consumes exactly these.
@@ -258,7 +258,7 @@ The `description` field is the contract agents read to understand what to fill.
 Authoring guide: [docs/json-entity-input.md](docs/json-entity-input.md) ([zh-CN](docs/zh-CN/json-entity-input.md)).
 
 For rich field metadata, use `--file`. Each field (FieldSpec) accepts `name`,
-`type`, `is_pk`, `nullable`, `length`, `unique`, `default`, `comment`, and a
+`type`, `is_pk`, `required`, `length`, `unique`, `default`, `comment`, and a
 free-form `extra` map; all of them surface in the `{{#each fields}}` context.
 
 ```json

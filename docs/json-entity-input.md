@@ -71,7 +71,7 @@ Master–detail is only supported with `--file`, not with `--fields`.
 | `name` | yes | Column name: starts with a letter; only letters, digits, `_` |
 | `type` | yes | Type from the template’s `_field_types.toml` (see below) |
 | `is_pk` | no | Primary key (default `false`) |
-| `nullable` | no | Nullable |
+| `required` | no | Required (`false` by default) |
 | `comment` | no | Label / comment |
 | `length` | no | Length (DDL, etc.) |
 | `unique` | no | Unique |

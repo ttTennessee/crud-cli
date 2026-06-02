@@ -78,12 +78,15 @@ fn table_header() -> &'static str {
     "| 字段名 | 列名 | 类型 | 主键 | 必填 | 长度 | 注释 | 标记 |\n|---|---|---|---|---|---|---|---|\n"
 }
 
-/// `required` reflects the form-level flag when present, else DB nullability.
+/// `required` defaults to false when absent.
 fn required_flag(spec: &FieldSpec) -> bool {
+    if spec.required {
+        return true;
+    }
     if let Some(Value::Bool(b)) = spec.extra.get("required") {
         return *b;
     }
-    !spec.nullable
+    false
 }
 
 /// Collects boolean-true `extra` keys as display tags (excluding `required`).

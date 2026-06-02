@@ -56,6 +56,8 @@ pub struct FieldSpec {
     #[serde(default)]
     pub nullable: bool,
     #[serde(default)]
+    pub required: bool,
+    #[serde(default)]
     pub length: Option<u32>,
     #[serde(default)]
     pub unique: bool,
@@ -117,7 +119,7 @@ pub struct JsonLoadResult {
 }
 
 const FIELD_SPEC_KEYS: &[&str] = &[
-    "name", "type", "is_pk", "nullable", "length", "unique", "default", "comment", "extra",
+    "name", "type", "is_pk", "required", "length", "unique", "default", "comment", "extra",
 ];
 
 /**
