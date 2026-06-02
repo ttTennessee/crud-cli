@@ -35,6 +35,9 @@ pub enum Commands {
     Validate(ValidateArgs),
     /// Manage installed templates under `~/.crud/templates/`.
     Template(TemplateArgs),
+    /// Start the Model Context Protocol server on stdio (for Cursor / MCP clients).
+    #[cfg(feature = "mcp")]
+    Mcp,
 }
 
 /// `crud-cli setup` flags. Default scope = user; `--project` switches target.

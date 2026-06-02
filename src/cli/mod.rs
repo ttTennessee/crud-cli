@@ -17,6 +17,8 @@ pub use args::{
     TemplateArgs, TemplateCommand, ValidateArgs,
 };
 pub use commands::{run_gen, run_setup, run_template, run_validate};
+#[cfg(feature = "mcp")]
+pub use commands::run_mcp;
 pub use output::{emit_failure, emit_success, panic_hook_handler};
 pub use setup_wizard::{
     ensure_language_preference, prompt_language, run_project_wizard, run_user_wizard,

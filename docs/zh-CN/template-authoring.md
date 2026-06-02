@@ -46,7 +46,7 @@ crud-cli gen User --fields "id:Long,name:String" --package com.acme.demo --table
 | `<bundle>/type_map.toml` | 可选；配合 `ty_map` helper 做类型映射 |
 | `.crudignore` | 排除不参与生成的模板 |
 
-路径前缀（如 `java/`、`vue/`、`resources/`）通过 `.crud/setup.toml` 的 `[paths.lang]` / `[paths.aux]` 映射到宿主项目目录，详见 [README.zh.md](../../README.zh.md#路径系统)。
+路径前缀（如 `java/`、`vue/`、`resources/`、`ddl/`、`sql/`）通过 `.crud/setup.toml` 的 `[paths.lang]` / `[paths.aux]` 映射到宿主项目目录。建表 DDL 建议放在 `ddl/`（便于 `--type ddl` / MCP `preview` 单独预览）；菜单或数据类 SQL 放在 `sql/`；两者可映射到同一物理目录。详见 [README.zh.md](../../README.zh.md#路径系统)。
 
 ---
 
