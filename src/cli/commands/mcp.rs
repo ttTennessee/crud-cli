@@ -28,14 +28,14 @@ pub fn run_mcp(args: McpArgs) -> i32 {
     let explicit = match resolve_explicit_path(args.path.as_deref()) {
         Ok(p) => p,
         Err(e) => {
-            eprintln!("crud-cli mcp: {e}");
+            tracing::error!("crud-cli mcp: {e}");
             return 1;
         }
     };
     match crate::mcp::run_stdio_server_blocking(explicit) {
         Ok(()) => 0,
         Err(e) => {
-            eprintln!("crud-cli mcp: {e}");
+            tracing::error!("crud-cli mcp: {e}");
             1
         }
     }

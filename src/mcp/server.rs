@@ -119,21 +119,14 @@ impl CrudMcpServer {
                         return file_uri_to_path(&roots.roots[0].uri);
                     }
                     Ok(Ok(_)) => {
-                        eprintln!(
-                            "[crud-cli MCP] Client returned no workspace roots; \
-                             falling back to process cwd."
-                        );
+                        tracing::warn!("roots/list returned no roots; falling back to process cwd.");
                     }
                     Ok(Err(e)) => {
-                        eprintln!(
-                            "[crud-cli MCP] roots/list failed ({}); falling back to process cwd.",
-                            e
-                        );
+                        tracing::warn!("roots/list failed ({e}); falling back to process cwd.");
                     }
                     Err(_) => {
-                        eprintln!(
-                            "[crud-cli MCP] roots/list timed out after {}s; \
-                             falling back to process cwd.",
+                        tracing::warn!(
+                            "roots/list timed out after {}s; falling back to process cwd.",
                             ROOTS_LIST_TIMEOUT.as_secs()
                         );
                     }
