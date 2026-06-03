@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "CRUD CLI — setup and codegen for CRUD projects"
 license = "MIT"
+repository = "https://github.com/ttTennessee/crud-cli"
 
 [lib]
 name = "crud_cli"
@@ -220,3 +221,8 @@ required-features = ["mcp"]
 unwrap_used = "deny"
 expect_used = "deny"
 panic = "deny"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
