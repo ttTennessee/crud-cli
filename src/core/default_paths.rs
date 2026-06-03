@@ -10,6 +10,8 @@ use super::config::{Backend, Frontend, PathsSection};
 pub fn paths_for_selections(backend: &Backend, frontend: &Frontend) -> PathsSection {
     let mut paths = PathsSection::default();
     paths.aux.insert("sql".into(), "sql".into());
+    // DDL templates use the `ddl/` prefix but land in the same dir as data SQL.
+    paths.aux.insert("ddl".into(), "sql".into());
     match backend {
         Backend::Java => {
             paths.lang.insert("java".into(), "src/main/java".into());

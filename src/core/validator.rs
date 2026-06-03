@@ -105,7 +105,7 @@ const FIELD_EACH_EXTRA: &[&str] = &[
     "name_kebab",
     "type",
     "is_pk",
-    "nullable",
+    "required",
     "comment",
     "length",
     "unique",

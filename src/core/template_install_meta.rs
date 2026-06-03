@@ -21,11 +21,11 @@ use sha2::{Digest, Sha256};
 /// Filename of the sidecar under `<name>/<version>/`.
 pub const INSTALL_META_FILENAME: &str = ".install.json";
 
-/// Top-level directory names that hold layered "pick-one" bundles (doc, sql),
+/// Top-level directory names that hold layered "pick-one" bundles (doc, ddl, sql),
 /// excluded from the template hash so layering a shared bundle after install
 /// does not flip the modification flag. Keep in sync with
 /// `template_installer::SHARED_BUNDLE_KINDS`.
-const SHARED_BUNDLE_DIRNAMES: &[&str] = &["doc", "sql"];
+const SHARED_BUNDLE_DIRNAMES: &[&str] = &["doc", "ddl", "sql"];
 
 /// Persisted install metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,9 +45,13 @@ pub struct InstallMeta {
     /// entry since the doc picker is single-select.
     #[serde(default)]
     pub doc_categories: Vec<String>,
-    /// SQL category layered on top of the template at install time
-    /// (a subdirectory of the repo-level `sql/`, e.g. `mysql`). Same semantics
-    /// and single-entry shape as [`Self::doc_categories`].
+    /// DDL category layered at install time (subdirectory of repo-level `ddl/`,
+    /// e.g. `mysql` for `schema.sql.hbs`). Same semantics as [`Self::doc_categories`].
+    #[serde(default)]
+    pub ddl_categories: Vec<String>,
+    /// SQL category layered at install time (repo-level `sql/` when used for
+    /// shared data SQL bundles). Per-template `sql/` (e.g. menu) ships with the
+    /// template and does not use this field.
     #[serde(default)]
     pub sql_categories: Vec<String>,
 }
@@ -70,7 +74,7 @@ pub fn write_install_meta(version_dir: &Path, meta: &InstallMeta) -> io::Result<
 }
 
 /// Updates `<version>/.install.json`'s layered-category field for `kind`
-/// (`"sql"` writes `sql_categories`; anything else writes `doc_categories`)
+/// (`"ddl"` → `ddl_categories`, `"sql"` → `sql_categories`, else `doc_categories`)
 /// in place. Fails when no sidecar exists yet; only the bundle-copy step calls
 /// this.
 pub fn record_bundle_categories(
@@ -82,6 +86,7 @@ pub fn record_bundle_categories(
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no .install.json"))?;
     match kind {
         "sql" => meta.sql_categories = categories.to_vec(),
+        "ddl" => meta.ddl_categories = categories.to_vec(),
         _ => meta.doc_categories = categories.to_vec(),
     }
     write_install_meta(version_dir, &meta)
@@ -246,13 +251,14 @@ mod tests {
             repo_ref: "HEAD".into(),
             installed_at: "2026-05-29T00:00:00Z".into(),
             doc_categories: vec!["markdown".into()],
-            sql_categories: vec!["mysql".into()],
+            ddl_categories: vec!["mysql".into()],
+            sql_categories: Vec::new(),
         };
         write_install_meta(tmp.path(), &meta).expect("write");
         let back = load_install_meta(tmp.path()).expect("load");
         assert_eq!(back.source_hash, "abc");
         assert_eq!(back.doc_categories, vec!["markdown".to_string()]);
-        assert_eq!(back.sql_categories, vec!["mysql".to_string()]);
+        assert_eq!(back.ddl_categories, vec!["mysql".to_string()]);
     }
 
     #[test]
@@ -264,13 +270,16 @@ mod tests {
             repo_ref: "HEAD".into(),
             installed_at: "2026-05-29T00:00:00Z".into(),
             doc_categories: Vec::new(),
+            ddl_categories: Vec::new(),
             sql_categories: Vec::new(),
         };
         write_install_meta(tmp.path(), &meta).expect("write");
         record_bundle_categories(tmp.path(), "doc", &["html".into()]).expect("doc");
+        record_bundle_categories(tmp.path(), "ddl", &["mysql".into()]).expect("ddl");
         record_bundle_categories(tmp.path(), "sql", &["postgres".into()]).expect("sql");
         let back = load_install_meta(tmp.path()).expect("load");
         assert_eq!(back.doc_categories, vec!["html".to_string()]);
+        assert_eq!(back.ddl_categories, vec!["mysql".to_string()]);
         assert_eq!(back.sql_categories, vec!["postgres".to_string()]);
     }
 

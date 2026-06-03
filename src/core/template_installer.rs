@@ -37,11 +37,13 @@ pub const SHARED_DOC_DIR: &str = "doc";
 
 /// Top-level repo directories holding shared "pick-one" bundles that can be
 /// layered onto a template at install time. Each is organised as
-/// `<kind>/<category>/*.hbs` (e.g. `doc/html/…`, `sql/mysql/…`). A template
+/// `<kind>/<category>/*.hbs` (e.g. `doc/html/…`, `ddl/mysql/…`). A template
 /// that ships its own `<kind>/` overrides the shared bundle for that kind, and
 /// these names never appear as template names in [`RepoSnapshot::catalog`].
 /// Keep in sync with `template_install_meta::SHARED_BUNDLE_DIRNAMES`.
-pub const SHARED_BUNDLE_KINDS: &[&str] = &["doc", "sql"];
+///
+/// `ddl` holds shared DDL (CREATE TABLE); per-template `sql/` is for data/menu SQL.
+pub const SHARED_BUNDLE_KINDS: &[&str] = &["doc", "ddl", "sql"];
 
 /// Git ref used when callers don't specify one (codeload accepts `HEAD`).
 pub const DEFAULT_GIT_REF: &str = "HEAD";
@@ -229,9 +231,13 @@ impl RepoSnapshot {
     }
 
     /// Copies one subdirectory of the snapshot's shared `<kind>/` into
-    /// `<dest_version_dir>/<kind>/<category>/`. The bundle picker is
-    /// single-select, so exactly one category is layered per kind. An existing
-    /// destination dir for that category is replaced.
+    /// `<dest_version_dir>/<kind>/` (flattened).
+    ///
+    /// The bundle picker is single-select, so exactly one category is layered
+    /// per kind. We intentionally flatten `<kind>/<category>/...` from the
+    /// template repo into `<kind>/...` in the installed template, so render-time
+    /// bundle resolution can keep treating `<kind>` as the bundle root.
+    /// Existing destination `<kind>/` is replaced.
     pub fn copy_shared_category(
         &self,
         dest_version_dir: &Path,
@@ -247,7 +253,7 @@ impl RepoSnapshot {
                 "",
             ));
         }
-        let dst = dest_version_dir.join(kind).join(category);
+        let dst = dest_version_dir.join(kind);
         if let Some(parent) = dst.parent() {
             fs::create_dir_all(parent)
                 .map_err(|e| io_error(format!("create {}", parent.display()), e))?;
@@ -269,7 +275,7 @@ impl RepoSnapshot {
 ///
 /// Writes `<dest>/.install.json` with the source hash + repo provenance so
 /// `template install`'s next-run picker can label the version. Shared bundle
-/// layering (doc, sql) is handled separately by the caller via
+/// layering (doc, ddl, sql) is handled separately by the caller via
 /// [`RepoSnapshot::copy_shared_category`].
 pub fn install_from_snapshot(
     snapshot: &RepoSnapshot,
@@ -337,6 +343,7 @@ pub fn install_from_snapshot(
         repo_ref: snapshot.spec.git_ref.clone(),
         installed_at: now_rfc3339(),
         doc_categories: Vec::new(),
+        ddl_categories: Vec::new(),
         sql_categories: Vec::new(),
     };
     write_install_meta(&dest_dir, &meta)
@@ -648,6 +655,7 @@ mod tests {
         fs::write(root.join("doc").join("markdown").join("a.hbs"), "a").expect("write");
         fs::create_dir_all(root.join("sql").join("mysql")).expect("mkdir");
         fs::create_dir_all(root.join("sql").join("postgres")).expect("mkdir");
+        fs::create_dir_all(root.join("ddl").join("mysql")).expect("mkdir");
 
         let snap = snapshot_from(root);
         assert_eq!(
@@ -657,6 +665,10 @@ mod tests {
         assert_eq!(
             snap.shared_categories("sql"),
             vec!["mysql".to_string(), "postgres".to_string()]
+        );
+        assert_eq!(
+            snap.shared_categories("ddl"),
+            vec!["mysql".to_string()]
         );
         assert!(snap.shared_categories("missing").is_empty());
     }
@@ -670,12 +682,54 @@ mod tests {
             "backend = \"java\"\nfrontend = \"vue\"\n",
         );
         fs::create_dir_all(root.join("sql").join("mysql")).expect("mkdir");
-        fs::write(root.join("sql").join("mysql").join("schema.sql.hbs"), "x").expect("write");
+        fs::write(root.join("sql").join("mysql").join("menu.sql.hbs"), "x").expect("write");
 
         let snap = snapshot_from(root);
         let cat = snap.catalog();
         assert!(cat.contains_key("ruoyi"));
         assert!(!cat.contains_key("sql"));
+    }
+
+    #[test]
+    fn catalog_filters_ddl_bundle_dir() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let root = tmp.path().to_path_buf();
+        write_manifest(
+            &root.join("ruoyi").join("1.0.0"),
+            "backend = \"java\"\nfrontend = \"vue\"\n",
+        );
+        fs::create_dir_all(root.join("ddl").join("mysql")).expect("mkdir");
+        fs::write(root.join("ddl").join("mysql").join("schema.sql.hbs"), "x").expect("write");
+
+        let snap = snapshot_from(root);
+        let cat = snap.catalog();
+        assert!(cat.contains_key("ruoyi"));
+        assert!(!cat.contains_key("ddl"));
+    }
+
+    #[test]
+    fn copy_shared_ddl_lands_under_ddl_prefix() {
+        let tmp = tempfile::tempdir().expect("tmp");
+        let root = tmp.path().join("repo");
+        write_manifest(
+            &root.join("ruoyi").join("1.0.0"),
+            "backend = \"java\"\nfrontend = \"vue\"\n",
+        );
+        fs::create_dir_all(root.join("ddl").join("mysql")).expect("mkdir");
+        fs::write(
+            root.join("ddl").join("mysql").join("schema.sql.hbs"),
+            "ddl",
+        )
+        .expect("write");
+
+        let snap = snapshot_from(root);
+        let dest = tmp.path().join("home");
+        let installed =
+            install_from_snapshot(&snap, "ruoyi", None, &dest, false).expect("install");
+
+        snap.copy_shared_category(&installed.path, "ddl", "mysql")
+            .expect("copy");
+        assert!(installed.path.join("ddl").join("schema.sql.hbs").is_file());
     }
 
     #[test]
@@ -698,8 +752,8 @@ mod tests {
 
         snap.copy_shared_category(&installed.path, "sql", "mysql")
             .expect("copy");
-        assert!(installed.path.join("sql").join("mysql").join("a.sql.hbs").is_file());
-        assert!(!installed.path.join("sql").join("postgres").exists());
+        assert!(installed.path.join("sql").join("a.sql.hbs").is_file());
+        assert!(!installed.path.join("sql").join("b.sql.hbs").exists());
     }
 
     #[test]

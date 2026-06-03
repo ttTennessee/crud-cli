@@ -40,15 +40,15 @@ fn json_unknown_field_did_you_mean() {
   "name": "User",
   "table": "u",
   "package": "com.x",
-  "fields": [{{ "name": "id", "type": "Long", "nulable": true }}]
+  "fields": [{{ "name": "id", "type": "Long", "requried": true }}]
 }}"#
     )
     .unwrap();
     let err = load_gen_input_from_json(f.path(), GenCliOverrides::default()).expect_err("err");
     assert_reason(&err, "unknown_field");
     assert!(
-        err.hint.contains("nullable"),
-        "hint should suggest nullable, got: {}",
+        err.hint.contains("required"),
+        "hint should suggest required, got: {}",
         err.hint
     );
 }

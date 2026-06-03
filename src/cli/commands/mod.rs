@@ -8,6 +8,8 @@ pub mod setup;
 pub mod template;
 #[cfg(feature = "cli")]
 pub mod validate;
+#[cfg(feature = "mcp")]
+pub mod mcp;
 
 #[cfg(feature = "cli")]
 pub use gen::run_gen;
@@ -17,3 +19,5 @@ pub use setup::run_setup;
 pub use template::run_template;
 #[cfg(feature = "cli")]
 pub use validate::run_validate;
+#[cfg(feature = "mcp")]
+pub use mcp::run_mcp;

@@ -2,19 +2,9 @@
 
 > **Other languages:** [English](../json-entity-input.md)
 
-如何编写供 `crud-cli gen --file <path>.json` 使用的实体 JSON。
+供 MCP `crud_preview` / `crud_generate` 工具使用的 `entity.json`（CLI `--file` 同样接受）。
 
 Schema 使用 `deny_unknown_fields`：每一层只能使用下文列出的属性。
-
----
-
-## 快速开始
-
-```bash
-crud-cli gen --file entity.json
-crud-cli gen --file entity.json --name User --package com.acme.app --table sys_user \
-  --table-comment "系统用户" --var has_import=true
-```
 
 最小示例：
 
@@ -30,8 +20,6 @@ crud-cli gen --file entity.json --name User --package com.acme.app --table sys_u
 }
 ```
 
-若模板包使用 `generateWhen` / `skipWhen`，请先执行 `crud-cli validate` 再 `gen`。
-
 ---
 
 ## 顶层对象
@@ -46,11 +34,11 @@ crud-cli gen --file entity.json --name User --package com.acme.app --table sys_u
 | `sub` | 否 | 主子表对象，见下文 |
 | `variables` | 否 | 模板 `_variables.toml` 中已声明的变量取值 |
 
-**不要**添加未列出的顶层键。**不要**在 JSON 里写 `is_sub`；需要主子表时提供 `sub` 即可。
-
----
+**不要**添加未列出的顶层键。**不要**写 `is_sub`；需要主子表时提供 `sub`（`--fields` 无法表达 `sub`）。
 
 ## `sub` 对象（主子表）
+
+结构与顶层一致，额外多一个外键：
 
 | 属性 | 必填 | 说明 |
 |------|------|------|
@@ -60,91 +48,35 @@ crud-cli gen --file entity.json --name User --package com.acme.app --table sys_u
 | `fields` | 是 | 字段对象数组（与主表 `fields` 结构相同） |
 | `table_comment` | 否 | 子表业务说明 |
 
-主子表仅支持 `--file`，不支持 `--fields` DSL。
-
----
-
 ## 字段对象（`fields` / `sub.fields`）
 
 | 属性 | 必填 | 说明 |
 |------|------|------|
-| `name` | 是 | 列名：字母开头，仅含字母、数字、下划线 |
-| `type` | 是 | 模板 `_field_types.toml` 中的类型，见下文 |
-| `is_pk` | 否 | 是否主键（默认 `false`） |
-| `nullable` | 否 | 是否可空 |
+| `name` | 是 | 列名：字母开头，仅含字母、数字、下划线；不能是保留名（`model`、`table`、`table_comment`、`package`、`package_path`、`fields`） |
+| `type` | 是 | 当前模板 `_field_types.toml`（资源 `crud://templates/field-types`）中的 canonical 名或 alias |
+| `is_pk` | 否 | 是否主键（默认 `false`；主表恰设一个） |
+| `required` | 否 | 是否必填（默认 `false`） |
 | `comment` | 否 | 注释/文案 |
 | `length` | 否 | 长度（建表等） |
 | `unique` | 否 | 唯一约束 |
 | `default` | 否 | 默认值（任意 JSON 值） |
 | `extra` | 否 | 模板约定的扩展属性，见下文 |
 
-**保留的 `name`：** 下列名称不能作为列名（否则校验失败）：  
-`model`、`table`、`table_comment`、`package`、`package_path`、`fields` 等工具保留名。
-
-主表建议恰有一个字段设置 `"is_pk": true`，以便正确识别主键。
-
----
-
 ## `variables` 对象
 
-模板在所用模板包内的 `_variables.toml` 中声明需要哪些开关；JSON 里只能填写其中出现的键。
+模板在 `_variables.toml`（资源 `crud://templates/variables`）中声明的顶层开关；只能填写其中出现的键，未声明的键会报错。允许的类型（`bool` | `string` | `number`）与默认值见该文件。
 
 ```json
-"variables": {
-  "module_name": "system",
-  "function_name": "用户管理",
-  "has_import": true
-}
+"variables": { "module_name": "system", "has_import": true }
 ```
 
-- 打开 `_variables.toml` 查看允许的键、类型（`bool` | `string` | `number`）和默认值。
-- **优先级：** `--var` > JSON `variables` > schema 默认值。
-- 未声明的键会报错。
+## `extra` 对象
 
----
-
-## 字段 `type`
-
-`type` 必须是当前模板目录下 `_field_types.toml` 中的 canonical 名或 alias：
-
-| 项目配置 | 模板目录 |
-|----------|----------|
-| `.crud/setup.toml` 中 `[project] template = "name@version"` | `~/.crud/templates/<name>/<version>/` |
-| 未固定 template | 项目内 `.crud/templates/` |
-
----
-
-## 字段 `extra`
-
-仅当所用模板文档约定了 `extra` 键时才需要填写（如 RuoYi）。常见示例：
-
-| 键 | 类型 | 说明 |
-|----|------|------|
-| `query` | bool | 参与查询 |
-| `query_like` | bool | LIKE 查询 |
-| `query_between` | bool | 范围查询 |
-| `list` | bool | 列表/导出列 |
-| `insert` | bool | 新增/编辑表单 |
-| `required` | bool | 必填 |
-| `is_super` | bool | 基类已有字段 |
-| `auto_increment` | bool | 自增主键 |
-| `dict_type` | string | 字典类型 |
-| `read_converter_exp` | string | Excel 转换 |
-| `is_datetime`、`is_textarea` 等 | bool | 控件类型 |
-| `ts_type` | string | TS 类型覆盖 |
+字段级扩展标志，仅当模板文档约定时才有意义（如 RuoYi：`query`、`list`、`insert`、`dict_type`、`ts_type` 等）。模板未使用的键会被透传，可能被忽略。
 
 ```json
-{
-  "name": "status",
-  "type": "int",
-  "comment": "状态",
-  "extra": { "query": true, "list": true, "dict_type": "sys_normal_disable" }
-}
+{ "name": "status", "type": "int", "extra": { "query": true, "dict_type": "sys_normal_disable" } }
 ```
-
-只使用模板文档中列出的 `extra` 键；未使用的键可能被忽略。
-
----
 
 ## 主子表示例
 
@@ -153,41 +85,21 @@ crud-cli gen --file entity.json --name User --package com.acme.app --table sys_u
   "name": "Order",
   "table": "biz_order",
   "package": "com.acme.demo",
-  "table_comment": "订单",
   "fields": [
     { "name": "order_id", "type": "Long", "is_pk": true, "comment": "订单主键" }
   ],
   "sub": {
     "name": "OrderItem",
     "table": "biz_order_item",
-    "table_comment": "订单明细",
     "fk_field": "order_id",
     "fields": [
       { "name": "item_id", "type": "Long", "is_pk": true, "comment": "明细主键" },
       { "name": "order_id", "type": "Long", "comment": "订单外键" }
     ]
   },
-  "variables": {
-    "module_name": "business",
-    "function_name": "订单管理",
-    "permission_prefix": "business:order"
-  }
+  "variables": { "module_name": "business", "permission_prefix": "business:order" }
 }
 ```
-
----
-
-## 命令行覆盖
-
-| 参数 | 覆盖项 |
-|------|--------|
-| `--name` | `name` |
-| `--package` | `package` |
-| `--table` | `table` |
-| `--table-comment` | `table_comment` |
-| `--var key=value` | `variables[key]` |
-
-`fields`、`sub` 及字段明细**只能**写在 JSON 中。
 
 ---
 
@@ -197,14 +109,11 @@ crud-cli gen --file entity.json --name User --package com.acme.app --table sys_u
 |------|------|
 | `unknown field` | 属性名拼错，或该层级不允许此键 |
 | `unsupported`（字段类型） | `type` 不在 `_field_types.toml` 中 |
-| `undeclared variable` | `variables` / `--var` 的键未在 `_variables.toml` 声明 |
-| `reserved_field_name` | 列名 `name` 与保留名冲突 |
-| `variable shadows built-in` | `variables` 使用了工具保留名 — 仅使用 `_variables.toml` 中的键 |
-| 文件被跳过且无报错 | 运行 `validate`；模板条件引用了未提供的变量 |
-
----
+| `undeclared variable` | `variables` 的键未在 `_variables.toml` 声明 |
+| `reserved_field_name` | 列名与保留名冲突 |
+| `variable shadows built-in` | `variables` 使用了工具保留名 |
 
 ## 延伸阅读
 
-- [README.zh.md](../../README.zh.md) — CLI 与模板说明（面向模板作者）
-- [文档索引](../README.md)
+- [MCP Server](mcp-server.md) — `crud_preview` / `crud_generate` 工具与 `crud://` 资源
+- [文档索引](README.md)
