@@ -215,3 +215,8 @@ path = "tests/ddl_type_filter_tests.rs"
 name = "mcp_validate_tests"
 path = "tests/mcp_validate_tests.rs"
 required-features = ["mcp"]
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
