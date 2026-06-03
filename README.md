@@ -4,13 +4,39 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 A Rust CLI that pairs with AI coding agents (Claude Code, Cline, Copilot, …)
-to generate admin/CRUD scaffolding **without** burning the agent's tokens on
-template boilerplate.
+to generate admin/CRUD scaffolding.
 
-The agent emits a short command plus structured data; `crud-cli` renders the
-templates locally. In practice this drops per-CRUD token cost from ~2000+ to
-~50 — roughly a 40× reduction — while keeping output byte-identical to your
+The dominant cost of an AI agent is **output tokens** — every time an agent
+writes out full template files, you pay in tokens and wait time. `crud-cli`
+keeps templates local: the agent emits a short command plus structured data,
+and the CLI renders everything on your machine. This sharply cuts output cost
+and speeds up generation, while keeping results byte-identical to your
 project's house style.
+
+## Token cost reference
+
+The table below uses [tiktoken](https://github.com/openai/tiktoken) to give a rough sense of scale,
+comparing the token count of code produced by `crud-cli gen` (native) against the structured
+command needed to trigger it (json).
+Data comes from `_example_sub.json` and `_example_tree.json` in the
+[crud-templates](https://github.com/ttTennessee/crud-templates) repository.
+
+| Scenario | Generated code | Input command | Difference |
+|----------|--------------|--------------|------------|
+| Master-detail (sub) | 18,325 | 1,151 | ~94% |
+| Tree structure | 18,166 | 689 | ~96% |
+
+> **Note:** These numbers show the size difference between generated output and the input command —
+> not the actual token savings. Real usage also includes system prompt, conversation context, and
+> MCP tool call overhead. Treat these as rough order-of-magnitude figures only.
+
+**Is this a good fit?**
+
+- If your project is mostly **standard CRUD pages** (list, form, detail,
+  import/export), this tool pays off well — repetitive template code is exactly
+  where agents waste the most tokens.
+- If your business logic is complex and each table needs heavy custom code,
+  template reuse is low and the benefit may not justify adopting this tool.
 
 [中文文档](./README.zh.md)
 
@@ -44,7 +70,31 @@ Implemented:
 - `crud-cli template use <name>[@version]` — point the project's
   `[project].template` at an installed bundle (syncs backend/frontend).
 
+## Default template repository
+
+[crud-templates](https://github.com/ttTennessee/crud-templates) is the companion template repository,
+providing ready-to-use Java + Vue CRUD templates installable via `crud-cli template install`.
+
 ## Install
+
+### Prebuilt binaries (recommended)
+
+Download the archive for your platform from [Releases](https://github.com/ttTennessee/crud-cli/releases),
+extract it, and place `crud-cli` (or `crud-cli.exe` on Windows) anywhere on your PATH.
+
+Or use the one-line installer:
+
+```bash
+# Linux / macOS
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/ttTennessee/crud-cli/releases/latest/download/crud-cli-installer.sh | sh
+```
+
+```powershell
+# Windows (PowerShell)
+irm https://github.com/ttTennessee/crud-cli/releases/latest/download/crud-cli-installer.ps1 | iex
+```
+
+### Build from source
 
 Requires Rust ≥ 1.75.
 
@@ -54,8 +104,6 @@ cd crud-cli
 cargo build --release
 # binary at ./target/release/crud-cli
 ```
-
-A `cargo install` / prebuilt-binary path will land with the v0.1 release.
 
 ## Quick start
 
