@@ -69,7 +69,7 @@ pub fn load_install_meta(version_dir: &Path) -> Option<InstallMeta> {
 pub fn write_install_meta(version_dir: &Path, meta: &InstallMeta) -> io::Result<()> {
     let path = version_dir.join(INSTALL_META_FILENAME);
     let body = serde_json::to_string_pretty(meta)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        .map_err(io::Error::other)?;
     fs::write(path, body)
 }
 

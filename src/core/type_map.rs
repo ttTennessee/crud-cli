@@ -17,8 +17,10 @@ pub const TYPE_MAP_FILE_NAME: &str = "type_map.toml";
 
 /// Global fallback policy when a type lookup misses.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Default)]
 pub enum Fallback {
     /// Output the source type string unchanged (default; backward compatible).
+    #[default]
     Passthrough,
     /// Treat unknown type as a user error and abort render.
     Error,
@@ -26,11 +28,6 @@ pub enum Fallback {
     Literal(String),
 }
 
-impl Default for Fallback {
-    fn default() -> Self {
-        Self::Passthrough
-    }
-}
 
 impl Serialize for Fallback {
     fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {

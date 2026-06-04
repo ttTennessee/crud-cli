@@ -131,6 +131,7 @@ impl AsContextField for super::gen_input::FieldSpec {
  *
  * Merges `[variables]` from setup at the top level (D-G27).
  */
+#[allow(clippy::too_many_arguments)]
 pub fn build_context(
     name: &str,
     table: &str,

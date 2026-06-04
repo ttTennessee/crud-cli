@@ -180,7 +180,7 @@ fn resolve_name_and_version(
         None => {
             require_interactive("template name")?;
             let names: Vec<String> = catalog.keys().cloned().collect();
-            Select::new(&i18n::t(keys::TEMPLATE_INSTALL_PROMPT_NAME), names)
+            Select::new(i18n::t(keys::TEMPLATE_INSTALL_PROMPT_NAME), names)
                 .prompt()
                 .map_err(prompt_to_user_error)?
         }
@@ -356,7 +356,7 @@ fn pick_bundle_category(
     options.push(none.clone());
     options.extend(cats);
     let prompt = bundle_prompt_key(kind);
-    let picked = Select::new(&i18n::t(prompt), options)
+    let picked = Select::new(i18n::t(prompt), options)
         .prompt()
         .map_err(prompt_to_user_error)?;
     if picked == none {

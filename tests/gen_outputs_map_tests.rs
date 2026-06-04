@@ -115,7 +115,7 @@ fn list_files(root: &std::path::Path) -> Vec<String> {
             let p = entry.path();
             if p.is_file() {
                 out.push(p.display().to_string());
-            } else if p.is_dir() && !p.file_name().is_some_and(|n| n == ".crud") {
+            } else if p.is_dir() && p.file_name().is_none_or(|n| n != ".crud") {
                 for sub in list_files(&p) {
                     out.push(sub);
                 }

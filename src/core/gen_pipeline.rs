@@ -136,8 +136,7 @@ fn rebase_framework_prefix(rel: &str, setup: &SetupConfig) -> Option<String> {
     };
     let base = setup.paths.lookup(head)?;
     Some(match tail {
-        None => base.to_string(),
-        Some(rest) if rest.is_empty() => base.to_string(),
+        None | Some("") => base.to_string(),
         Some(rest) => format!("{base}/{rest}"),
     })
 }
@@ -423,7 +422,7 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
                 &context,
                 &cwd,
                 params.output_dir.as_deref(),
-                &setup,
+                setup,
             )
             .unwrap_or_else(|_| entry.rel_path.clone());
             skipped_by_condition.push(out);
@@ -463,7 +462,7 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
             &context,
             &cwd,
             params.output_dir.as_deref(),
-            &setup,
+            setup,
         )?;
         resolved.push(ResolvedTarget {
             path: out,
@@ -564,7 +563,7 @@ fn condition_skips(meta: &TemplateMeta, context: &Value) -> Result<bool, ErrorEn
         return Ok(!eval_condition_truthy(expr, context)?);
     }
     if let Some(expr) = &meta.skip_when {
-        return Ok(eval_condition_truthy(expr, context)?);
+        return eval_condition_truthy(expr, context);
     }
     Ok(false)
 }
