@@ -48,7 +48,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         if: needs.changes.outputs.code == 'true'
         with:
-          components: clippy
+          components: clippy, rustfmt
 
       - uses: Swatinem/rust-cache@v2
         if: needs.changes.outputs.code == 'true'
@@ -59,6 +59,10 @@ jobs:
         if: needs.changes.outputs.code == 'true'
         with:
           tool: nextest
+
+      - name: Rustfmt check
+        if: needs.changes.outputs.code == 'true'
+        run: cargo fmt --all -- --check
 
       - name: Core lib without CLI deps
         if: needs.changes.outputs.code == 'true'
