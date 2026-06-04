@@ -95,9 +95,13 @@ jobs:
             exit 1
           fi
 
-      - name: Clippy deny policy
+      - name: Clippy (default features)
         if: needs.changes.outputs.code == 'true'
         run: cargo clippy --all-targets
+
+      - name: Clippy (all features — covers mcp module)
+        if: needs.changes.outputs.code == 'true'
+        run: cargo clippy --all-targets --all-features
 
       - name: Clippy core-only
         if: needs.changes.outputs.code == 'true'
