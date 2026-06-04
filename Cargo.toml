@@ -60,6 +60,10 @@ path = "tests/contracts/panic_contract.rs"
 required-features = ["cli"]
 
 [[test]]
+name = "stream_discipline"
+path = "tests/contracts/stream_discipline.rs"
+
+[[test]]
 name = "agent_output_contract"
 path = "tests/contracts/agent_output_contract.rs"
 required-features = ["cli"]
