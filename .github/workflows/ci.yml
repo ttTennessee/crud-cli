@@ -1,30 +1,130 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
-    name: ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+  changes:
+    name: detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - '!(**/*.md|docs/**|LICENSE*|.gitignore)'
+              - '**/*.rs'
+              - '**/*.toml'
+              - '**/*.hbs'
+              - '.github/workflows/**'
+              - 'templates/**'
+              - 'tests/**'
 
+  # Always runs (required status check). On docs-only PRs every heavy step
+  # short-circuits via the `if:` on each step, so the job returns green in seconds.
+  test-ubuntu:
+    name: ubuntu-latest
+    needs: changes
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Docs-only PR — skipping build/test
+        if: needs.changes.outputs.code != 'true'
+        run: echo "No code changes detected; skipping build/test steps."
+
       - uses: dtolnay/rust-toolchain@stable
+        if: needs.changes.outputs.code == 'true'
         with:
           components: clippy
 
       - uses: Swatinem/rust-cache@v2
+        if: needs.changes.outputs.code == 'true'
+        with:
+          shared-key: ubuntu-latest
+
+      - name: Core lib without CLI deps
+        if: needs.changes.outputs.code == 'true'
+        run: cargo check --no-default-features --lib
+
+      - name: CLI --help / --version
+        if: needs.changes.outputs.code == 'true'
+        run: |
+          cargo run --quiet -- --help
+          cargo run --quiet -- --version
+
+      - name: Core-only example
+        if: needs.changes.outputs.code == 'true'
+        run: cargo run --example library_usage --no-default-features
+
+      - name: Contract tests
+        if: needs.changes.outputs.code == 'true'
+        run: >-
+          cargo test -q --
+          handlebars_no_escape_contract
+          panic_contract
+          agent_output_contract
+          agent_output_no_ansi_contract
+          agent_success_stdout_empty
+          gen_file_and_fields_outputs_byte_identical
+          setup_byte_identical
+
+      - name: Full test suite
+        if: needs.changes.outputs.code == 'true'
+        run: cargo test -q
+
+      - name: Stream discipline grep
+        if: needs.changes.outputs.code == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if rg -n '(println!|eprintln!)' src | rg -v 'src/cli/output.rs'; then
+            echo 'println!/eprintln! found outside src/cli/output.rs'
+            exit 1
+          fi
+
+      - name: Clippy (default features)
+        if: needs.changes.outputs.code == 'true'
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Clippy (all features — covers mcp module)
+        if: needs.changes.outputs.code == 'true'
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Clippy core-only
+        if: needs.changes.outputs.code == 'true'
+        run: cargo clippy --no-default-features --lib -- -D warnings
+
+  # Skipped entirely on docs-only PRs.
+  test-other:
+    name: ${{ matrix.os }}
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ matrix.os }}
 
       - name: Core lib without CLI deps
         run: cargo check --no-default-features --lib
@@ -50,18 +150,3 @@ jobs:
 
       - name: Full test suite
         run: cargo test -q
-
-      - name: Stream discipline grep
-        shell: bash
-        run: |
-          set -euo pipefail
-          if rg -n '(println!|eprintln!)' src | rg -v 'src/cli/output.rs'; then
-            echo 'println!/eprintln! found outside src/cli/output.rs'
-            exit 1
-          fi
-
-      - name: Clippy deny policy
-        run: cargo clippy --all-targets
-
-      - name: Clippy core-only
-        run: cargo clippy --no-default-features --lib

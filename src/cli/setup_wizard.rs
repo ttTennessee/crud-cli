@@ -242,7 +242,7 @@ fn prompt_overwrite_policy() -> Result<SetupOverwritePolicy, ErrorEnvelope> {
     let choice = Select::new("overwrite-policy", labels.clone())
         .prompt()
         .map_err(inquire_to_user_error)?;
-    Ok(options[label_index(&choice, &labels)?])
+    Ok(options[label_index(choice, &labels)?])
 }
 
 fn prompt_enabled_types() -> Result<SetupEnabledTypes, ErrorEnvelope> {
@@ -256,7 +256,7 @@ fn prompt_enabled_types() -> Result<SetupEnabledTypes, ErrorEnvelope> {
         .with_help_message(i18n::t(keys::WIZARD_HELP_ENABLED_TYPES))
         .prompt()
         .map_err(inquire_to_user_error)?;
-    Ok(options[label_index(&choice, &labels)?])
+    Ok(options[label_index(choice, &labels)?])
 }
 
 fn prompt_name(default: &str) -> Result<String, ErrorEnvelope> {

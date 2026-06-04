@@ -37,9 +37,7 @@ pub fn emit_failure(envelope: &ErrorEnvelope) {
     let mut stderr = io::stderr().lock();
     if agent {
         let line = serde_json::to_string(envelope).unwrap_or_else(|_| {
-            format!(
-                "{{\"kind\":\"InternalPanic\",\"msg\":\"serialize error\",\"exit_code\":99,\"hint\":\"\",\"details\":{{}}}}"
-            )
+            "{\"kind\":\"InternalPanic\",\"msg\":\"serialize error\",\"exit_code\":99,\"hint\":\"\",\"details\":{}}".to_string()
         });
         let _ = writeln!(stderr, "{line}");
     } else {

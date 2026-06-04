@@ -76,6 +76,8 @@ impl CrudMcpServer {
             return cached.clone().map_err(envelope_err);
         }
         self.resolve_and_store(None, false).await;
+        // Invariant: resolve_and_store always writes Some before returning.
+        #[allow(clippy::expect_used)]
         self.resolved
             .read()
             .await
@@ -185,7 +187,7 @@ fn vars_from_optional(value: Option<Value>) -> BTreeMap<String, Value> {
 }
 
 fn tool_json_result(value: Value) -> Result<CallToolResult, McpError> {
-    let text = serde_json::to_string_pretty(&value).map_err(|e| internal_err(&e.to_string()))?;
+    let text = serde_json::to_string_pretty(&value).map_err(|e| internal_err(e.to_string()))?;
     Ok(CallToolResult::success(vec![Content::text(text)]))
 }
 
@@ -193,7 +195,7 @@ fn tool_json_result(value: Value) -> Result<CallToolResult, McpError> {
  * Returns markdown first (for direct user display), then JSON payload.
  */
 fn tool_preview_result(value: Value) -> Result<CallToolResult, McpError> {
-    let text = serde_json::to_string_pretty(&value).map_err(|e| internal_err(&e.to_string()))?;
+    let text = serde_json::to_string_pretty(&value).map_err(|e| internal_err(e.to_string()))?;
     let markdown = value
         .get("display_markdown")
         .or_else(|| value.get("table_markdown"))
@@ -210,7 +212,7 @@ fn tool_preview_result(value: Value) -> Result<CallToolResult, McpError> {
 }
 
 fn tool_error_result(value: Value) -> Result<CallToolResult, McpError> {
-    let text = serde_json::to_string_pretty(&value).map_err(|e| internal_err(&e.to_string()))?;
+    let text = serde_json::to_string_pretty(&value).map_err(|e| internal_err(e.to_string()))?;
     Ok(CallToolResult::error(vec![Content::text(text)]))
 }
 
@@ -262,7 +264,7 @@ impl CrudMcpServer {
         let ctx = self.ensure_project(override_root).await?;
         let value = tokio::task::spawn_blocking(move || describe_templates(&ctx))
             .await
-            .map_err(|e| internal_err(&e.to_string()))?
+            .map_err(|e| internal_err(e.to_string()))?
             .map_err(envelope_err)?;
         tool_json_result(value)
     }
@@ -285,7 +287,7 @@ impl CrudMcpServer {
         let result =
             tokio::task::spawn_blocking(move || preview_entity_structure(&ctx, &json, &cli_vars))
                 .await
-                .map_err(|e| internal_err(&e.to_string()))?;
+                .map_err(|e| internal_err(e.to_string()))?;
         match result {
             Ok(v) => tool_preview_result(v),
             Err(envelope) => tool_error_result(envelope_to_value(&envelope)),
@@ -312,7 +314,7 @@ impl CrudMcpServer {
             run_gen_blocking(ctx, json, cli_vars, type_filter, force)
         })
         .await
-        .map_err(|e| internal_err(&e.to_string()))?;
+        .map_err(|e| internal_err(e.to_string()))?;
         match result {
             Ok(v) => tool_json_result(v),
             Err(envelope) => tool_error_result(envelope_to_value(&envelope)),

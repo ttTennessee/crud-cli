@@ -138,7 +138,7 @@ pub fn find_template(
     name: &str,
     version: Option<&str>,
 ) -> Result<InstalledTemplate, ErrorEnvelope> {
-    let root = global_templates_root().ok_or_else(|| missing_root_error())?;
+    let root = global_templates_root().ok_or_else(missing_root_error)?;
     find_template_in(&root, name, version)
 }
 

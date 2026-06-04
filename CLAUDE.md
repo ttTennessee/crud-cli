@@ -22,70 +22,92 @@ MCP tool usage:
 
 ## Technology Stack
 
-> **Note (2026-05-29):** The sections below were the original pre-build stack
-> *recommendation*. The shipped project diverged on one point — layout. The
-> "2-crate workspace" recommendation was **not** adopted; see **Architecture**
-> at the bottom of this file for the actual layout. The crate/version picks
-> (clap, handlebars, serde+toml, ureq+flate2+tar, inquire, …) all hold.
+> **Status (2026-06-04):** This document mixes the *original pre-build
+> recommendation* (the "Recommended Stack" / "Alternatives" / "Confidence
+> Levels" sections below) with *as-built reality* (the "TL;DR — As Built",
+> "Architecture", and "Conventions" sections). Where they conflict, **trust
+> `Cargo.toml` and the Architecture section**. Items in the recommendation
+> tables that have since diverged are marked ⚠️.
+>
+> Major divergences from the original plan:
+> 1. **Single crate, not 2-crate workspace.** Boundary enforced by a `cli`
+>    Cargo feature instead of a separate `crud-core` crate.
+> 2. **MCP server has shipped.** `src/mcp/` (gated by the `mcp` feature, with
+>    `full = ["cli", "mcp"]`) is no longer "deferred to v2."
+> 3. **`tokio` is in the dependency graph** (required by `rmcp`), under the
+>    `mcp` feature only. The CLI binary built without `mcp` is still sync.
+> 4. **`insta` / `assert_cmd` / `predicates` were not adopted**; integration
+>    tests use plain `std::process::Command` + `tempfile`.
+> 5. **`cargo-dist` is adopted** (see `dist-workspace.toml` and
+>    `[profile.dist]` in `Cargo.toml`), not "optional / once 1.0 ships."
 
-## TL;DR
-- **Layout (as built):** a SINGLE crate `crud-cli` with `src/core/` (pure logic) and `src/cli/` (clap/inquire surface) modules. The boundary is enforced by a `cli` Cargo feature: `core` compiles with `--no-default-features`, so it cannot reach for clap/inquire. The future MCP server reuses `crud_cli` as a library with `cli` off (or is promoted to a `crud-core` crate then). The original recommendation was a 2-crate workspace (`crates/crud-core` + `crates/crud-cli`); the feature-gate approach achieved the same boundary with less ceremony.
-- **CLI:** `clap` 4.6 (derive) — no real alternative.
-- **Templates:** `handlebars` 6.4 — chosen because the PRD explicitly specifies `.hbs` files and Handlebars syntax (`{{model}}`). `minijinja` would be faster but breaks PRD compatibility.
-- **Config:** plain `serde` + `toml` + `serde_json`. Skip `figment`/`config-rs` — they over-engineer a single-file `.crud/setup.toml`.
-- **Filesystem walk:** `ignore` (the ripgrep crate) — gives `.gitignore` semantics for free, which template scanning needs.
-- **GitHub fetching:** `ureq` + `flate2` + `tar` against `https://codeload.github.com/{user}/{repo}/tar.gz/HEAD`. Reject `git2` (libgit2 = C deps, breaks single-binary story) and `gix` (large compile time, overkill for "download a snapshot").
-- **Errors:** `anyhow` in `crud-cli`, `thiserror` in `crud-core`. Canonical split.
-- **Prompts:** `inquire` 0.9 — richer prompts (Select/MultiSelect/Confirm) and better validators than `dialoguer`.
-- **Logging:** `tracing` + `tracing-subscriber` — future MCP server will want structured logs.
-- **Testing:** `insta` for snapshotting rendered template output, `assert_cmd` + `predicates` + `tempfile` for end-to-end CLI tests.
+## TL;DR — As Built
+- **Layout:** single crate `crud-cli` with `src/{core,cli,mcp}/` modules. `core` is pure logic (no clap, no inquire, no tokio). The `cli` Cargo feature pulls in `clap` + `inquire` + `tracing-subscriber`; the `mcp` feature pulls in `rmcp` + `tokio` + `schemars`. `full = ["cli", "mcp"]` builds the combined binary that exposes `crud-cli mcp`.
+- **Features:** `default = ["cli"]`, `cli`, `mcp`, `full`. The binary requires `cli`; the library (`crud_cli`) can be consumed with `--no-default-features` for embedding.
+- **CLI:** `clap` 4.6 (derive).
+- **Templates:** `handlebars` 6.0 — PRD specifies `.hbs` syntax.
+- **Config:** `serde` + `toml` 0.8 + `serde_json`. Single-file `.crud/setup.toml`; no merge engine.
+- **Frontmatter:** `gray_matter` 0.2 — template files carry YAML frontmatter parsed before render.
+- **Filesystem walk:** `ignore` 0.4 (the ripgrep crate).
+- **GitHub fetching:** `ureq` 3 (rustls only, no native-tls) + `flate2` + `tar` against `https://codeload.github.com/{user}/{repo}/tar.gz/HEAD`. `sha2` for integrity checksums on installed bundles.
+- **MCP server:** `rmcp` 1.7 + `tokio` 1.52 (multi-thread) + `schemars` 1. Gated by `mcp` feature.
+- **Errors:** `thiserror` 2 in `core` (typed `ErrorEnvelope`); `anyhow` in the CLI surface for top-level `?` ergonomics.
+- **Prompts:** `inquire` 0.9.
+- **Time:** `time` 0.3 (used for install timestamps / metadata).
+- **Fuzzy matching:** `strsim` 0.11 (used by validator for "did you mean …" suggestions).
+- **Logging:** `tracing` + `tracing-subscriber` (subscriber gated behind `cli`).
+- **Testing:** plain `std::process::Command` + `tempfile`; tests live under `tests/` with the agent-facing contract surface in `tests/contracts/`. No `insta`, no `assert_cmd`.
+- **Release:** `cargo-dist` (`dist-workspace.toml`, `[profile.dist]` with `lto = "thin"`).
+
 ## Recommended Stack
+*(Original pre-build recommendation. Cross-check with TL;DR — As Built; ⚠️ marks items that diverged.)*
 ### Core Technologies
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
 | `clap` (derive) | 4.6.1 | CLI parsing, subcommands, help, completion | De-facto standard. Powers `cargo`, `ripgrep`, `bat`, `fd`. Derive API is the recommended path in 2025/2026 per official tutorial. No serious competitor for a multi-subcommand CLI of this shape. |
 | `handlebars` | 6.4.1 | Template rendering of `.hbs` files | **PRD explicitly specifies Handlebars syntax** (`{{model}}Controller.java.hbs`). Mature, used by rust-lang.org itself, supports custom helpers (needed for `snake_case`/`PascalCase`/`camelCase` filters). |
 | `serde` + `serde_derive` | 1.0.228 | Universal (de)serialization | Required by every config/data crate below. |
-| `toml` | 1.1.2 | Read/write `.crud/setup.toml` | Official `toml-rs` v1.x — TOML 1.1 spec, round-trips comments via `toml_edit` (re-exported). The 1.x line is stable. |
+| `toml` | 0.8 ⚠️ | Read/write `.crud/setup.toml` | Actual pin is `toml = "0.8"` — pre-1.0 line. The 1.x suggestion was forward-looking; 0.8 covers our needs. |
 | `serde_json` | 1.0.150 | Read `gen --file <json>` input | Standard. |
 | `anyhow` | 1.0.102 | Error type in `crud-cli` (binary boundary) | Standard pairing: `anyhow` for "I just want a `?` with context at the top of the binary", `thiserror` for typed library errors. |
-| `thiserror` | 2.0.18 | Typed errors in `crud-core` | The 2.x line landed in late 2024; stable. Lets `crud-core` expose enum-shaped errors that MCP server can pattern-match. |
+| `thiserror` | 2.0 | Typed errors in `core` | The 2.x line landed in late 2024; stable. Lets `core` expose enum-shaped errors that CLI and MCP layers pattern-match. |
 ### Supporting Libraries
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
 | `inquire` | 0.9.4 | Interactive `crud-cli setup` prompts (Select / MultiSelect / Confirm / Text) | Use for all interactive prompts. Richer than `dialoguer`, better validators, derive macros for enums. |
 | `ignore` | 0.4.25 | Walk `.crud/templates/` and `~/.crud/templates/<name>/` | Use instead of `walkdir`. Free `.gitignore`/`.crudignore` support; parallel walker; battle-tested by ripgrep. |
-| `ureq` | 3.3.0 | Blocking HTTP GET of GitHub tarballs | Use for `template install`. Blocking-only, ~6 deps. Avoids tokio/async runtime entirely — keeps binary small and CLI startup fast. |
-| `flate2` | 1.1.9 | Gunzip tarball streams | Pair with `tar`. Pure-Rust `miniz_oxide` backend (no zlib C dep). |
-| `tar` | 0.4.46 | Untar tarball into `~/.crud/templates/<name>/` | Standard. Pair with `flate2::read::GzDecoder`. |
-| `tempfile` | 3.27.0 | Atomic writes during template install & tests | Write tarball to temp dir, untar, then `rename` into final location. Avoids partial-install corruption. |
+| `ureq` | 3.0 | Blocking HTTP GET of GitHub tarballs | Use for `template install`. Configured with `default-features = false, features = ["rustls"]` — no native-tls, no tokio. |
+| `flate2` | 1.0 | Gunzip tarball streams | Pair with `tar`. Pure-Rust `miniz_oxide` backend (no zlib C dep). |
+| `tar` | 0.4 | Untar tarball into `~/.crud/templates/<name>/` | Standard. Pair with `flate2::read::GzDecoder`. |
+| `tempfile` | 3.14 | Atomic writes during template install & tests | Write tarball to temp dir, untar, then `rename` into final location. |
 | `dirs` | 6.0.0 | Resolve `~/.crud/` cross-platform | Use `dirs::home_dir()`. Simpler than `directories` (which encodes XDG vs macOS vs Windows conventions — we deliberately want `~/.crud/` on all platforms per PRD). |
-| `tracing` | 0.1.44 | Structured logging in `crud-core` | Use `tracing::{info, debug, warn, error}` in `crud-core`. MCP server will set up its own subscriber. |
-| `tracing-subscriber` | 0.3.23 | Logging output in `crud-cli` | Wire to stderr with `EnvFilter::from_env("CRUD_LOG")`. Respects `--verbose` flag. |
+| `tracing` | 0.1 | Structured logging in `core` | Use `tracing::{info, debug, warn, error}` in `core`. CLI and MCP layers each install their own subscriber. |
+| `tracing-subscriber` | 0.3 | Logging output (gated by `cli` feature) | Wire to stderr; respects `--verbose` flag. |
 | `serde_path_to_error` | 0.1.x | Better JSON/TOML deserialization errors | Optional but cheap — turns `expected string, found null` into `at .fields[0].type: expected string`. Huge UX win for `--file <json>` and `validate`. |
-| `globset` | 0.4.x | Match template file globs (re-exported from `ignore`) | Used by template discovery & overwrite-policy filtering. |
-| `unicode-segmentation` | 1.x | Safe case conversion in template helpers | For `snake_case`/`PascalCase` helpers — handles non-ASCII identifiers correctly. |
-| `convert_case` | 0.6.x | Identifier case conversion | Drop-in helpers (`to_case(Case::Snake)`, etc.) for Handlebars `{{snake model}}` etc. |
+| `globset` | 0.4 | Match template file globs | Directly declared (not re-exported via `ignore`). Used by template discovery & overwrite-policy filtering. |
+| `convert_case` | 0.6 | Identifier case conversion | Helpers (`to_case(Case::Snake)`, etc.) for Handlebars `{{snake model}}` etc. |
+| `gray_matter` | 0.2 | YAML frontmatter parsing for templates | ⚠️ Not in original recommendation. Templates carry frontmatter (`outputs:`, `when:`, etc.) parsed before render. |
+| `strsim` | 0.11 | Fuzzy "did you mean …" suggestions | ⚠️ Not in original recommendation. Used by validator and CLI argument errors. |
+| `sha2` | 0.10 | Bundle integrity hashes | ⚠️ Not in original recommendation. Installed template bundles record SHA-256 in metadata. |
+| `time` | 0.3 | Local-time timestamps | ⚠️ Not in original recommendation. Used for install / metadata timestamps; features = `formatting, macros, local-offset`. |
+| `rmcp` | 1.7 | MCP server (gated by `mcp` feature) | ⚠️ Not in original recommendation — original plan deferred MCP. Features: `server, transport-io, macros, schemars`. |
+| `tokio` | 1.52 | Async runtime for `rmcp` (gated by `mcp` feature) | ⚠️ Original plan said "no async runtime in v1." Adopted only under the `mcp` feature; the default `cli`-only binary remains sync. |
+| `schemars` | 1 | JSON Schema generation for MCP tool inputs (gated by `mcp` feature) | ⚠️ Not in original recommendation. |
 ### Development Tools
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| `insta` 1.47.2 | Snapshot tests for rendered templates | `insta::assert_snapshot!(render(template, ctx))`. Critical for catching template regressions. Use `cargo insta review` workflow. |
-| `assert_cmd` 2.2.2 | End-to-end CLI tests (`crud-cli gen user ...`) | Spawn the actual binary, assert stdout/stderr/exit code. |
-| `predicates` 3.1.4 | Assertions for `assert_cmd` | `predicate::str::contains("生成成功")`. |
-| `tempfile` 3.27.0 | Per-test sandbox dirs | Each integration test gets a fresh `tempdir()` that becomes a fake project root. |
-| `cargo-dist` (optional) | Cross-platform release binaries | Once 1.0 is shipped, use for `cargo dist init` to get GitHub Actions release pipelines (mac/linux/windows static binaries). |
-| `cargo-nextest` | Faster test runner | 3-5× faster than `cargo test`, better output for CLI test suites. |
-## Installation
-# Cargo.toml (workspace root)
-# crates/crud-core/Cargo.toml
-# crates/crud-cli/Cargo.toml
-## Project Skeleton (prescriptive)
-### Why this layout (not single crate, not 4 crates today)
-| Option | Verdict | Why |
-|--------|---------|-----|
-| Single crate with `cli/` + `core/` modules | **Reject** | Nothing enforces the boundary. `cli` will quietly seep into `core`. The PRD makes the MCP-reuse split a hard requirement. |
-| 2-crate workspace (`crud-core` + `crud-cli`) | **Adopt** | Compiler enforces the boundary: `crud-core` cannot depend on clap/inquire. MCP server crate can be added later in 1 line. |
-| 3-crate today (add empty `crud-mcp` stub) | **Reject for v1** | PRD explicitly defers MCP to post-v1. Empty crate adds maintenance burden with zero current value. |
+| Tool | Status | Notes |
+|------|--------|-------|
+| `tempfile` 3.14 | **Adopted** | Per-test sandbox dirs (`tempdir()`); also used at runtime for atomic installs. |
+| `cargo-dist` | **Adopted** | See `dist-workspace.toml` and `[profile.dist] inherits = "release", lto = "thin"`. Drives the cross-platform release pipeline (`release.yml`). |
+| `insta` | ⚠️ **NOT adopted** | Original plan called for snapshot testing of rendered templates. Current tests assert rendered output via direct string comparison. Reconsider if template regressions become a pain point. |
+| `assert_cmd` + `predicates` | ⚠️ **NOT adopted** | CLI tests use plain `std::process::Command` (see `tests/contracts/*`). |
+| `cargo-nextest` | Not adopted | Still recommended for local dev; CI uses `cargo test`. |
+## Layout Decision (historical)
+### Original tradeoff table — for context only
+| Option | Original verdict | Actual outcome |
+|--------|------------------|----------------|
+| Single crate with `cli/` + `core/` modules | **Rejected** ("nothing enforces the boundary") | ✅ **Adopted** — boundary enforced by the `cli` Cargo feature instead of a crate split. `core` cannot import clap/inquire because they aren't compiled when the feature is off. |
+| 2-crate workspace (`crud-core` + `crud-cli`) | **Adopted** | ❌ Not adopted. The feature-gate approach achieved the same compiler-enforced boundary with less ceremony. |
+| 3-crate today (add empty `crud-mcp` stub) | **Rejected for v1** | ❌ MCP shipped as `src/mcp/` in-tree, gated by the `mcp` feature. No separate crate. |
 ## Alternatives Considered
 | Recommended | Alternative | When to Use Alternative |
 |-------------|-------------|-------------------------|
@@ -112,40 +134,38 @@ MCP tool usage:
 | `failure` | Long-deprecated. | `anyhow` + `thiserror`. |
 | `error-chain` | Long-deprecated. | `anyhow` + `thiserror`. |
 | `lazy_static` | Use `std::sync::OnceLock` (stable since 1.70) or `once_cell`. | `OnceLock` / `LazyLock` (stable 1.80). |
-| Async runtime (tokio/async-std) in v1 | Adds ~50 deps, slows CLI startup, complicates error handling. CLI is sync; one HTTP call doesn't need async. | Blocking `ureq`. Revisit only if MCP server uses async transport. |
+| Async runtime in the default (`cli`) binary | Adds ~50 deps, slows CLI startup, complicates error handling. CLI work is sync; tarball download uses blocking `ureq`. | Blocking `ureq`. ⚠️ Update: `tokio` IS pulled in under the `mcp` feature because `rmcp` requires it — but the `cli`-only binary remains fully sync. |
 | `serde_yaml` | Unmaintained as of 2024. | If YAML ever needed: `serde_yml` (community fork) or `serde_yaml_ng`. Not needed for v1. |
 | `prettytable-rs` for `template list` | Unmaintained. | `comfy-table` or just `println!` formatted output. |
-## Stack Patterns by Variant
-- Keep ureq+flate2+tar, but accept `user/repo[@ref]` syntax and an `Authorization: Bearer $GITHUB_TOKEN` env var (read from `GITHUB_TOKEN` / `GH_TOKEN`).
-- Codeload URL becomes `https://codeload.github.com/{user}/{repo}/tar.gz/{ref}`.
-- Do NOT switch to git2 just for this — the HTTP path covers 99% of cases.
-- Promote `crud-core` to be async-friendly by using `tokio::task::spawn_blocking` around its sync API in the MCP layer.
-- Do NOT make `crud-core` itself async — keeps CLI binary lean and reuses the same battle-tested sync code.
-- `ignore::WalkBuilder::threads(num_cpus)` enables parallel walk. Free upgrade — same crate.
-- Handlebars-rust supports custom helpers (`handlebars_helper!` macro). Register `{{eq}}`, `{{add}}`, etc. helpers — keeps `.hbs` extension and PRD compatibility.
+## Stack Patterns (as built + future variants)
+- **Template install over HTTP:** `ureq` + `flate2` + `tar` against `https://codeload.github.com/{user}/{repo}/tar.gz/{ref}`. `GITHUB_TOKEN`/`GH_TOKEN` env vars are not yet wired up — add `Authorization: Bearer …` when private-repo support is needed.
+- **MCP server (as built):** `src/mcp/server.rs` builds an `rmcp` server on top of `tokio` (multi-thread) and reuses `core` sync APIs directly. No `spawn_blocking` shim today; the sync work (template render, fs writes) is short enough that blocking the tokio runtime hasn't caused issues. Revisit with `spawn_blocking` if MCP handlers ever touch large directory walks.
+- **Do NOT make `core` itself async** — keeps the CLI binary lean and lets MCP reuse the same sync code path.
+- `ignore::WalkBuilder::threads(num_cpus)` enables parallel walk if directory size grows. Free upgrade — same crate.
+- Handlebars custom helpers (`handlebars_helper!` macro) are registered for `{{snake}}`, `{{pascal}}`, `{{camel}}` etc. via `convert_case`. Add new ones in `src/core/template_engine.rs`.
 ## Version Compatibility
 | Package A | Compatible With | Notes |
 |-----------|-----------------|-------|
-| `clap` 4.6 | `rustc` ≥ 1.74 | Pin `rust-version = "1.75"` in workspace to be safe. |
+| `clap` 4.6 | `rustc` ≥ 1.74 | Track stable; no `rust-version` pin (project does not commit to an MSRV). |
 | `thiserror` 2.x | `rustc` ≥ 1.61 | 2.x is breaking vs 1.x: error display attributes changed slightly. Greenfield = use 2.x. |
 | `handlebars` 6.x | `serde` 1.x | 6.x added stricter strict-mode by default — opt out with `.set_strict_mode(false)` if needed for missing-var tolerance during dev. |
 | `ureq` 3.x | rustls (default) | Default TLS is rustls, no OpenSSL dependency — preserves single-binary story. |
 | `dirs` 6.x | — | 6.x dropped some legacy fallbacks. For `~/.crud/`, just use `dirs::home_dir()` and append `.crud`. |
-| `toml` 1.x | `serde` 1.x | Stable; round-trips via `toml_edit` (re-exported as `toml::Value`'s edit-preserving twin). |
+| `toml` 0.8 | `serde` 1.x | ⚠️ Actual pin. Edit-preserving round-trip via `toml_edit` if/when needed. |
 | `inquire` 0.9 | `crossterm` 0.27 (default) | Default backend; no extra setup. |
-| `insta` 1.47 | — | Install `cargo install cargo-insta` for the `review` workflow. |
-## Confidence Levels
-| Recommendation | Confidence | Rationale |
-|----------------|------------|-----------|
-| `clap` derive | HIGH | No real alternative. Verified current version 4.6.1 on crates.io. |
-| `handlebars` 6.4 | HIGH | PRD explicitly requires `.hbs`/Handlebars syntax — this is forced. Version verified. |
-| `serde` + `toml` + `serde_json` (skip figment) | HIGH | Single-file config doesn't need merge engine. |
-| `ignore` over `walkdir` | HIGH | `.crudignore` is a near-certain future request; cheap to adopt now. |
-| `ureq` + tarball over `git2`/`gix` | HIGH | Cross-checked: PRD wants single binary, git2 = C deps, gix = compile bloat, codeload URL is documented and stable. |
-| `inquire` over `dialoguer` | MEDIUM | Both are fine. Inquire's prompt variety and validator macros tip the scale for `setup`. Either is defensible. |
-| 2-crate workspace | HIGH | PRD's "core/cli separation for future MCP" demands compiler-enforced boundary. |
-| `tracing` over `log`+`env_logger` | MEDIUM-HIGH | Slight over-spec for v1, but free insurance against MCP-server migration. |
-| `insta` + `assert_cmd` testing | HIGH | Industry standard for code-generator + CLI testing respectively. |
+| `rmcp` 1.7 | `tokio` 1.x | Required for `mcp` feature. Pulls in `tokio-util`, `bytes`, etc. Hard MCP dependency; transports configured via `transport-io` (stdio). |
+## Confidence Levels (original recommendation — kept for context)
+| Recommendation | Original confidence | As-built status |
+|----------------|---------------------|-----------------|
+| `clap` derive | HIGH | ✅ As planned. |
+| `handlebars` 6.x | HIGH | ✅ As planned. |
+| `serde` + `toml` + `serde_json` (skip figment) | HIGH | ✅ As planned (pin is `toml 0.8`, not 1.x). |
+| `ignore` over `walkdir` | HIGH | ✅ As planned. |
+| `ureq` + tarball over `git2`/`gix` | HIGH | ✅ As planned. |
+| `inquire` over `dialoguer` | MEDIUM | ✅ As planned. |
+| 2-crate workspace | HIGH | ❌ Replaced by single crate + `cli`/`mcp` Cargo features. |
+| `tracing` over `log`+`env_logger` | MEDIUM-HIGH | ✅ As planned. |
+| `insta` + `assert_cmd` testing | HIGH | ❌ Not adopted — see Development Tools table. |
 ## Sources
 - crates.io API (live, fetched 2026-05-27) — version numbers for all 32 crates listed
 - [clap official derive tutorial](https://docs.rs/clap/latest/clap/_derive/_tutorial/index.html) — derive API is the recommended 2026 path
@@ -159,35 +179,67 @@ MCP tool usage:
 
 ## Conventions
 
-- **Errors:** `crud-core` returns typed `ErrorEnvelope` (`src/core/error.rs`) with a
+- **Errors:** `core` returns typed `ErrorEnvelope` (`src/core/error.rs`) with a
   `Kind`, an exit code, a human hint, and a JSON `details` map. The CLI converts
   these to either human output or, under `--agent`, a single JSON object on stderr.
 - **i18n:** user-facing strings are keys in `src/core/i18n/keys.rs`, rendered via
   `i18n::t` / `i18n::tf`. Don't hardcode user-facing English in command code.
 - **Config schemas** are `#[serde(deny_unknown_fields)]` — typos surface as errors.
   Section order in `setup.toml` is part of the contract (round-tripped on write).
-- **Tests:** `insta` snapshots for rendered templates; `assert_cmd` + `predicates`
-  for end-to-end CLI; `tests/contracts/` locks the agent-facing surface.
-- **Lint policy:** `unwrap_used` / `expect_used` / `panic` are denied — propagate
-  errors via `ErrorEnvelope`/`Result` instead.
+- **Frontmatter:** template files carry YAML frontmatter parsed via `gray_matter`
+  (see `src/core/template_meta.rs`). Frontmatter drives `outputs:` (per-file output
+  paths), `when:` (conditional render), and other per-template behavior.
+- **Tests:** plain `std::process::Command` + `tempfile`; `tests/contracts/` locks the
+  agent-facing surface (panic discipline, agent JSON output, byte-identical render).
+  No `insta`, no `assert_cmd` today — see "Development Tools" if reconsidering.
+- **Lint policy:** `unwrap_used` / `expect_used` / `panic` are denied in
+  `[lints.clippy]` — propagate errors via `ErrorEnvelope`/`Result` instead.
+- **Stream discipline:** `println!`/`eprintln!` are only allowed in
+  `src/cli/output.rs`; CI greps for violations elsewhere.
 
 ## Architecture
 
-Single crate, two strictly-separated module layers (a `cli` Cargo feature gates the
-upper layer so `core` can be used as a pure library):
+Single crate `crud-cli` with three module layers and feature-gated upper layers:
 
-- `src/core/` — config parsing (`config.rs`, `global_config.rs`), language-based path
-  resolution (`paths.rs`, `default_paths.rs`, prefix rebasing in `gen_pipeline.rs`),
-  template engine + loader (`template_engine.rs`, `template_loader.rs`,
-  `template_meta.rs`), the generation pipeline (`gen_*`), transactional writer
-  (`fs_writer.rs`), validator (`validator.rs`), per-call variable schema
-  (`template_variables.rs`), GitHub template install (`template_installer.rs`,
-  `template_install_meta.rs`, `template_meta_global.rs`), type mapping (`type_map.rs`),
-  i18n (`i18n/`), and typed `thiserror` errors (`error.rs`). No clap, no inquire.
-- `src/cli/` — clap surface (`args.rs`), inquire setup wizard (`setup_wizard.rs`),
-  command handlers (`commands/{setup,gen,validate,template}.rs`), agent-mode JSON
-  output (`agent_mode.rs`), human output (`output.rs`). Depends on `core`; never the
-  reverse.
+- `default = ["cli"]` — the standard binary.
+- `cli` — pulls in `clap`, `inquire`, `tracing-subscriber`. Required by the binary.
+- `mcp` — pulls in `rmcp`, `tokio`, `schemars`. Adds the `crud-cli mcp` subcommand.
+- `full = ["cli", "mcp"]` — combined binary.
+
+Library consumers can depend on `crud_cli` with `--no-default-features` for pure
+`core` usage (no async, no CLI deps).
+
+### `src/core/` — pure logic (no clap, no inquire, no tokio)
+- **Config:** `config.rs` (project `setup.toml`), `global_config.rs` (`~/.crud/config.toml`).
+- **Paths:** `paths.rs`, `default_paths.rs`, prefix rebasing inside `gen_pipeline.rs`.
+- **Template engine + loading:** `template_engine.rs`, `template_loader.rs`,
+  `template_meta.rs` (frontmatter), `template_variables.rs` (per-call variable schema).
+- **Generation pipeline:** `gen_pipeline.rs` orchestrates; `gen_input.rs` (parse
+  user input), `gen_context.rs` (build the Handlebars context), `gen_run.rs`
+  (run parameters), `gen_report.rs` (post-run report for agent JSON).
+- **Field DSL:** `field_dsl.rs` parses the compact `name:type` shorthand;
+  `field_types.rs` defines the type catalogue; `type_map.rs` maps types per backend.
+- **Filesystem:** `fs_writer.rs` (transactional / batch-atomic writes).
+- **Validation:** `validator.rs` (frontmatter + render dry-run + unknown-var check).
+- **Global templates:** `template_installer.rs`, `template_install_meta.rs`,
+  `template_meta_global.rs`.
+- **Misc:** `git_info.rs` (commit metadata for generated headers), `i18n/`,
+  `error.rs` (typed `thiserror` enums + `ErrorEnvelope`).
+
+### `src/cli/` — clap surface (feature-gated on `cli`)
+- `args.rs` (clap definitions), `setup_wizard.rs` (inquire flow),
+  `commands/{setup,gen,validate,template,mcp}.rs` (subcommand handlers),
+  `agent_mode.rs` (single-line JSON to stderr under `--agent`),
+  `output.rs` (only place allowed to use `println!`/`eprintln!`).
+- Depends on `core`; never the reverse.
+
+### `src/mcp/` — MCP server (feature-gated on `mcp`)
+- `server.rs` builds the `rmcp` server over stdio transport.
+- `context.rs` carries the project root and shared state.
+- `convert.rs` translates `ErrorEnvelope` ↔ MCP error responses.
+- `resources.rs` exposes MCP resources (template metadata etc.).
+- `validate_logic.rs` is the MCP-side validate handler — reuses `core::validator`.
+- Depends on `core` only; does **not** depend on `cli`.
 
 **Paths model:** template subdirectory prefixes (the first path segment, e.g.
 `java/`, `vue/`, `resources/`, `doc/`) are looked up in `[paths.lang]` first, then
