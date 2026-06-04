@@ -1,11 +1,19 @@
 # crud-cli JSON entity input spec
 
-<!-- TODO: this file is currently a copy of docs/entity.md.
-     The agent-facing version will be rewritten to add LLM-only prompt content
-     (e.g. up-front field-shape clarifications: input vs. select, dictionary
-     code confirmation). Until then the two files have identical content. -->
-
 Schema for the `entity.json` accepted by `crud-cli gen --file <path>` and by the MCP `crud_preview` / `crud_generate` tools.
+
+## Before you write the JSON
+
+Resolve the following points **before** emitting `entity.json`. Only ask the user about items that are genuinely ambiguous — do **not** confirm fields whose shape is obvious (e.g. `name` is clearly a `varchar` text input, `age` is clearly a small integer). Ask once, in a single consolidated message, only about the grey-area items below.
+
+1. **Dictionary-backed fields.** If a field maps to an enumerated value (status, type, category, gender, level, …), confirm **which existing dictionary code in the current system** it should bind to. Do not invent a new dictionary code or guess at one that "sounds right." If you cannot find an existing code that fits, ask the user for the exact `dict_type` string.
+2. **Frontend widget for non-trivial fields.** If the active template renders a frontend page, confirm the input widget for fields where more than one choice is plausible: `input`, `input-number`, `textarea`, `select`, `radio`, `checkbox`, `switch`, `date-picker`, `datetime-picker`, `time-picker`, `upload`, `editor`. Plain short text (`name`, `title`, `code`) defaults to `input` and does not need confirmation; long descriptive text, numeric quantities, dictionary-backed values, booleans, and date/time fields usually do.
+3. **List vs. detail vs. query visibility.** When the template distinguishes list-column / query-condition / insert-form / edit-form visibility (RuoYi-style `list` / `query` / `insert` / `edit` flags), confirm any field whose default is non-obvious — e.g. large text bodies typically excluded from list columns, audit fields excluded from forms, status-like fields usually included as query conditions.
+4. **Required / unique constraints.** Confirm `required` and `unique` only when the business meaning is ambiguous. The PK is obviously required; a column literally named `email` or `username` is almost certainly unique — do not ask.
+5. **Numeric precision.** For money / decimal / large-integer fields, confirm precision and scale (or the canonical type alias) when the template offers more than one numeric option. Default integer / string types do not need confirmation.
+6. **Template variables.** If the active template's `_variables.toml` declares switches (e.g. `module_name`, `permission_prefix`, `has_import`), confirm the values when they cannot be inferred from the entity name or package.
+
+Rule of thumb: **silence on the obvious, one consolidated question on the grey areas.** Never ask the user to re-state information already present in the prompt (entity name, package, table name, plainly-typed columns).
 
 All objects use `deny_unknown_fields` — any key not listed below is rejected.
 

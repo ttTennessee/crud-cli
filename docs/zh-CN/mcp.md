@@ -81,7 +81,7 @@ server 通过 **stdio** 通信 —— 它不是常驻的网络守护进程。由
 
 | URI | MIME | 内容 |
 |---|---|---|
-| `crud://schema/entity` | `text/markdown` | `entity.json` 规范，单 markdown 文档。源同 [`agent-resources/entity.md`](../../agent-resources/entity.md)。 |
+| `crud://schema/entity` | `text/markdown` | `entity.json` 规范，单 markdown 文档。源同 [`agent-resources/entity-json-guide.md`](../../agent-resources/entity-json-guide.md)。 |
 | `crud://schema/builtins` | `application/json` | 模板自动注入的保留变量名与字段标识符。适合需要在调 `crud_preview` 之前本地校验 `entity.json` 的客户端。 |
 
 ## Prompts
@@ -129,5 +129,5 @@ Agent 可以原样回喂给模型；`remediation` 字段刻意写得可执行。
 ## 参见
 
 - [`agent-resources/template-authoring.md`](../../agent-resources/template-authoring.md) —— `crud_template_authoring` prompt 的源文档
-- [`agent-resources/entity.md`](../../agent-resources/entity.md) —— `crud://schema/entity` 的源文档
+- [`agent-resources/entity-json-guide.md`](../../agent-resources/entity-json-guide.md) —— `crud://schema/entity` 的源文档
 - [主 README](../../README.zh.md) —— 项目概览、安装、基本 CLI 用法

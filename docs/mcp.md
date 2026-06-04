@@ -81,7 +81,7 @@ Parameter and return-value schemas are surfaced via MCP `tools/list` — refer t
 
 | URI | MIME | Content |
 |---|---|---|
-| `crud://schema/entity` | `text/markdown` | The `entity.json` schema spec as a single markdown document. Same source as [`agent-resources/entity.md`](../agent-resources/entity.md). |
+| `crud://schema/entity` | `text/markdown` | The `entity.json` schema spec as a single markdown document. Same source as [`agent-resources/entity-json-guide.md`](../agent-resources/entity-json-guide.md). |
 | `crud://schema/builtins` | `application/json` | Reserved variable / field identifier names that templates inject automatically. Useful for clients that want to validate `entity.json` locally before calling `crud_preview`. |
 
 ## Prompts
@@ -129,5 +129,5 @@ Hard failures — server can't find the project root, can't read `setup.toml`, e
 ## See also
 
 - [`agent-resources/template-authoring.md`](../agent-resources/template-authoring.md) — spec served by the `crud_template_authoring` prompt
-- [`agent-resources/entity.md`](../agent-resources/entity.md) — spec served at `crud://schema/entity`
+- [`agent-resources/entity-json-guide.md`](../agent-resources/entity-json-guide.md) — spec served at `crud://schema/entity`
 - [Main README](../README.md) — project overview, install, basic CLI usage

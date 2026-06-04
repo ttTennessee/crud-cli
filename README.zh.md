@@ -73,7 +73,7 @@ crud-cli gen User --table sys_user --package com.acme.demo \
 | 主题 | 链接 |
 |---|---|
 | 安装、基本使用、CLI 子命令参考 | [docs/zh-CN/quickstart.md](docs/zh-CN/quickstart.md) |
-| 模板结构与编写指南 | [docs/zh-CN/templates.md](docs/zh-CN/templates.md) *（占位；完整指南待补充）* |
+| 模板结构与编写指南 | [docs/zh-CN/templates.md](docs/zh-CN/templates.md) |
 | MCP server——配置、工具、资源 | [docs/zh-CN/mcp.md](docs/zh-CN/mcp.md) |
 | `entity.json` 规范 | [docs/zh-CN/entity.md](docs/zh-CN/entity.md) |
 | MCP 提供的模板编写 spec（英文唯一） | [agent-resources/template-authoring.md](agent-resources/template-authoring.md) |

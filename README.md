@@ -73,7 +73,7 @@ End-to-end walkthrough with explanations: [docs/quickstart.md](docs/quickstart.m
 | Topic | Where |
 |---|---|
 | Install, basic usage, CLI subcommand reference | [docs/quickstart.md](docs/quickstart.md) |
-| Template structure and authoring guide | [docs/templates.md](docs/templates.md) *(placeholder; full guide pending)* |
+| Template structure and authoring guide | [docs/templates.md](docs/templates.md) |
 | MCP server — configuration, tools, resources | [docs/mcp.md](docs/mcp.md) |
 | `entity.json` schema reference | [docs/entity.md](docs/entity.md) |
 | Template authoring spec served by MCP | [agent-resources/template-authoring.md](agent-resources/template-authoring.md) |

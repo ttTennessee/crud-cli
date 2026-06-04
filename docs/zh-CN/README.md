@@ -19,4 +19,4 @@
 | 路径 | 作为 |
 |---|---|
 | [../../agent-resources/template-authoring.md](../../agent-resources/template-authoring.md) | MCP prompt `crud_template_authoring` |
-| [../../agent-resources/entity.md](../../agent-resources/entity.md) | MCP resource `crud://schema/entity` |
+| [../../agent-resources/entity-json-guide.md](../../agent-resources/entity-json-guide.md) | MCP resource `crud://schema/entity` |
