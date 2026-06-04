@@ -1,141 +1,208 @@
-# crud-cli template authoring spec
+# Template Authoring
 
-Authoritative reference for writing Handlebars (`.hbs`) template bundles for `crud-cli`.
+Authoritative spec for writing Handlebars (`.hbs`) template bundles for `crud-cli`. Served to LLM agents as the MCP prompt `crud_template_authoring`.
 
-## Bundle layout
+## Template bundle layout
 
-```
-<bundle-root>/                   # project: .crud/templates/  |  global: ~/.crud/templates/<name>/<version>/
-  **/*.hbs                       # templates; optional YAML front-matter
-  _variables.toml                # per-invocation extended top-level variable schema
-  _field_types.toml              # allowed field type names
-  type_map.toml                  # optional; consumed by the ty_map helper
-  .crudignore                    # exclude files from discovery
-```
+A typical bundle contains:
 
-The first path segment of each template (e.g. `java/`, `vue/`, `resources/`) is a **prefix** resolved against `[paths.lang]` then `[paths.aux]` in `.crud/setup.toml` and rebased to the configured directory.
+| File / directory | Purpose |
+|------------------|---------|
+| `**/*.hbs` | Handlebars templates; optional YAML front-matter for output paths and conditional generation |
+| `_variables.toml` | Declares **per-invocation** extended top-level variables; read by agents and the validator |
+| `_field_types.toml` | Declares allowed field type names |
+| `<bundle>/type_map.toml` | Optional; used with the `ty_map` helper for type mapping |
+| `.crudignore` | Excludes templates from generation |
+
+Path prefixes (e.g. `java/`, `vue/`, `resources/`) are mapped to host-project directories via `[paths.lang]` / `[paths.aux]` in `.crud/setup.toml`. See [README.md](../README.md#path-system).
 
 ## Front-matter
 
-Optional YAML block at the top of any `.hbs` file:
+Any `.hbs` file may start with an optional YAML block wrapped in `---`:
 
 ```yaml
 ---
 basePath: "java/{{package_path}}/service/impl"
 filename: "{{model_pascal}}ServiceImpl.java"
-overwrite: force-only
-generateWhen: has_import
+overwrite: force-only          # never | force-only | always
+generateWhen: has_import       # mutually exclusive with skipWhen
 ---
 ```
 
-| Key | Type | Notes |
-|---|---|---|
-| `basePath` / `base_path` | string | Output directory relative to project root. May reference built-in or extended top-level variables. |
-| `filename` | string | Output file name. **Single path segment** — no `/`, no `..`. May reference variables. |
-| `overwrite` | enum | `never` \| `force-only` \| `always`. Overrides global/user default. |
-| `generateWhen` / `generate_when` | string | Generate only when condition is truthy. Value is the inner expression of `{{#if ...}}` — no surrounding `{{ }}`. |
-| `skipWhen` / `skip_when` | string | Skip when condition is truthy. Mutually exclusive with `generateWhen`. |
+| Key | Description |
+|-----|-------------|
+| `basePath` / `base_path` | Output directory (relative to project root); may reference built-in or extended top-level variables |
+| `filename` | Output file name (**single segment**, no `/`); may reference variables |
+| `overwrite` | Overwrite policy; overrides global and user defaults |
+| `generateWhen` / `generate_when` | Generate this file only when the condition is truthy; value is the **inner** expression of `{{#if ...}}` (no surrounding `{{ }}`) |
+| `skipWhen` / `skip_when` | **Skip** this file when the condition is truthy; mutually exclusive with `generateWhen` |
 
-**Truthiness**: `false`, missing, `""`, `0`, `[]` are falsy.
+Conditions follow Handlebars truthiness: `false`, missing, empty string, `0`, and empty arrays are falsy.
 
-**Condition pitfall**: an undeclared variable in `generateWhen` / `skipWhen` evaluates falsy and **silently skips** the file. Always run `crud-cli validate` to surface typos.
+```yaml
+---
+generateWhen: has_import
+filename: "{{model_pascal}}ImportDTO.java"
+---
+```
 
-Quote front-matter values containing `{{` to avoid YAML parse errors.
+```yaml
+---
+skipWhen: "(eq mode \"slim\")"
+filename: "{{model_pascal}}Service.java"
+---
+```
+
+Files skipped by condition are marked `[skipped: condition]` in `gen` output. A mistyped variable evaluates falsy at gen time and the file is **silently skipped** — run `crud-cli validate` first.
+
+---
 
 ## Built-in top-level variables
 
-Injected automatically on every `gen`. **Never declare these** in `_variables.toml` or `setup.toml` `[variables]` — triggers `variable shadows built-in`.
+`crud-cli` **automatically injects** these into the render context on every `gen` run. Keys are always present; values change per invocation.
 
-### Entity / table
+Do **not** declare keys with the same names in `_variables.toml` or `setup.toml` `[variables]` — that triggers `variable shadows built-in`.
 
-| Variable | Type | Example |
-|---|---|---|
-| `model` | string | `User` |
-| `model_pascal` | string | `User` |
-| `model_snake` | string | `user` |
-| `model_camel` | string | `user` |
-| `model_kebab` | string | `user` |
-| `table` | string | `sys_user` |
-| `table_comment` | string | `""` if omitted |
-| `package` | string | `com.acme.demo` |
-| `package_path` | string | `com/acme/demo` |
+### Entity and table
 
-### Primary key (derived from `fields` where `is_pk: true`)
+| Variable | Type | Description |
+|----------|------|-------------|
+| `model` | string | Entity/class name (raw value, e.g. `User`) |
+| `model_pascal` | string | PascalCase, e.g. `User` |
+| `model_snake` | string | snake_case, e.g. `user` |
+| `model_camel` | string | camelCase, e.g. `user` |
+| `model_kebab` | string | kebab-case, e.g. `user` |
+| `table` | string | Primary table physical name |
+| `table_comment` | string | Primary table description; `""` when omitted |
+| `package` | string | Server-side package name (e.g. Java package) |
+| `package_path` | string | `package` with `.` replaced by `/`, e.g. `com/acme/demo` |
 
-| Variable | Type | Default when no PK |
-|---|---|---|
-| `pk_field` | string (camelCase) | `id` |
-| `pk_field_type` | string | `Long` |
-| `pk_field_pascal` | string | `Id` |
+### Primary key (derived from primary-table fields)
 
-### Master–detail
+| Variable | Type | Description |
+|----------|------|-------------|
+| `pk_field` | string | Primary-key field name in camelCase |
+| `pk_field_type` | string | Primary-key field raw type string |
+| `pk_field_pascal` | string | Primary-key field name in PascalCase |
 
-| Variable | Type | When absent |
-|---|---|---|
+If no field in primary `fields` has `is_pk: true`, defaults are `id` / `Long` / `Id`.
+
+### Master–detail (parent/child)
+
+| Variable | Type | When no master–detail |
+|----------|------|------------------------|
 | `is_sub` | bool | `false` |
-| `sub_table`, `sub_table_comment` | string | `""` |
-| `sub_model`, `sub_model_snake`, `sub_model_pascal`, `sub_model_camel`, `sub_model_kebab` | string | `""` |
-| `sub_model_fk` | string (camelCase FK column) | `""` |
-| `sub_model_fk_pascal` | string | `""` |
+| `sub_table` | string | `""` |
+| `sub_table_comment` | string | `""` |
 | `sub_fields` | array | `[]` |
+| `sub_model` | string | `""` |
+| `sub_model_snake` | string | `""` |
+| `sub_model_pascal` | string | `""` |
+| `sub_model_camel` | string | `""` |
+| `sub_model_kebab` | string | `""` |
+| `sub_model_fk` | string | `""` |
+| `sub_model_fk_pascal` | string | `""` |
 
-### Field arrays
+When a master–detail relationship is present, `is_sub` is `true` and the rest are filled from the child entity and foreign-key column. `sub_model_fk` is the FK column in camelCase; `sub_model_fk_pascal` is often used for Java setter names.
 
-`fields` and `sub_fields` — iterate with `{{#each}}`; per-item shape below.
+### Field lists
 
-### Author / time
+| Variable | Type | Description |
+|----------|------|-------------|
+| `fields` | array | Primary-table field array |
+| `sub_fields` | array | Child-table field array; `[]` when no master–detail |
 
-| Variable | Source |
-|---|---|
-| `git_user_name`, `git_user_email` | git config |
-| `user_name`, `user_email` | `.crud/setup.user.toml`; falls back to git when empty |
-| `date` | `YYYY-MM-DD` (local) |
-| `datetime` | `YYYY-MM-DD HH:MM:SS` (local) |
-| `year` | four-digit year |
+Iterate in templates with `{{#each fields}}` / `{{#each sub_fields}}`; per-item properties are documented in the next section.
 
-### Handlebars `{{#each}}` specials (recognised by validator)
+### Author and time
 
-`this`, `@index`, `@key`, `@first`, `@last`, `@root`.
+| Variable | Type | Description |
+|----------|------|-------------|
+| `git_user_name` | string | From git config |
+| `git_user_email` | string | From git config |
+| `user_name` | string | From `.crud/setup.user.toml`; falls back to `git_user_name` when empty |
+| `user_email` | string | From `.crud/setup.user.toml`; falls back to `git_user_email` when empty |
+| `date` | string | Local date, `YYYY-MM-DD` |
+| `datetime` | string | Local date-time, `YYYY-MM-DD HH:MM:SS` |
+| `year` | string | Four-digit year |
 
-## Field object shape (`{{#each fields}}` / `{{#each sub_fields}}`)
+### Handlebars context specials
 
-Default properties — present on every field:
+Inside `{{#each}}` blocks (provided by Handlebars; treated as valid by the validator):
 
-| Property | Type | When omitted by input |
-|---|---|---|
-| `name` | string | — |
-| `name_pascal`, `name_snake`, `name_camel`, `name_kebab` | string | — |
-| `type` | string | — |
-| `is_pk` | bool | `false` |
-| `required` | bool | `false` |
-| `comment` | string | `""` |
-| `length` | number \| null | `null` |
-| `unique` | bool | `false` |
-| `default` | any \| null | `null` |
+| Variable | Description |
+|----------|-------------|
+| `this` | Current iteration item |
+| `@index` | Zero-based index |
+| `@key` | Key when iterating objects |
+| `@first` / `@last` | Whether first / last item |
+| `@root` | Root context |
 
-The `--fields` DSL populates only `name`, `type`, `is_pk`. For full metadata, use JSON input (see `entity` resource).
+## Field objects (`{{#each fields}}`)
 
-**Extended field properties**: a bundle's caller can pass extra key/value pairs that are flattened into each field object — accessible inside `{{#each fields}}` at the same level as defaults. Document extension keys alongside the bundle so callers know to pass them. `validate` does not statically recognise extension keys; a bundle-defined key triggering `unknown variable` is a spelling mismatch.
+Each item in `fields` / `sub_fields` exposes these **default** properties in templates:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `name` | string | Column name (raw value) |
+| `name_pascal` | string | PascalCase |
+| `name_snake` | string | snake_case |
+| `name_camel` | string | camelCase |
+| `name_kebab` | string | kebab-case |
+| `type` | string | Field type string (matches canonical name in `_field_types.toml`) |
+| `is_pk` | bool | Primary key |
+| `required` | bool | Required (`false` by default) |
+| `comment` | string | Comment/label; `""` when omitted |
+| `length` | number \| null | Length; `null` when omitted |
+| `unique` | bool | Unique constraint; `false` when omitted |
+| `default` | any \| null | Default value; `null` when omitted |
+
+Example:
+
+```handlebars
+{{#each fields}}
+  {{#if is_pk}}
+    /** {{comment}} */
+    private {{ty_map type}} {{name_camel}};
+  {{/if}}
+{{/each}}
+```
+
+With the `--fields` DSL, usually only `name`, `type`, and `is_pk` are populated, while `required` defaults to `false`; `comment` is `""`, `length` / `default` are `null`, and `unique` is `false`. For full metadata (comments, length, uniqueness, etc.), supply field details in the gen input.
+
+### Extended field properties
+
+Beyond the defaults above, **template bundles may define their own extensions**: extra key/value pairs from the caller are **flattened** into each field object and accessed at the same level as default properties inside `{{#each fields}}`.
+
+Example: a bundle defines `query` (bool) and `dict_type` (string):
+
+```handlebars
+{{#each fields}}
+  {{#if query}}
+    <el-form-item label="{{comment}}">...</el-form-item>
+  {{/if}}
+{{/each}}
+```
+
+Semantics of extended keys are defined by the **template author** and documented alongside the bundle (e.g. near `_field_types.toml`) so agents know what to pass when building gen commands. `validate` static checks recognize default property names only; if an extended key triggers `unknown variable`, verify spelling against the bundle contract.
 
 ## Extended top-level variables
 
-Custom variables for front-matter, `{{#if}}`, and bodies:
+Besides built-in top-level variables, you may add **custom top-level variables** for front-matter, `{{#if}}`, and template bodies:
 
-| Source | Purpose |
-|---|---|
-| `_variables.toml` (bundle root) | Schema: `type`, `default`, `required`, `description`. `description` is the contract callers read. |
-| `.crud/setup.toml` `[variables]` | Project-level defaults |
-| `--var key=value` | Per-call override |
-| `variables` object in JSON gen input | Per-call override |
+| Mechanism | Description |
+|-----------|-------------|
+| `_variables.toml` | Declare schema at bundle root (`type`, `default`, `required`, `description`); `description` is for agents |
+| `.crud/setup.toml` → `[variables]` | Project-level defaults merged into top-level context |
+| `--var key=value` | Per-invocation override |
+| `variables` object in gen input | Per-invocation override; same as `--var` |
 
-**Precedence**: `--var` > JSON `variables` > schema `default`.
-
-Custom names **must not collide** with built-ins or with `fields` / `sub_fields`. `validate` accepts: built-ins ∪ `_variables.toml` declarations ∪ `[variables]` keys.
+Priority: `--var` > gen input `variables` > schema `default`.
 
 ```toml
-# _variables.toml
+# _variables.toml example
 [has_import]
-description = "Generate import button and importExcel endpoint"
+description = "Whether to generate import button and importExcel endpoint"
 type        = "bool"
 default     = false
 
@@ -145,79 +212,204 @@ type        = "string"
 required    = true
 ```
 
-`_variables.toml` types: `bool` \| `string` \| `number`.
+Custom top-level variables **must not** collide with built-ins or reserved names like `fields`. `validate` checks that referenced variables belong to: **built-ins** ∪ **schema declarations** ∪ **`[variables]` config**.
 
-## Helpers
+## Built-in helpers
 
-### Case conversion (one string arg)
+`crud-cli` registers the helpers below on the Handlebars engine. Standard block helpers (`if`, `unless`, `each`, `with`, etc.) and subexpressions (e.g. `(eq a b)`) work as usual.
 
-| Helper | `hello_world` → |
-|---|---|
-| `pascal_case` | `HelloWorld` |
-| `snake_case` | `hello_world` |
-| `camel_case` | `helloWorld` |
-| `kebab_case` | `hello-world` |
+### Case conversion
 
-### Brace wrapping (no HTML escaping)
+Each accepts one string argument and returns the converted value:
 
-Output is **not** HTML-escaped — `<List<T>>` passes through. These helpers emit literal braces without conflicting with Handlebars syntax:
+| Helper | Example input | Output |
+|--------|---------------|--------|
+| `pascal_case` | `hello_world` | `HelloWorld` |
+| `snake_case` | `HelloWorld` | `hello_world` |
+| `camel_case` | `hello_world` | `helloWorld` |
+| `kebab_case` | `hello_world` | `hello-world` |
 
-| Helper | With `name_camel = userId` | Output |
-|---|---|---|
-| `single_brace` | `{{single_brace name_camel}}` | `{userId}` |
-| `double_brace` | `{{double_brace name_camel}}` | `{{userId}}` |
+```handlebars
+{{pascal_case model_snake}}
+{{camel_case "order_item_id"}}
+```
 
-MyBatis (`#` / `$` go outside):
+### Brace wrapping (MyBatis / Vue placeholders)
+
+The engine **does not HTML-escape** output, so Java generics like `<List<T>>` pass through unchanged. These helpers embed literal brace pairs in generated output without conflicting with Handlebars syntax:
+
+| Helper | Example | Output |
+|--------|---------|--------|
+| `single_brace` | `{{single_brace name_camel}}` (context `name_camel=userId`) | `{userId}` |
+| `double_brace` | `{{double_brace name_camel}}` | `{{userName}}` |
+
+Common MyBatis patterns (`#` / `$` prefixes go **outside** the helper):
 
 ```handlebars
 WHERE id = #{{single_brace pk_field}}
 ORDER BY ${{single_brace pk_field}}
 ```
 
-Vue literal interpolation:
+When a Vue template needs literal `{{variable}}` interpolation:
 
 ```handlebars
 <span>{{double_brace name_camel}}</span>
 ```
 
-### `ty_map`
+### Type mapping `ty_map`
 
-Maps neutral type names to target-stack types using `type_map.toml` in the current bundle:
+Maps neutral type names to target-stack types (e.g. Java `Integer`, TS `number`):
 
 ```handlebars
 private {{ty_map type}} {{name_camel}};
 ```
 
-On miss, `.crud/setup.toml` `[type_map].fallback` governs behavior:
+The map comes from `type_map.toml` under the current bundle. On miss, behavior is governed by `.crud/setup.toml` → `[type_map].fallback`:
 
-| `fallback` | Behavior |
-|---|---|
-| `passthrough` (default) | Emit type string unchanged |
+| fallback | Behavior |
+|----------|----------|
+| `passthrough` (default) | Emit the type string unchanged |
 | `error` | Abort render |
-| any other string | Replace with that literal |
+| any other string | Replace with that fixed literal |
 
-### Standard Handlebars (accepted by validator)
+### Standard Handlebars (not registered separately)
 
-Block: `{{#if}}` / `{{#unless}}` / `{{#each}}` / `{{#with}}`.
-Subexpressions: `(eq a b)`, `(ne a b)`, `(and a b)`, `(or a b)`, `(not x)`.
-Paths: `../` for parent context; `lookup` for dynamic property access.
+Provided by Handlebars; `validate` will not report `missing_helper`:
 
-## Workflow
+- **Block helpers:** `{{#if}}` / `{{#unless}}` / `{{#each}}` / `{{#with}}`
+- **Subexpressions:** `(eq a b)`, `(ne a b)`, `(and a b)`, `(or a b)`, `(not x)`, etc., often used in front-matter conditions
+- **Paths:** `../` for parent context; `lookup` for dynamic property access
 
-1. Read `.crud/setup.toml`, `_variables.toml`, `_field_types.toml`, and one or two **hand-written examples** of the same kind of file in the target project — they are the style ground truth.
-2. Write `.hbs` files; declare extended variables in `_variables.toml`; route output via front-matter `basePath` / `filename`.
-3. `crud-cli validate` — catches unknown variables, missing helpers, unsafe filenames.
-4. `crud-cli gen ... --dry-run` then `--stdout` to compare against the hand-written example.
-5. Iterate by **editing templates**, not by hand-fixing generated code.
+## What agents should read from the target project
 
-## Error catalogue
+Templates should make generated code **byte-identical** to the host project's style. Before creating or adapting a bundle, agents should study the target repo systematically rather than copying generic scaffolds. The checklist below is grouped by stack — use only what applies.
 
-| Message | Cause |
-|---|---|
-| `unknown variable` / `UnknownVariable` | Variable not in built-ins ∪ `_variables.toml` ∪ `[variables]` (or it's a bundle-defined extended field key — verify spelling against bundle docs) |
-| `variable shadows built-in` | `_variables.toml` or `[variables]` uses a reserved built-in name |
-| `missing_helper` | Helper not registered and not a Handlebars built-in |
-| `helper not found` (render) | Same as above, or `ty_map` with `fallback=error` on an unmapped type |
-| `[skipped: condition]` | `generateWhen` / `skipWhen` evaluated falsy |
-| `invalid filename` | Front-matter `filename` has `/` or `..` |
-| YAML parse error in front-matter | Quote values containing `{{` |
+### All projects
+
+| Focus | What to determine |
+|-------|-------------------|
+| Directory layout | Roots for source, resources, tests, docs, frontend; monorepo / multi-module structure |
+| `.crud/setup.toml` | Whether `[project]`, `[paths.lang]`, `[paths.aux]`, `[type_map]`, `[variables]` are configured |
+| Existing CRUD samples | One or two **hand-written** files of the same kind as the feature being generated — the template "gold standard" |
+| Naming conventions | Case and prefixes for classes/files/tables/columns/API paths (e.g. `XxxController`, `sys_` table prefix) |
+| Comments and file headers | Whether `@author`, copyright blocks, or generation dates are required (built-ins `user_name`, `date` help) |
+| Auth and security | Annotations, middleware, route guards — naming and placement |
+| Errors and responses | Unified response wrappers, error codes, pagination shape |
+| Logging and audit | Logger in use; whether operation logs need templating |
+| Tests | Test directory, base classes, mocking style |
+
+### Java / Kotlin (Spring, MyBatis, JPA, etc.)
+
+| Focus | What to determine |
+|-------|-------------------|
+| Package layout | Layering and naming for `controller` / `service` / `mapper` / `domain` / `dto` / `vo` |
+| Web layer | `@RestController` path prefix, HTTP verbs, parameter annotations (`@RequestBody`, `@PathVariable`) |
+| Unified responses | Wrapper types (`R`, `AjaxResult`, `Result`) and static factory method names |
+| Exceptions | Business exception base class, global `@ControllerAdvice`, error-code enums |
+| Validation | `javax` / `jakarta.validation` annotation habits, `@Validated` groups |
+| Persistence | MyBatis XML vs annotations; `#{}` / `${}` habits; PK strategy and logical-delete fields |
+| ORM entities | Base classes (`BaseEntity`), Lombok combinations, field mapping, `@TableLogic` |
+| Pagination | `PageHelper`, `IPage`, request/response DTO field names |
+| Import/export | Excel module DTOs and controller method signatures if present |
+| Transactions and permissions | `@Transactional` placement; `@PreAuthorize` / custom permission string format |
+
+### TypeScript / JavaScript
+
+| Focus | What to determine |
+|-------|-------------------|
+| Runtime framework | NestJS modules/DTOs/decorators, or Express/Fastify routes and middleware |
+| Validation | `class-validator`, Zod, Joi, and how errors are thrown |
+| ORM | Prisma schema naming, TypeORM entity decorators, Sequelize models |
+| API layer | Controller/handler return types, interceptors, exception filters |
+| Frontend (same repo) | See Vue/React below |
+
+### Go
+
+| Focus | What to determine |
+|-------|-------------------|
+| Package paths | Feature-based vs layer-based layout under `internal/` |
+| Web framework | Gin/Echo/Fiber route registration, handler signatures, middleware chain |
+| Error handling | Custom `error` types, HTTP status mapping |
+| Data access | GORM / sqlx tags, repository interface locations |
+| Config and DI | Whether wire/fx affects generated file structure |
+
+### Python
+
+| Focus | What to determine |
+|-------|-------------------|
+| Framework | Django apps/models/admin/serializers, or FastAPI routers/dependencies |
+| Models | Pydantic `BaseModel`, SQLAlchemy declarative models, Alembic migration habits |
+| Validation and responses | `HTTPException`, unified `response_model`, pagination schemas |
+| Async | Whether `async def` is standard; session lifecycle |
+
+### C# / .NET
+
+| Focus | What to determine |
+|-------|-------------------|
+| Project type | Web API, Minimal API, Clean Architecture layer directories |
+| Data annotations | FluentValidation vs DataAnnotations |
+| EF Core | DbContext, entity configuration, migration commands |
+| Unified results | `ActionResult<T>`, ProblemDetails, custom `ApiResponse` |
+
+### PHP
+
+| Focus | What to determine |
+|-------|-------------------|
+| Framework | Laravel Controller/Request/Resource/Policy conventions, or Symfony bundle layout |
+| ORM | Eloquent model traits, migration file naming |
+| Validation | FormRequest, rule array style |
+
+### Rust
+
+| Focus | What to determine |
+|-------|-------------------|
+| Web | axum / actix-web routes and extractors |
+| Data | sqlx / diesel models and migration directories |
+| Errors | `thiserror`, `anyhow`, IntoResponse mapping |
+
+### Frontend (Vue / React)
+
+| Focus | What to determine |
+|-------|-------------------|
+| Directories | Actual paths for views/pages, components, api, router, store |
+| API client | axios wrapper, request/response types, baseURL |
+| List pages | Table component, search form, pagination param names, permission directives (`v-hasPermi`, etc.) |
+| Forms and validation | UI library (Element Plus, Ant Design) field binding and rules |
+| Routing | Dynamic routes, meta fields, lazy-load pattern |
+| State | Whether Pinia/Vuex/Redux participates in CRUD pages |
+
+### Database and SQL templates
+
+| Focus | What to determine |
+|-------|-------------------|
+| Dialect | MySQL / PostgreSQL types and index syntax |
+| Naming | Table prefixes, column naming, charset and engine defaults |
+| Separate DDL | Whether DDL templates live in a separate bundle when using `--stdout --type sql` |
+
+### Recommended agent workflow
+
+1. Read `.crud/setup.toml` and the bundle's `_variables.toml`, `_field_types.toml`.
+2. Locate **existing implementations** of the same feature in the target project (controller + service + frontend list page, as applicable).
+3. List differences from generic scaffolds (return types, base classes, annotations, path prefixes, permission strings).
+4. Write or edit `.hbs` files; align output paths via front-matter; declare extended top-level variables in `_variables.toml` and document extended field properties in the bundle docs if any.
+5. Run `crud-cli validate`, then compare output with `--dry-run` / `--stdout` against the gold standard.
+6. Close gaps by **changing templates**, not by hand-editing generated code afterward.
+
+## Engine behavior
+
+- **No HTML escaping:** `{{type}}` and similar emit literally; `<List<T>>` is preserved.
+- **Deterministic validation:** `validate` statically analyzes variable references; variables in conditional front-matter must appear in the schema or built-in list.
+- **Transactional writes:** A conflict on any output file can roll back the entire batch (depending on overwrite policy).
+
+## Common errors
+
+| Message | What to check |
+|---------|---------------|
+| `unknown variable` / `UnknownVariable` | Template references a variable not in built-ins, `_variables.toml`, or `[variables]` |
+| `variable shadows built-in` | `_variables.toml` or `[variables]` uses a built-in name |
+| `missing_helper` | Misspelled helper; confirm helper is listed above or is a Handlebars built-in |
+| `helper not found` (render stage) | Same as above; or `ty_map` with fallback=error on an unmapped type |
+| File marked `[skipped: condition]` | `generateWhen` / `skipWhen` evaluated falsy; check values and spelling |
+| Condition silently skips file | Undeclared variables are falsy — run `validate` first |
+| `invalid filename` | front-matter `filename` contains `/` or path-traversal segments |
+| front-matter YAML parse failure | Quote values that contain `{{` |
