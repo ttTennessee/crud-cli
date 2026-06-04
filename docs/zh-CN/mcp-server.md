@@ -35,7 +35,7 @@ Cursor 可使用 `"args": ["mcp", "--path", "${workspaceFolder}"]`。
 ## 推荐工作流（代码生成）
 
 1. **调用 `crud_describe_templates`** 获取 `variables` / `field_types` schema、`paths`、`project` 等；再按需读取静态资源:
-   - `crud://schema/entity` — [entity.json 规范](json-entity-input.md)  
+   - `crud://schema/entity` — [entity.json 规范](../../agent-resources/json-entity-input.md)  
    - `crud://schema/builtins` — 内置/保留变量名  
 
 2. **编写 entity.json**（Agent 根据上述 schema 生成）
@@ -87,7 +87,7 @@ Cursor 可使用 `"args": ["mcp", "--path", "${workspaceFolder}"]`。
 
 | 名称 | 说明 |
 |------|------|
-| `crud_template_authoring` | 一次性模板包编写指南（对应 [template-authoring.md](template-authoring.md)） |
+| `crud_template_authoring` | 一次性模板包编写指南（对应 [template-authoring.md](../../agent-resources/template-authoring.md)） |
 
 ## DDL 与数据 SQL 分离
 

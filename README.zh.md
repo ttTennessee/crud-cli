@@ -1,5 +1,7 @@
 # crud-cli
 
+**语言：** [English](./README.md) · 简体中文
+
 [![CI](https://github.com/ttTennessee/crud-cli/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ttTennessee/crud-cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
@@ -33,34 +35,6 @@ Agent 只下发一条短命令 + 结构化数据，由 CLI 在本地完成渲染
 - 如果业务逻辑复杂、每张表都有大量定制代码，模板复用率低，
   收益会相对有限，不一定值得引入当前工具。
 
-[English](./README.md)
-
-## 当前状态
-
-已实现：
-
-- `crud-cli setup` — 交互式向导 + 非交互式 flag 模式。支持写入项目级
-  `.crud/setup.toml` 或开发者级 `.crud/setup.user.toml`。
-- `crud-cli gen` — 用字段 DSL 或 JSON 文件渲染模板。支持通过可重复的
-  `--var key=value` 或 JSON 中的 `variables` 字段注入每次调用的变量。
-  `--dry-run` 只列出将写入的文件不落盘；`--stdout` 把渲染结果直接打到标准输出
-  而不写文件（配合 `--type sql` 可让 Agent 先把建表 SQL 给用户确认，再正式生成）。
-- `crud-cli validate` — 上线前体检：Handlebars 语法、未声明变量、
-  YAML front-matter、`filename`/`basePath` 安全性、fixture 渲染。
-- Front-matter 三件套 `basePath` / `filename` / `overwrite`，且自动按
-  `java/`、`resources/`、`doc/`、`vue/`、`react/`、`nest/` 前缀重定位到项目布局。
-- `_variables.toml` schema：声明每次调用的开关变量（类型、默认值、必填、
-  自然语言描述，最后这条是给 Agent 读的契约）。
-- 两阶段事务式写盘 —— 任一文件冲突，整批回滚，磁盘上不留半成品。
-- Agent 模式（`--agent`）：错误以结构化 JSON 输出到 stderr，成功时 stdout 为空。
-- `crud-cli template install` —— 从 GitHub 仓库下载模板包到
-  `~/.crud/templates/<name>/<version>/`。交互式选择名称/版本（版本会标注
-  已安装 / 本地已改 / 仓库有更新 等状态），并可选择叠加共享的 `doc/`。
-  脚本化用法：`template install name@version`。
-- `crud-cli template list` —— 列出已安装的模板包。
-- `crud-cli template use <name>[@version]` —— 把项目的 `[project].template`
-  指向某个已安装模板包（同步 backend/frontend）。
-
 ## 默认模板仓库
 
 [crud-templates](https://github.com/ttTennessee/crud-templates) 是配套的默认模板仓库，
@@ -87,12 +61,13 @@ irm https://github.com/ttTennessee/crud-cli/releases/latest/download/crud-cli-in
 
 ### 从源码构建
 
-需要 Rust ≥ 1.75。
+需要较新版本的 Rust stable 工具链（项目未承诺 MSRV）。
 
 ```bash
 git clone https://github.com/ttTennessee/crud-cli.git
 cd crud-cli
-cargo build --release
+cargo build --release                 # 仅 CLI
+cargo build --release --features full # CLI + MCP server
 # 二进制位于 ./target/release/crud-cli
 ```
 
@@ -292,7 +267,7 @@ crud-cli gen User --fields "..." --package ... --table ... \
 
 ### JSON 实体输入
 
-编写 JSON 的完整说明见 [docs/zh-CN/json-entity-input.md](docs/zh-CN/json-entity-input.md)（英文：[docs/json-entity-input.md](docs/json-entity-input.md)）。
+完整 schema 参考：[agent-resources/json-entity-input.md](agent-resources/json-entity-input.md)（面向 LLM Agent 的精简英文 spec，与 MCP server 对外提供的内容同源）。
 
 需要更丰富的字段元数据时用 `--file`。每个字段（FieldSpec）支持 `name`、
 `type`、`is_pk`、`required`、`length`、`unique`、`default`、`comment`，以及
@@ -358,6 +333,19 @@ CLI flag（`--name`、`--package`、`--table`、`--table-comment`、`--var`）�
 所有 TOML schema 都是 `deny_unknown_fields` —— 拼错或漂写会立刻报错，
 不会静默改变行为。
 
+## MCP server
+
+`crud-cli` 内置 MCP server，让 AI Agent 通过工具调用驱动代码生成，而不必走 shell。
+
+```bash
+cargo build --release --features full   # 或直接安装预编译二进制
+crud-cli mcp
+```
+
+在 MCP 客户端中配置 `command: "crud-cli"`、`args: ["mcp", "--path", "/abs/path/to/project"]` 即可。服务端对外暴露工具（`crud_describe_templates`、`crud_preview`、`crud_generate` 等）、资源（`crud://schema/entity`、`crud://templates/variables` 等），以及 `crud_template_authoring` prompt，内容均来自 [`agent-resources/`](agent-resources/)。
+
+完整说明：[docs/mcp-server.md](docs/mcp-server.md)。
+
 ## Agent 模式
 
 ```bash
@@ -370,15 +358,13 @@ crud-cli --agent gen User --fields "id:Long" --package com.x --table u
 
 ## 架构
 
-`core` 与 `cli` 严格分层，为未来的 MCP Server 复用预留接口：
+单 crate、三层模块，上层两层用 Cargo feature 开关，使用方按需付出依赖代价。
 
-- `src/core/` —— 纯逻辑：配置解析、路径解析、模板引擎、事务写盘、
-  validator、变量 schema、`thiserror` 类型化错误。不依赖 clap / inquire。
-- `src/cli/` —— `clap` 命令行、`inquire` 向导、Agent JSON 输出、
-  人类可读输出。依赖 `core`，反向永不依赖。
+- `src/core/` —— 纯逻辑：配置解析、路径解析、模板引擎、事务写盘、validator、变量 schema、`thiserror` 类型化错误。不依赖 clap / inquire / tokio。
+- `src/cli/` —— feature `cli`（默认）。`clap` 命令行、`inquire` 向导、Agent JSON 输出、人类可读输出。依赖 `core`。
+- `src/mcp/` —— feature `mcp`。基于 `rmcp` + `tokio` 构建的 MCP server（`crud-cli mcp`），通过 stdio 把同一套 `core` API 提供给 LLM Agent；以 MCP prompts / resources 形式暴露 [`agent-resources/`](agent-resources/) 下的机器可读 spec。只依赖 `core`，永不依赖 `cli`。
 
-`cli` feature 可关闭（`--no-default-features`），从而把 `crud_cli` 作为
-纯库依赖，不引入 clap/inquire。
+Feature 组合：`default = ["cli"]`、`cli`、`mcp`、`full = ["cli", "mcp"]`。使用 `--no-default-features` 可把 `crud_cli` 作为纯库引入，不带 clap / inquire / tokio。
 
 ## 测试
 

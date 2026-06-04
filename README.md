@@ -1,5 +1,7 @@
 # crud-cli
 
+**Languages:** English · [简体中文](./README.zh.md)
+
 [![CI](https://github.com/ttTennessee/crud-cli/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ttTennessee/crud-cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
@@ -38,38 +40,6 @@ Data comes from `_example_sub.json` and `_example_tree.json` in the
 - If your business logic is complex and each table needs heavy custom code,
   template reuse is low and the benefit may not justify adopting this tool.
 
-[中文文档](./README.zh.md)
-
-## Status
-
-Implemented:
-
-- `crud-cli setup` — interactive wizard and non-interactive flag mode. Writes
-  the shared project config `.crud/setup.toml` or the per-developer
-  `.crud/setup.user.toml`.
-- `crud-cli gen` — render templates with field DSL or JSON entity file. Per-call
-  variable injection via repeatable `--var key=value` or JSON `variables`.
-  `--dry-run` lists the files that would be written without touching disk;
-  `--stdout` prints rendered output to standard output instead of writing files
-  (with `--type sql`, lets an agent show the DDL for confirmation before the
-  real generation).
-- `crud-cli validate` — pre-flight check: handlebars syntax, unknown variables,
-  YAML front-matter, `filename`/`basePath` safety, fixture render.
-- Front-matter `basePath` / `filename` / `overwrite` with framework-prefix
-  rebasing across `java/`, `resources/`, `doc/`, `vue/`, `react/`, `nest/`.
-- `_variables.toml` schema for declaring per-call switches (with type, default,
-  required, natural-language description for agent consumption).
-- Transactional two-phase write — on conflict, nothing lands on disk.
-- Agent mode (`--agent`): structured JSON errors on stderr, empty stdout on
-  success.
-- `crud-cli template install` — download a template bundle from a GitHub repo
-  into `~/.crud/templates/<name>/<version>/`. Interactive name/version pickers
-  (version labels show installed / locally-modified / repo-updated status) and
-  an optional shared-`doc/` picker. Scriptable as `template install name@version`.
-- `crud-cli template list` — list installed template bundles.
-- `crud-cli template use <name>[@version]` — point the project's
-  `[project].template` at an installed bundle (syncs backend/frontend).
-
 ## Default template repository
 
 [crud-templates](https://github.com/ttTennessee/crud-templates) is the companion template repository,
@@ -96,12 +66,13 @@ irm https://github.com/ttTennessee/crud-cli/releases/latest/download/crud-cli-in
 
 ### Build from source
 
-Requires Rust ≥ 1.75.
+Requires a recent stable Rust toolchain (no committed MSRV).
 
 ```bash
 git clone https://github.com/ttTennessee/crud-cli.git
 cd crud-cli
-cargo build --release
+cargo build --release                 # CLI only
+cargo build --release --features full # CLI + MCP server
 # binary at ./target/release/crud-cli
 ```
 
@@ -303,7 +274,7 @@ The `description` field is the contract agents read to understand what to fill.
 
 ### JSON entity input
 
-Authoring guide: [docs/json-entity-input.md](docs/json-entity-input.md) ([zh-CN](docs/zh-CN/json-entity-input.md)).
+Full schema reference: [agent-resources/json-entity-input.md](agent-resources/json-entity-input.md) (written as a terse spec for LLM agents — same source of truth the MCP server serves).
 
 For rich field metadata, use `--file`. Each field (FieldSpec) accepts `name`,
 `type`, `is_pk`, `required`, `length`, `unique`, `default`, `comment`, and a
@@ -346,6 +317,19 @@ CLI flags (`--name`, `--package`, `--table`, `--var`) override JSON values.
 All TOML schemas use `deny_unknown_fields` — typos and drift surface
 immediately rather than silently changing behavior.
 
+## MCP server
+
+`crud-cli` ships an embedded MCP server so AI agents can drive code generation through tool calls instead of shell invocations.
+
+```bash
+cargo build --release --features full   # or install a prebuilt binary
+crud-cli mcp
+```
+
+Configure your MCP client with `command: "crud-cli"`, `args: ["mcp", "--path", "/abs/path/to/project"]`. The server exposes tools (`crud_describe_templates`, `crud_preview`, `crud_generate`, …), resources (`crud://schema/entity`, `crud://templates/variables`, …), and a `crud_template_authoring` prompt sourced from [`agent-resources/`](agent-resources/).
+
+Full reference: [docs/mcp-server.md](docs/mcp-server.md).
+
 ## Agent mode
 
 ```bash
@@ -359,16 +343,13 @@ crud-cli --agent gen User --fields "id:Long" --package com.x --table u
 
 ## Architecture
 
-Two layers, strictly separated so a future MCP server can reuse the core:
+Single crate with three module layers; the upper two are gated by Cargo features so consumers only pay for what they use.
 
-- `src/core/` — pure logic: config parsing, path resolution, template engine,
-  transactional filesystem writer, validator, variable schema, typed
-  `thiserror` errors. No clap, no inquire, no I/O concerns beyond what's needed.
-- `src/cli/` — `clap` surface, `inquire` wizard, agent-mode JSON output,
-  human-readable output. Depends on `core`; `core` never depends back.
+- `src/core/` — pure logic: config parsing, path resolution, template engine, transactional filesystem writer, validator, variable schema, typed `thiserror` errors. No clap, no inquire, no tokio.
+- `src/cli/` — feature `cli` (default). `clap` surface, `inquire` wizard, agent-mode JSON output, human-readable output. Depends on `core`.
+- `src/mcp/` — feature `mcp`. MCP server (`crud-cli mcp`) built on `rmcp` + `tokio`, serving the same `core` APIs to LLM agents over stdio. Exposes machine-readable specs from [`agent-resources/`](agent-resources/) as MCP prompts and resources. Depends on `core` only — never on `cli`.
 
-The `cli` feature gate (`--no-default-features`) lets you depend on `crud_cli`
-as a library without pulling clap/inquire.
+Features: `default = ["cli"]`, `cli`, `mcp`, `full = ["cli", "mcp"]`. The library `crud_cli` can be consumed with `--no-default-features` for embedding without clap/inquire/tokio.
 
 ## Testing
 
