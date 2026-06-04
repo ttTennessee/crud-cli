@@ -16,8 +16,7 @@ use super::i18n::{self, keys};
 pub const TYPE_MAP_FILE_NAME: &str = "type_map.toml";
 
 /// Global fallback policy when a type lookup misses.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum Fallback {
     /// Output the source type string unchanged (default; backward compatible).
     #[default]
@@ -27,7 +26,6 @@ pub enum Fallback {
     /// Replace unknown type with a fixed literal (e.g., `"any"`).
     Literal(String),
 }
-
 
 impl Serialize for Fallback {
     fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
@@ -132,8 +130,14 @@ fn unmapped_type_error(bundle: Option<&str>, ty: &str) -> ErrorEnvelope {
 
 fn details_for(path: &Path, bundle: &str) -> serde_json::Map<String, serde_json::Value> {
     let mut d = serde_json::Map::new();
-    d.insert("path".into(), serde_json::Value::String(path.display().to_string()));
-    d.insert("bundle".into(), serde_json::Value::String(bundle.to_string()));
+    d.insert(
+        "path".into(),
+        serde_json::Value::String(path.display().to_string()),
+    );
+    d.insert(
+        "bundle".into(),
+        serde_json::Value::String(bundle.to_string()),
+    );
     d
 }
 
@@ -151,7 +155,9 @@ mod tests {
     #[test]
     fn fallback_round_trips() {
         #[derive(Deserialize)]
-        struct W { fallback: Fallback }
+        struct W {
+            fallback: Fallback,
+        }
         let w: W = toml::from_str(r#"fallback = "passthrough""#).expect("p");
         assert_eq!(w.fallback, Fallback::Passthrough);
         let w: W = toml::from_str(r#"fallback = "error""#).expect("p");

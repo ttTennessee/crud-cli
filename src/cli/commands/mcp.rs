@@ -12,9 +12,7 @@ fn resolve_explicit_path(raw: Option<&str>) -> Result<Option<PathBuf>, String> {
         return Ok(None);
     };
     let p = PathBuf::from(path);
-    let abs = std::fs::canonicalize(&p).map_err(|e| {
-        format!("--path {}: {e}", p.display())
-    })?;
+    let abs = std::fs::canonicalize(&p).map_err(|e| format!("--path {}: {e}", p.display()))?;
     if !abs.is_dir() {
         return Err(format!("--path is not a directory: {}", abs.display()));
     }

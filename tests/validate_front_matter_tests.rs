@@ -36,10 +36,7 @@ fn run_validate_in(
     result
 }
 
-fn find_issue<'a>(
-    issues: &'a [serde_json::Value],
-    kind: &str,
-) -> Option<&'a serde_json::Value> {
+fn find_issue<'a>(issues: &'a [serde_json::Value], kind: &str) -> Option<&'a serde_json::Value> {
     issues
         .iter()
         .find(|i| i.get("kind").and_then(|k| k.as_str()) == Some(kind))
@@ -60,7 +57,11 @@ fn filename_with_slash_is_reported() {
 
     let err = run_validate_in(root).expect_err("should fail");
     assert_eq!(err.kind, Kind::TemplateError);
-    let issues = err.details.get("issues").and_then(|v| v.as_array()).unwrap();
+    let issues = err
+        .details
+        .get("issues")
+        .and_then(|v| v.as_array())
+        .unwrap();
     let issue = find_issue(issues, "invalid_filename").expect("invalid_filename issue");
     assert_eq!(
         issue.get("variable").and_then(|v| v.as_str()),
@@ -82,7 +83,11 @@ fn base_path_with_traversal_is_reported() {
     .unwrap();
 
     let err = run_validate_in(root).expect_err("should fail");
-    let issues = err.details.get("issues").and_then(|v| v.as_array()).unwrap();
+    let issues = err
+        .details
+        .get("issues")
+        .and_then(|v| v.as_array())
+        .unwrap();
     find_issue(issues, "path_traversal").expect("path_traversal issue");
 }
 
@@ -105,7 +110,11 @@ fn base_path_absolute_is_reported() {
     .unwrap();
 
     let err = run_validate_in(root).expect_err("should fail");
-    let issues = err.details.get("issues").and_then(|v| v.as_array()).unwrap();
+    let issues = err
+        .details
+        .get("issues")
+        .and_then(|v| v.as_array())
+        .unwrap();
     find_issue(issues, "path_traversal").expect("path_traversal for absolute");
 }
 
@@ -123,7 +132,11 @@ fn unclosed_front_matter_is_reported() {
     .unwrap();
 
     let err = run_validate_in(root).expect_err("should fail");
-    let issues = err.details.get("issues").and_then(|v| v.as_array()).unwrap();
+    let issues = err
+        .details
+        .get("issues")
+        .and_then(|v| v.as_array())
+        .unwrap();
     find_issue(issues, "front_matter_error").expect("front_matter_error issue");
 }
 
@@ -141,7 +154,11 @@ fn invalid_overwrite_policy_is_reported() {
     .unwrap();
 
     let err = run_validate_in(root).expect_err("should fail");
-    let issues = err.details.get("issues").and_then(|v| v.as_array()).unwrap();
+    let issues = err
+        .details
+        .get("issues")
+        .and_then(|v| v.as_array())
+        .unwrap();
     find_issue(issues, "front_matter_error").expect("front_matter_error issue");
 }
 
@@ -157,7 +174,11 @@ fn schema_declared_variable_is_allowed_in_template() {
         "[has_import]\ndescription = \"toggle import button\"\ntype = \"bool\"\ndefault = false\n",
     )
     .unwrap();
-    fs::write(templates.join("Good.hbs"), "{{#if has_import}}IMPORT{{/if}}\n").unwrap();
+    fs::write(
+        templates.join("Good.hbs"),
+        "{{#if has_import}}IMPORT{{/if}}\n",
+    )
+    .unwrap();
 
     let report = run_validate_in(root).expect("should pass");
     assert_eq!(report.templates_checked, 1);
@@ -174,7 +195,11 @@ fn undeclared_variable_in_template_is_unknown_var() {
     fs::write(templates.join("Bad.hbs"), "{{not_declared}}\n").unwrap();
 
     let err = run_validate_in(root).expect_err("should fail");
-    let issues = err.details.get("issues").and_then(|v| v.as_array()).unwrap();
+    let issues = err
+        .details
+        .get("issues")
+        .and_then(|v| v.as_array())
+        .unwrap();
     find_issue(issues, "unknown_variable").expect("unknown_variable issue");
 }
 

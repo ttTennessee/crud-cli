@@ -9,10 +9,10 @@ use time::OffsetDateTime;
 
 use super::config::SetupConfig;
 use super::error::ErrorEnvelope;
-use super::i18n::{self, keys};
 use super::field_dsl::{Field, RESERVED_VARIABLE_NAMES};
 use super::gen_input::GenInput;
 use super::git_info::GitInfo;
+use super::i18n::{self, keys};
 
 static EMPTY_EXTRA: OnceLock<Map<String, Value>> = OnceLock::new();
 
@@ -225,9 +225,8 @@ pub fn build_context(
                 i18n::t(keys::ERROR_VARIABLE_SHADOWS_BUILTIN),
             ));
         }
-        let json = serde_json::to_value(val).map_err(|e| {
-            ErrorEnvelope::template_error(format!("variable {key} to JSON: {e}"))
-        })?;
+        let json = serde_json::to_value(val)
+            .map_err(|e| ErrorEnvelope::template_error(format!("variable {key} to JSON: {e}")))?;
         map.insert(key.clone(), json);
     }
 

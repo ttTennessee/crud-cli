@@ -15,7 +15,9 @@ pub fn paths_for_selections(backend: &Backend, frontend: &Frontend) -> PathsSect
     match backend {
         Backend::Java => {
             paths.lang.insert("java".into(), "src/main/java".into());
-            paths.aux.insert("resources".into(), "src/main/resources".into());
+            paths
+                .aux
+                .insert("resources".into(), "src/main/resources".into());
             paths.aux.insert("doc".into(), "doc/api".into());
         }
         Backend::TypeScript => {

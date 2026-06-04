@@ -3,9 +3,7 @@
 
 use crud_cli::cli::args::GenArgs;
 use crud_cli::cli::commands::gen::run_gen;
-use crud_cli::core::config::{
-    Backend, Frontend, SetupConfig, SetupSelections,
-};
+use crud_cli::core::config::{Backend, Frontend, SetupConfig, SetupSelections};
 use crud_cli::core::field_types::SCHEMA_FILE_NAME;
 use crud_cli::core::type_map::TYPE_MAP_FILE_NAME;
 use crud_cli::core::validator::{run, ValidateParams};
@@ -121,11 +119,7 @@ fn alias_normalized_in_output() {
 fn unknown_type_rejected() {
     let dir = TempDir::new().unwrap();
     let root = dir.path();
-    seed(
-        root,
-        "[Long]\ndescription = \"pk\"\n",
-        "x\n",
-    );
+    seed(root, "[Long]\ndescription = \"pk\"\n", "x\n");
     let mut args = base_args();
     args.fields = Some("email:String".into());
     assert_ne!(run_in(root, args), 0);
@@ -135,11 +129,7 @@ fn unknown_type_rejected() {
 fn json_unknown_type_rejected() {
     let dir = TempDir::new().unwrap();
     let root = dir.path();
-    seed(
-        root,
-        "[Long]\ndescription = \"pk\"\n",
-        "x\n",
-    );
+    seed(root, "[Long]\ndescription = \"pk\"\n", "x\n");
     let mut f = NamedTempFile::new().unwrap();
     writeln!(
         f,
@@ -172,11 +162,7 @@ fn json_unknown_type_rejected() {
 fn schema_file_not_rendered_as_template() {
     let dir = TempDir::new().unwrap();
     let root = dir.path();
-    seed(
-        root,
-        "[Long]\ndescription = \"pk\"\n",
-        "ok\n",
-    );
+    seed(root, "[Long]\ndescription = \"pk\"\n", "ok\n");
     assert_eq!(run_in(root, base_args()), 0);
     assert!(!root.join("_field_types.toml").exists());
 }
@@ -212,13 +198,15 @@ fn validate_reports_unmapped_type_in_bundles() {
     fs::write(templates.join("Good.hbs"), "x\n").unwrap();
 
     let err = run_validate_in(root).expect_err("should fail");
-    let issues = err.details.get("issues").and_then(|v| v.as_array()).unwrap();
+    let issues = err
+        .details
+        .get("issues")
+        .and_then(|v| v.as_array())
+        .unwrap();
     assert!(
-        issues.iter().any(|i| {
-            i.get("kind")
-                .and_then(|k| k.as_str())
-                == Some("field_type_unmapped")
-        }),
+        issues
+            .iter()
+            .any(|i| { i.get("kind").and_then(|k| k.as_str()) == Some("field_type_unmapped") }),
         "expected field_type_unmapped issue, got: {issues:?}"
     );
 }

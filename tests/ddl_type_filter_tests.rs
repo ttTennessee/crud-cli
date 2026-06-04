@@ -36,7 +36,9 @@ fn ddl_prefix_only_includes_schema_not_menu() {
 
     let sql_only = discover_templates(root, Some(&["sql".to_string()])).expect("discover sql");
     assert!(
-        sql_only.iter().any(|e| e.rel_path.to_string_lossy().contains("menu.sql")),
+        sql_only
+            .iter()
+            .any(|e| e.rel_path.to_string_lossy().contains("menu.sql")),
         "expected sql/menu.sql.hbs"
     );
     assert!(

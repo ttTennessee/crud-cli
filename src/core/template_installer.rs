@@ -66,8 +66,7 @@ impl RepoSpec {
             return Err("repo spec must not be empty".into());
         }
 
-        let is_url =
-            trimmed.starts_with("https://") || trimmed.starts_with("http://");
+        let is_url = trimmed.starts_with("https://") || trimmed.starts_with("http://");
         let (base, git_ref) = if is_url {
             (trimmed, DEFAULT_GIT_REF.to_string())
         } else if let Some((b, r)) = trimmed.rsplit_once('@') {
@@ -136,9 +135,8 @@ impl RepoSnapshot {
         fs::create_dir_all(&extract_dir).map_err(|e| io_error("create extract dir", e))?;
         let url = spec.tarball_url();
         download_and_extract(&url, &extract_dir)?;
-        let root = single_child_dir(&extract_dir).ok_or_else(|| {
-            network_error(format!("tarball from {url} has unexpected layout"))
-        })?;
+        let root = single_child_dir(&extract_dir)
+            .ok_or_else(|| network_error(format!("tarball from {url} has unexpected layout")))?;
         Ok(Self {
             _tmp: tmp,
             root,
@@ -304,11 +302,13 @@ pub fn install_from_snapshot(
 
     // Validate manifest BEFORE writing anything; resolve effective name/version
     // through manifest fields (matches `template list` / `template use`).
-    let manifest = load_manifest(&src).map_err(|reason| {
-        manifest_unreadable(name, &src_version, &src, &reason)
-    })?;
+    let manifest = load_manifest(&src)
+        .map_err(|reason| manifest_unreadable(name, &src_version, &src, &reason))?;
     let installed_name = manifest.name.clone().unwrap_or_else(|| name.to_string());
-    let installed_version = manifest.version.clone().unwrap_or_else(|| src_version.clone());
+    let installed_version = manifest
+        .version
+        .clone()
+        .unwrap_or_else(|| src_version.clone());
 
     let dest_dir = dest_root.join(&installed_name).join(&installed_version);
     if dest_dir.exists() {
@@ -328,15 +328,14 @@ pub fn install_from_snapshot(
             io::Error::new(io::ErrorKind::InvalidInput, "no parent directory"),
         )
     })?;
-    fs::create_dir_all(parent)
-        .map_err(|e| io_error(format!("create {}", parent.display()), e))?;
+    fs::create_dir_all(parent).map_err(|e| io_error(format!("create {}", parent.display()), e))?;
     copy_dir_all(&src, &dest_dir)
         .map_err(|e| io_error(format!("copy into {}", dest_dir.display()), e))?;
 
     // Pin provenance + content hash so the next `template install` can label
     // this version as "已安装" / "已修改" / "有新版本" without trusting mtimes.
-    let source_hash = hash_dir(&dest_dir)
-        .map_err(|e| io_error(format!("hash {}", dest_dir.display()), e))?;
+    let source_hash =
+        hash_dir(&dest_dir).map_err(|e| io_error(format!("hash {}", dest_dir.display()), e))?;
     let meta = InstallMeta {
         source_hash,
         repo: format!("{}/{}", snapshot.spec.owner, snapshot.spec.repo),
@@ -382,7 +381,11 @@ fn single_child_dir(parent: &Path) -> Option<PathBuf> {
     if iter.next().is_some() {
         return None;
     }
-    if first.is_dir() { Some(first) } else { None }
+    if first.is_dir() {
+        Some(first)
+    } else {
+        None
+    }
 }
 
 fn pick_highest_version(template_dir: &Path) -> Option<String> {
@@ -505,12 +508,7 @@ fn already_installed(name: &str, version: &str, dest: &Path) -> ErrorEnvelope {
     }
 }
 
-fn manifest_unreadable(
-    name: &str,
-    version: &str,
-    src: &Path,
-    reason: &str,
-) -> ErrorEnvelope {
+fn manifest_unreadable(name: &str, version: &str, src: &Path, reason: &str) -> ErrorEnvelope {
     let mut details = serde_json::Map::new();
     details.insert(
         "template".into(),
@@ -635,8 +633,7 @@ mod tests {
 
         let snap = snapshot_from(root);
         let dest = tmp.path().join("home");
-        let installed =
-            install_from_snapshot(&snap, "ruoyi", None, &dest, false).expect("install");
+        let installed = install_from_snapshot(&snap, "ruoyi", None, &dest, false).expect("install");
 
         let meta = crate::core::template_install_meta::load_install_meta(&installed.path)
             .expect("sidecar written");
@@ -666,10 +663,7 @@ mod tests {
             snap.shared_categories("sql"),
             vec!["mysql".to_string(), "postgres".to_string()]
         );
-        assert_eq!(
-            snap.shared_categories("ddl"),
-            vec!["mysql".to_string()]
-        );
+        assert_eq!(snap.shared_categories("ddl"), vec!["mysql".to_string()]);
         assert!(snap.shared_categories("missing").is_empty());
     }
 
@@ -716,16 +710,11 @@ mod tests {
             "backend = \"java\"\nfrontend = \"vue\"\n",
         );
         fs::create_dir_all(root.join("ddl").join("mysql")).expect("mkdir");
-        fs::write(
-            root.join("ddl").join("mysql").join("schema.sql.hbs"),
-            "ddl",
-        )
-        .expect("write");
+        fs::write(root.join("ddl").join("mysql").join("schema.sql.hbs"), "ddl").expect("write");
 
         let snap = snapshot_from(root);
         let dest = tmp.path().join("home");
-        let installed =
-            install_from_snapshot(&snap, "ruoyi", None, &dest, false).expect("install");
+        let installed = install_from_snapshot(&snap, "ruoyi", None, &dest, false).expect("install");
 
         snap.copy_shared_category(&installed.path, "ddl", "mysql")
             .expect("copy");
@@ -747,8 +736,7 @@ mod tests {
 
         let snap = snapshot_from(root);
         let dest = tmp.path().join("home");
-        let installed =
-            install_from_snapshot(&snap, "ruoyi", None, &dest, false).expect("install");
+        let installed = install_from_snapshot(&snap, "ruoyi", None, &dest, false).expect("install");
 
         snap.copy_shared_category(&installed.path, "sql", "mysql")
             .expect("copy");
@@ -766,8 +754,7 @@ mod tests {
         );
         let snap = snapshot_from(root);
         let dest = tmp.path().join("home");
-        let installed =
-            install_from_snapshot(&snap, "ruoyi", None, &dest, false).expect("install");
+        let installed = install_from_snapshot(&snap, "ruoyi", None, &dest, false).expect("install");
         assert!(snap
             .copy_shared_category(&installed.path, "sql", "nope")
             .is_err());
@@ -802,8 +789,11 @@ mod tests {
         for v in ["1.0.0", "1.10.0", "1.2.0"] {
             let d = tdir.join(v);
             fs::create_dir_all(&d).expect("mkdir");
-            fs::write(d.join(MANIFEST_FILENAME), "backend = \"java\"\nfrontend = \"vue\"\n")
-                .expect("write");
+            fs::write(
+                d.join(MANIFEST_FILENAME),
+                "backend = \"java\"\nfrontend = \"vue\"\n",
+            )
+            .expect("write");
         }
         // a stray version directory without manifest must be ignored.
         fs::create_dir_all(tdir.join("9.9.9-broken")).expect("mkdir broken");

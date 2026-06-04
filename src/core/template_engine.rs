@@ -1,7 +1,10 @@
 //! Handlebars bootstrap with no HTML escaping (D-13, FOUND-08).
 
 use convert_case::{Case, Casing};
-use handlebars::{handlebars_helper, Handlebars, Helper, HelperResult, Output, RenderContext, RenderError, RenderErrorReason};
+use handlebars::{
+    handlebars_helper, Handlebars, Helper, HelperResult, Output, RenderContext, RenderError,
+    RenderErrorReason,
+};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -87,9 +90,9 @@ fn make_ty_map_helper(
             .param(0)
             .ok_or_else(|| RenderErrorReason::Other("ty_map: missing type argument".into()))?
             .value();
-        let ty = arg
-            .as_str()
-            .ok_or_else(|| RenderErrorReason::Other(format!("ty_map: expected string, got {arg}")))?;
+        let ty = arg.as_str().ok_or_else(|| {
+            RenderErrorReason::Other(format!("ty_map: expected string, got {arg}"))
+        })?;
 
         let resolved = type_map::resolve(
             binding.bundle.as_deref(),
@@ -109,10 +112,7 @@ fn make_ty_map_helper(
  * @param template - Handlebars template source
  * @param data - JSON context
  */
-pub fn render_template(
-    template: &str,
-    data: &serde_json::Value,
-) -> Result<String, ErrorEnvelope> {
+pub fn render_template(template: &str, data: &serde_json::Value) -> Result<String, ErrorEnvelope> {
     render_template_with_type_map(template, data, TypeMapBinding::passthrough())
 }
 
@@ -148,17 +148,11 @@ mod case_helper_tests {
         let engine = new_engine();
         let data = &serde_json::json!({ "name_camel": "userId" });
         let hash = engine
-            .render_template(
-                "WHERE id = #{{single_brace name_camel}}",
-                data,
-            )
+            .render_template("WHERE id = #{{single_brace name_camel}}", data)
             .expect("render");
         assert_eq!(hash, "WHERE id = #{userId}");
         let dollar = engine
-            .render_template(
-                "ORDER BY ${{single_brace name_camel}}",
-                data,
-            )
+            .render_template("ORDER BY ${{single_brace name_camel}}", data)
             .expect("render");
         assert_eq!(dollar, "ORDER BY ${userId}");
     }
@@ -186,11 +180,8 @@ mod case_helper_tests {
 
     #[test]
     fn ty_map_passthrough_when_no_map() {
-        let out = render_template(
-            "{{ty_map ty}}",
-            &serde_json::json!({ "ty": "Integer" }),
-        )
-        .expect("render");
+        let out = render_template("{{ty_map ty}}", &serde_json::json!({ "ty": "Integer" }))
+            .expect("render");
         assert_eq!(out, "Integer");
     }
 

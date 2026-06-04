@@ -1,11 +1,11 @@
 //! Binary entry — panic hook and global CLI flags (`cli` feature).
 
+#[cfg(feature = "mcp")]
+use crud_cli::cli::run_mcp;
 use crud_cli::cli::{
     exit_with_envelope, init_agent_mode, init_locale, panic_hook_handler, run_gen, run_setup,
     run_template, run_validate, try_parse_cli_or_help, Commands,
 };
-#[cfg(feature = "mcp")]
-use crud_cli::cli::run_mcp;
 
 fn main() {
     std::panic::set_hook(Box::new(panic_hook_handler));

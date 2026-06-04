@@ -158,10 +158,7 @@ impl ErrorEnvelope {
 
     /// Aggregated validate issues.
     #[must_use]
-    pub fn template_error_with_issues(
-        issues_json: Value,
-        summary_json: Value,
-    ) -> Self {
+    pub fn template_error_with_issues(issues_json: Value, summary_json: Value) -> Self {
         let issue_count = summary_json
             .get("issue_count")
             .and_then(|v| v.as_u64())

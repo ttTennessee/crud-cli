@@ -66,7 +66,9 @@ pub fn commit(plan: WritePlan) -> Result<(), ErrorEnvelope> {
 }
 
 fn atomic_write(path: &Path, content: &[u8]) -> Result<(), ErrorEnvelope> {
-    let parent = path.parent().ok_or_else(|| write_error(path, "missing parent directory"))?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| write_error(path, "missing parent directory"))?;
     fs::create_dir_all(parent).map_err(|e| write_error(path, format!("create dirs: {e}")))?;
 
     let mut temp = tempfile::NamedTempFile::new_in(parent)
@@ -87,7 +89,10 @@ fn sync_parent_dir(parent: &Path, path: &Path) {
     if let Ok(dir) = File::open(parent) {
         let _ = dir.sync_all();
     }
-    let _ = OpenOptions::new().write(true).open(path).and_then(|f| f.sync_all());
+    let _ = OpenOptions::new()
+        .write(true)
+        .open(path)
+        .and_then(|f| f.sync_all());
 }
 
 fn write_error(path: &Path, msg: impl Into<String>) -> ErrorEnvelope {

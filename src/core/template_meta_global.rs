@@ -126,7 +126,11 @@ pub fn list_installed_in(root: &Path) -> Vec<InstalledTemplate> {
             }
         }
     }
-    out.sort_by(|a, b| a.name.cmp(&b.name).then_with(|| version_cmp(&b.version, &a.version)));
+    out.sort_by(|a, b| {
+        a.name
+            .cmp(&b.name)
+            .then_with(|| version_cmp(&b.version, &a.version))
+    });
     out
 }
 
@@ -172,8 +176,8 @@ pub fn find_template_in(
 
 pub(crate) fn load_manifest(version_dir: &Path) -> Result<TemplateManifest, String> {
     let path = version_dir.join(MANIFEST_FILENAME);
-    let raw = std::fs::read_to_string(&path)
-        .map_err(|e| format!("read {}: {e}", path.display()))?;
+    let raw =
+        std::fs::read_to_string(&path).map_err(|e| format!("read {}: {e}", path.display()))?;
     toml::from_str::<TemplateManifest>(&raw).map_err(|e| format!("parse: {e}"))
 }
 

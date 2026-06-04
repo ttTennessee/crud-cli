@@ -1,0 +1,13 @@
+# Commits listed here are skipped by `git blame` so that pure-formatting or
+# mechanical changes don't bury the real author of each line.
+#
+# Recognised automatically by GitHub's Blame view. To make local `git blame`
+# respect it too, run once:
+#
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# Only add commits that are PURELY mechanical (cargo fmt, mass rename, lint
+# autofix). Never list a commit that contains real behaviour changes.
+
+# style: cargo fmt across the codebase
+1c236e186dafb091423bd323526e1855bb3f5495

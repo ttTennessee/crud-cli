@@ -293,9 +293,9 @@ impl SetupArgs {
     ) -> Result<std::collections::BTreeMap<String, String>, ErrorEnvelope> {
         let mut out = std::collections::BTreeMap::new();
         for raw in items {
-            let (k, v) = raw.split_once('=').ok_or_else(|| {
-                invalid_value(flag, raw, "expected KEY=PATH")
-            })?;
+            let (k, v) = raw
+                .split_once('=')
+                .ok_or_else(|| invalid_value(flag, raw, "expected KEY=PATH"))?;
             if k.trim().is_empty() || v.trim().is_empty() {
                 return Err(invalid_value(flag, raw, "KEY and PATH must be non-empty"));
             }
@@ -332,8 +332,12 @@ impl SetupArgs {
     /// Validates project dimensions are present (flag mode). Backend and
     /// frontend are required; template is optional.
     pub fn require_project_non_interactive(&self) -> Result<SetupSelections, ErrorEnvelope> {
-        let backend = self.parse_backend()?.ok_or_else(|| missing_flag("backend"))?;
-        let frontend = self.parse_frontend()?.ok_or_else(|| missing_flag("frontend"))?;
+        let backend = self
+            .parse_backend()?
+            .ok_or_else(|| missing_flag("backend"))?;
+        let frontend = self
+            .parse_frontend()?
+            .ok_or_else(|| missing_flag("frontend"))?;
         let template = self.parse_template()?;
         Ok(SetupSelections {
             backend,

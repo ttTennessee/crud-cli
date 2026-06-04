@@ -72,11 +72,14 @@ pub fn load_schema(templates_root: &Path) -> Result<VariableSchema, ErrorEnvelop
     if !path.exists() {
         return Ok(VariableSchema::default());
     }
-    let raw = std::fs::read_to_string(&path).map_err(|e| {
-        schema_error(format!("read {}: {e}", path.display()), "schema_read_error")
+    let raw = std::fs::read_to_string(&path)
+        .map_err(|e| schema_error(format!("read {}: {e}", path.display()), "schema_read_error"))?;
+    let parsed: BTreeMap<String, VariableDef> = toml::from_str(&raw).map_err(|e| {
+        schema_error(
+            format!("parse {}: {e}", path.display()),
+            "schema_parse_error",
+        )
     })?;
-    let parsed: BTreeMap<String, VariableDef> = toml::from_str(&raw)
-        .map_err(|e| schema_error(format!("parse {}: {e}", path.display()), "schema_parse_error"))?;
 
     for (name, def) in &parsed {
         validate_name(name)?;
@@ -194,11 +197,7 @@ fn toml_to_json(v: &toml::Value) -> Value {
     }
 }
 
-fn check_toml_matches_type(
-    name: &str,
-    v: &toml::Value,
-    ty: VarType,
-) -> Result<(), ErrorEnvelope> {
+fn check_toml_matches_type(name: &str, v: &toml::Value, ty: VarType) -> Result<(), ErrorEnvelope> {
     let ok = matches!(
         (ty, v),
         (VarType::Bool, toml::Value::Boolean(_))

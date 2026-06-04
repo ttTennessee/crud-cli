@@ -60,5 +60,8 @@ frontend = "none"
     assert_eq!(code, 3);
     assert!(!root.join("a.txt").exists());
     assert!(!root.join("c.txt").exists());
-    assert_eq!(fs::read_to_string(root.join("b.txt")).unwrap(), "B-original");
+    assert_eq!(
+        fs::read_to_string(root.join("b.txt")).unwrap(),
+        "B-original"
+    );
 }

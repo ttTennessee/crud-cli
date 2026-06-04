@@ -17,8 +17,14 @@ fn discover_templates_lists_hbs_files() {
 
     let entries = discover_templates(&root.join(".crud/templates"), None).expect("discover");
     assert_eq!(entries.len(), 2);
-    assert_eq!(entries[0].rel_path, std::path::PathBuf::from("Entity.java.hbs"));
-    assert_eq!(entries[1].rel_path, std::path::PathBuf::from("Mapper.java.hbs"));
+    assert_eq!(
+        entries[0].rel_path,
+        std::path::PathBuf::from("Entity.java.hbs")
+    );
+    assert_eq!(
+        entries[1].rel_path,
+        std::path::PathBuf::from("Mapper.java.hbs")
+    );
 }
 
 #[test]
@@ -33,7 +39,10 @@ fn crudignore_filters_templates() {
 
     let entries = discover_templates(&root.join(".crud/templates"), None).expect("discover");
     assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].rel_path, std::path::PathBuf::from("Entity.java.hbs"));
+    assert_eq!(
+        entries[0].rel_path,
+        std::path::PathBuf::from("Entity.java.hbs")
+    );
 }
 
 #[test]

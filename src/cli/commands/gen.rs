@@ -7,9 +7,9 @@ use crate::cli::output::{
     emit_condition_skips, emit_dry_run_listing, emit_stdout_render, emit_success,
 };
 use crate::core::error::ErrorEnvelope;
-use crate::core::i18n::{self, keys};
 use crate::core::gen_pipeline;
 use crate::core::gen_run::GenRunParams;
+use crate::core::i18n::{self, keys};
 use crate::core::template_variables::parse_var_arg;
 
 /// Runs `gen` end-to-end: validate args, pipeline, success line.

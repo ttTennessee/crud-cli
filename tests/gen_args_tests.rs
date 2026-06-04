@@ -1,7 +1,7 @@
 //! Task 1: `gen` CLI flag surface (D-G09, D-G10).
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use crud_cli::cli::args::{try_parse_cli, GenArgs, Commands};
+use crud_cli::cli::args::{try_parse_cli, Commands, GenArgs};
 use crud_cli::core::error::Kind;
 
 #[test]
@@ -55,7 +55,10 @@ fn gen_args_parses_output_flag() {
         Some(Commands::Gen(g)) => g,
         _ => panic!("expected gen subcommand"),
     };
-    assert_eq!(args.output.as_deref(), Some(std::path::Path::new("generated")));
+    assert_eq!(
+        args.output.as_deref(),
+        Some(std::path::Path::new("generated"))
+    );
 }
 
 #[test]

@@ -7,17 +7,17 @@ use serde_json::Value;
 use crate::core::config::{
     EnabledTypes, OutputsSection, OverwritePolicy, RuntimeConfig, SetupConfig,
 };
-use crate::core::paths::{project_setup_toml, project_setup_user_toml};
-use crate::core::gen_run::GenRunParams;
 use crate::core::error::ErrorEnvelope;
-use crate::core::i18n::{self, keys};
 use crate::core::field_dsl;
 use crate::core::field_types;
 use crate::core::fs_writer::{commit, plan, OverwriteContext, WriteTarget};
 use crate::core::gen_context::{self, AsContextField, UserIdentity};
 use crate::core::gen_input::{GenCliOverrides, GenInput};
 use crate::core::gen_report::{DryRunLine, GenReport, RenderedFile};
+use crate::core::gen_run::GenRunParams;
 use crate::core::git_info;
+use crate::core::i18n::{self, keys};
+use crate::core::paths::{project_setup_toml, project_setup_user_toml};
 use crate::core::template_engine::{self, TypeMapBinding};
 use crate::core::template_loader::{self, TemplateEntry};
 use crate::core::template_meta::{self, TemplateMeta};
@@ -152,7 +152,10 @@ fn framework_layer3_rel(setup: &SetupConfig, mirror_rel: &str) -> Option<String>
 }
 
 fn join_base_strip_prefix(base: &str, rel: &str, prefix: &str) -> String {
-    let rest = rel.strip_prefix(prefix).unwrap_or(rel).trim_start_matches('/');
+    let rest = rel
+        .strip_prefix(prefix)
+        .unwrap_or(rel)
+        .trim_start_matches('/');
     if rest.is_empty() {
         base.to_string()
     } else {
@@ -276,10 +279,7 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
         )
     })?;
 
-    let runtime = RuntimeConfig::load(
-        &project_setup_toml(&cwd),
-        &project_setup_user_toml(&cwd),
-    )?;
+    let runtime = RuntimeConfig::load(&project_setup_toml(&cwd), &project_setup_user_toml(&cwd))?;
     let setup = &runtime.project;
     let overwrite_policy = runtime.overwrite_policy();
     if let Some(ref out) = params.output_dir {
@@ -309,13 +309,17 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
         if let Some(sub) = loaded.input.sub.as_mut() {
             field_types::normalize_and_validate(&field_type_schema, &mut sub.fields)?;
         }
-        for (field, spec) in loaded.input.fields.iter().zip(loaded.field_specs.iter_mut()) {
+        for (field, spec) in loaded
+            .input
+            .fields
+            .iter()
+            .zip(loaded.field_specs.iter_mut())
+        {
             spec.ty = field.ty.clone();
         }
-        if let (Some(sub), Some(sub_specs)) = (
-            loaded.input.sub.as_mut(),
-            loaded.sub_field_specs.as_mut(),
-        ) {
+        if let (Some(sub), Some(sub_specs)) =
+            (loaded.input.sub.as_mut(), loaded.sub_field_specs.as_mut())
+        {
             for (field, spec) in sub.fields.iter().zip(sub_specs.iter_mut()) {
                 spec.ty = field.ty.clone();
             }
@@ -328,22 +332,19 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
         let sub_field_refs: Vec<&dyn AsContextField> = loaded
             .sub_field_specs
             .as_ref()
-            .map(|specs| {
-                specs
-                    .iter()
-                    .map(|s| s as &dyn AsContextField)
-                    .collect()
-            })
+            .map(|specs| specs.iter().map(|s| s as &dyn AsContextField).collect())
             .unwrap_or_default();
-        let sub_ctx = loaded.input.sub.as_ref().map(|sub| {
-            gen_context::SubTableContext {
+        let sub_ctx = loaded
+            .input
+            .sub
+            .as_ref()
+            .map(|sub| gen_context::SubTableContext {
                 name: &sub.name,
                 table: &sub.table,
                 table_comment: &sub.table_comment,
                 fk_field: &sub.fk_field,
                 fields: &sub_field_refs,
-            }
-        });
+            });
         let ctx = gen_context::build_context(
             &loaded.input.name,
             &loaded.input.table,
@@ -396,8 +397,7 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
         .type_filter
         .clone()
         .or_else(|| implicit_type_prefixes(setup, runtime.enabled_types()));
-    let entries =
-        template_loader::discover_templates(&templates_root, implicit_filter.as_deref())?;
+    let entries = template_loader::discover_templates(&templates_root, implicit_filter.as_deref())?;
     let fallback = setup.type_map.fallback.clone();
     let mut bundle_cache: BTreeMap<String, Option<Arc<BTreeMap<String, String>>>> = BTreeMap::new();
 
@@ -405,10 +405,7 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
     let mut skipped_by_condition: Vec<PathBuf> = Vec::new();
     for entry in &entries {
         let raw = std::fs::read_to_string(&entry.abs_path).map_err(|e| {
-            ErrorEnvelope::template_error(format!(
-                "read {}: {e}",
-                entry.abs_path.display()
-            ))
+            ErrorEnvelope::template_error(format!("read {}: {e}", entry.abs_path.display()))
         })?;
         let (meta, body) = template_meta::split_front_matter(&raw)?;
 
@@ -429,20 +426,15 @@ pub fn run(params: GenRunParams) -> Result<GenReport, ErrorEnvelope> {
             continue;
         }
 
-        let bundle = entry
-            .rel_path
-            .components()
-            .next()
-            .and_then(|c| match c {
-                Component::Normal(s) => s.to_str().map(|s| s.to_string()),
-                _ => None,
-            });
+        let bundle = entry.rel_path.components().next().and_then(|c| match c {
+            Component::Normal(s) => s.to_str().map(|s| s.to_string()),
+            _ => None,
+        });
         let map = if let Some(name) = bundle.as_deref() {
             if let Some(slot) = bundle_cache.get(name) {
                 slot.clone()
             } else {
-                let loaded = type_map::load_for_bundle(&templates_root, name)?
-                    .map(Arc::new);
+                let loaded = type_map::load_for_bundle(&templates_root, name)?.map(Arc::new);
                 bundle_cache.insert(name.to_string(), loaded.clone());
                 loaded
             }
