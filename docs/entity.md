@@ -1,5 +1,7 @@
 # crud-cli JSON entity input spec
 
+**Languages:** English · [简体中文](zh-CN/entity.md)
+
 Schema for the `entity.json` accepted by `crud-cli gen --file <path>` and by the MCP `crud_preview` / `crud_generate` tools.
 
 All objects use `deny_unknown_fields` — any key not listed below is rejected.
@@ -33,7 +35,7 @@ Used in both `fields` and `sub.fields`.
 | Key | Type | Required | Notes |
 |---|---|---|---|
 | `name` | string | yes | Column name. Must start with a letter; only `[A-Za-z0-9_]`. Cannot be one of the reserved identifiers: `model`, `table`, `table_comment`, `package`, `package_path`, `fields` |
-| `type` | string | yes | A canonical name or alias from the active template's `_field_types.toml` (also exposed as MCP resource `crud://templates/field-types`) |
+| `type` | string | yes | A canonical name or alias from the active template's `_field_types.toml` (also returned by the MCP `crud_describe_templates` tool) |
 | `is_pk` | bool | no | Default `false`. Mark exactly one master-table field as PK |
 | `required` | bool | no | Default `false` |
 | `comment` | string | no | Label / column comment |
@@ -44,7 +46,7 @@ Used in both `fields` and `sub.fields`.
 
 ## `variables` object
 
-Top-level switches declared by the active template's `_variables.toml` (also exposed as MCP resource `crud://templates/variables`). Keys not declared there are rejected. Allowed value types: `bool` | `string` | `number`.
+Top-level switches declared by the active template's `_variables.toml` (also returned by the MCP `crud_describe_templates` tool). Keys not declared there are rejected. Allowed value types: `bool` | `string` | `number`.
 
 ```json
 "variables": { "module_name": "system", "has_import": true }

@@ -21,6 +21,6 @@ Markdown in this directory is **embedded into the `crud-cli` binary via
 | File | MCP surface |
 |---|---|
 | `template-authoring.md` | Prompt `crud_template_authoring` |
-| `json-entity-input.md`  | Resource `URI_ENTITY_SCHEMA` |
+| `entity.md`  | Resource `URI_ENTITY_SCHEMA` |
 
 Human-facing documentation lives in `docs/`.

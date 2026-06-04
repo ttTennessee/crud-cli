@@ -113,7 +113,7 @@ Default properties — present on every field:
 | `unique` | bool | `false` |
 | `default` | any \| null | `null` |
 
-The `--fields` DSL populates only `name`, `type`, `is_pk`. For full metadata, use JSON input (see `json-entity-input` resource).
+The `--fields` DSL populates only `name`, `type`, `is_pk`. For full metadata, use JSON input (see `entity` resource).
 
 **Extended field properties**: a bundle's caller can pass extra key/value pairs that are flattened into each field object — accessible inside `{{#each fields}}` at the same level as defaults. Document extension keys alongside the bundle so callers know to pass them. `validate` does not statically recognise extension keys; a bundle-defined key triggering `unknown variable` is a spelling mismatch.
 

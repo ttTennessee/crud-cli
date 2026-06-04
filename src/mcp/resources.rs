@@ -44,7 +44,7 @@ pub fn read_resource(
 ) -> Result<(String, &'static str), String> {
     match uri {
         URI_ENTITY_SCHEMA => Ok((
-            include_str!("../../agent-resources/json-entity-input.md").to_string(),
+            include_str!("../../agent-resources/entity.md").to_string(),
             MIME_MARKDOWN,
         )),
         URI_BUILTINS => Ok((builtins_json(), MIME_JSON)),
