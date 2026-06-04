@@ -265,6 +265,7 @@ fn mcp_templates_root_error(project_root: &Path, inner: ErrorEnvelope) -> ErrorE
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
     use super::*;
     use std::fs;

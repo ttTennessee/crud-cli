@@ -76,6 +76,8 @@ impl CrudMcpServer {
             return cached.clone().map_err(envelope_err);
         }
         self.resolve_and_store(None, false).await;
+        // Invariant: resolve_and_store always writes Some before returning.
+        #[allow(clippy::expect_used)]
         self.resolved
             .read()
             .await
