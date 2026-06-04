@@ -1,38 +1,6 @@
 # Template Authoring
 
-> **Other languages:** [简体中文](zh-CN/template-authoring.md)
-
-For template authors and AI agents: how to write and adapt Handlebars (`.hbs`) templates used by `crud-cli`.
-
-This document covers template syntax, the render context, built-in helpers, and what agents should read from the target project before writing templates.
-
----
-
-## Quick start
-
-Templates live under the project `.crud/templates/` directory or an installed global bundle at `~/.crud/templates/<name>/<version>/`.
-
-```handlebars
----
-basePath: "java/{{package_path}}/controller"
-filename: "{{model_pascal}}Controller.java"
-overwrite: force-only
----
-package {{package}}.controller;
-
-@RestController
-@RequestMapping("/{{model_kebab}}")
-public class {{model_pascal}}Controller {
-    // ...
-}
-```
-
-```bash
-crud-cli validate          # pre-flight check
-crud-cli gen User --fields "id:Long,name:String" --package com.acme.demo --table sys_user
-```
-
----
+Authoritative spec for writing Handlebars (`.hbs`) template bundles for `crud-cli`. Served to LLM agents as the MCP prompt `crud_template_authoring`.
 
 ## Template bundle layout
 
@@ -47,8 +15,6 @@ A typical bundle contains:
 | `.crudignore` | Excludes templates from generation |
 
 Path prefixes (e.g. `java/`, `vue/`, `resources/`) are mapped to host-project directories via `[paths.lang]` / `[paths.aux]` in `.crud/setup.toml`. See [README.md](../README.md#path-system).
-
----
 
 ## Front-matter
 
@@ -172,8 +138,6 @@ Inside `{{#each}}` blocks (provided by Handlebars; treated as valid by the valid
 | `@first` / `@last` | Whether first / last item |
 | `@root` | Root context |
 
----
-
 ## Field objects (`{{#each fields}}`)
 
 Each item in `fields` / `sub_fields` exposes these **default** properties in templates:
@@ -222,8 +186,6 @@ Example: a bundle defines `query` (bool) and `dict_type` (string):
 
 Semantics of extended keys are defined by the **template author** and documented alongside the bundle (e.g. near `_field_types.toml`) so agents know what to pass when building gen commands. `validate` static checks recognize default property names only; if an extended key triggers `unknown variable`, verify spelling against the bundle contract.
 
----
-
 ## Extended top-level variables
 
 Besides built-in top-level variables, you may add **custom top-level variables** for front-matter, `{{#if}}`, and template bodies:
@@ -251,8 +213,6 @@ required    = true
 ```
 
 Custom top-level variables **must not** collide with built-ins or reserved names like `fields`. `validate` checks that referenced variables belong to: **built-ins** ∪ **schema declarations** ∪ **`[variables]` config**.
-
----
 
 ## Built-in helpers
 
@@ -319,8 +279,6 @@ Provided by Handlebars; `validate` will not report `missing_helper`:
 - **Block helpers:** `{{#if}}` / `{{#unless}}` / `{{#each}}` / `{{#with}}`
 - **Subexpressions:** `(eq a b)`, `(ne a b)`, `(and a b)`, `(or a b)`, `(not x)`, etc., often used in front-matter conditions
 - **Paths:** `../` for parent context; `lookup` for dynamic property access
-
----
 
 ## What agents should read from the target project
 
@@ -437,15 +395,11 @@ Templates should make generated code **byte-identical** to the host project's st
 5. Run `crud-cli validate`, then compare output with `--dry-run` / `--stdout` against the gold standard.
 6. Close gaps by **changing templates**, not by hand-editing generated code afterward.
 
----
-
 ## Engine behavior
 
 - **No HTML escaping:** `{{type}}` and similar emit literally; `<List<T>>` is preserved.
 - **Deterministic validation:** `validate` statically analyzes variable references; variables in conditional front-matter must appear in the schema or built-in list.
 - **Transactional writes:** A conflict on any output file can roll back the entire batch (depending on overwrite policy).
-
----
 
 ## Common errors
 
@@ -459,10 +413,3 @@ Templates should make generated code **byte-identical** to the host project's st
 | Condition silently skips file | Undeclared variables are falsy — run `validate` first |
 | `invalid filename` | front-matter `filename` contains `/` or path-traversal segments |
 | front-matter YAML parse failure | Quote values that contain `{{` |
-
----
-
-## Further reading
-
-- [README.md](../README.md) — CLI, path system, installing template bundles
-- [Documentation index](./README.md)
