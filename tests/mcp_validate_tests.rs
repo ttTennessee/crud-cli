@@ -6,13 +6,44 @@ use crud_cli::mcp::{describe_templates, load_project_context, validate_entity_js
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::Path;
 use tempfile::TempDir;
+
+/// Builds an isolated, minimal crud-cli project under a fresh tempdir and
+/// returns it. Used by tests that just need a valid project context to
+/// exercise the validator, without depending on any state outside the test.
+fn fresh_project_root() -> TempDir {
+    let tmp = TempDir::new().expect("tmpdir");
+    let crud = tmp.path().join(".crud");
+    let templates = crud.join("templates");
+    fs::create_dir_all(&templates).expect("templates dir");
+    let cfg = SetupConfig::from_selections(SetupSelections {
+        backend: Backend::None,
+        frontend: Frontend::None,
+        template: None,
+    });
+    fs::write(crud.join("setup.toml"), cfg.to_toml_pretty().unwrap()).expect("setup.toml");
+    fs::write(
+        templates.join("_variables.toml"),
+        r#"
+[module_name]
+description = "模块名"
+type = "string"
+required = true
+
+[permission_prefix]
+description = "权限前缀"
+type = "string"
+required = true
+"#,
+    )
+    .expect("write variables");
+    tmp
+}
 
 #[test]
 fn validate_entity_json_accepts_minimal_entity() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let ctx = load_project_context(Some(root.to_path_buf())).expect("project ctx");
+    let tmp = fresh_project_root();
+    let ctx = load_project_context(Some(tmp.path().to_path_buf())).expect("project ctx");
     let json = r#"{
         "name": "User",
         "table": "sys_user",
@@ -30,8 +61,8 @@ fn validate_entity_json_accepts_minimal_entity() {
 
 #[test]
 fn validate_entity_json_rejects_unknown_field_key() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let ctx = load_project_context(Some(root.to_path_buf())).expect("project ctx");
+    let tmp = fresh_project_root();
+    let ctx = load_project_context(Some(tmp.path().to_path_buf())).expect("project ctx");
     let json = r#"{
         "name": "User",
         "table": "sys_user",
