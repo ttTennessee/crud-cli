@@ -97,15 +97,15 @@ jobs:
 
       - name: Clippy (default features)
         if: needs.changes.outputs.code == 'true'
-        run: cargo clippy --all-targets
+        run: cargo clippy --all-targets -- -D warnings
 
       - name: Clippy (all features — covers mcp module)
         if: needs.changes.outputs.code == 'true'
-        run: cargo clippy --all-targets --all-features
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Clippy core-only
         if: needs.changes.outputs.code == 'true'
-        run: cargo clippy --no-default-features --lib
+        run: cargo clippy --no-default-features --lib -- -D warnings
 
   # Skipped entirely on docs-only PRs.
   test-other:
