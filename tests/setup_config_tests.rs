@@ -27,7 +27,9 @@ fn args_with_languages(backend: &str, frontend: &str) -> SetupArgs {
 
 #[test]
 fn setup_config_flag_serialization() {
-    let cfg = args_with_languages("java", "vue").to_setup_config().expect("config");
+    let cfg = args_with_languages("java", "vue")
+        .to_setup_config()
+        .expect("config");
     let toml = cfg.to_toml_pretty().expect("toml");
     assert!(toml.contains("[project]"));
     assert!(toml.contains("backend = \"java\""));

@@ -18,14 +18,12 @@ pub fn global_crud_dir() -> Result<PathBuf, ErrorEnvelope> {
             return Ok(p.join(".crud"));
         }
     }
-    let home = dirs::home_dir().ok_or_else(|| {
-        ErrorEnvelope {
-            kind: Kind::ConfigError,
-            msg: "home directory not found".into(),
-            exit_code: Kind::ConfigError.exit_code(),
-            hint: i18n::t(keys::ERROR_PATHS_HOME_NOT_FOUND).into(),
-            details: serde_json::Map::new(),
-        }
+    let home = dirs::home_dir().ok_or_else(|| ErrorEnvelope {
+        kind: Kind::ConfigError,
+        msg: "home directory not found".into(),
+        exit_code: Kind::ConfigError.exit_code(),
+        hint: i18n::t(keys::ERROR_PATHS_HOME_NOT_FOUND).into(),
+        details: serde_json::Map::new(),
     })?;
     Ok(home.join(".crud"))
 }
@@ -63,8 +61,8 @@ pub fn ensure_gitignore_entry(path: &Path, entry: &str) -> Result<(), ErrorEnvel
         .map_err(|e| gitignore_error(path, format!("create dirs: {e}")))?;
 
     if path.exists() {
-        let file = std::fs::File::open(path)
-            .map_err(|e| gitignore_error(path, format!("open: {e}")))?;
+        let file =
+            std::fs::File::open(path).map_err(|e| gitignore_error(path, format!("open: {e}")))?;
         for line in BufReader::new(file).lines() {
             let line = line.map_err(|e| gitignore_error(path, format!("read: {e}")))?;
             if line.trim() == entry {
@@ -78,10 +76,7 @@ pub fn ensure_gitignore_entry(path: &Path, entry: &str) -> Result<(), ErrorEnvel
         .append(true)
         .open(path)
         .map_err(|e| gitignore_error(path, format!("open append: {e}")))?;
-    let needs_leading_newline = path
-        .metadata()
-        .map(|m| m.len() > 0)
-        .unwrap_or(false)
+    let needs_leading_newline = path.metadata().map(|m| m.len() > 0).unwrap_or(false)
         && !ends_with_newline(path).unwrap_or(true);
     let mut buf = String::new();
     if needs_leading_newline {

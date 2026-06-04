@@ -178,7 +178,14 @@ fn gen_stdout_flag_prints_raw_content_and_writes_nothing() {
         .current_dir(dir.path())
         .env("CRUD_LANG", "en")
         .args([
-            "gen", "User", "--fields", "id:Long", "--package", "com.x", "--table", "u",
+            "gen",
+            "User",
+            "--fields",
+            "id:Long",
+            "--package",
+            "com.x",
+            "--table",
+            "u",
             "--stdout",
         ])
         .output()

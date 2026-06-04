@@ -5,20 +5,20 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+use rmcp::service::{NotificationContext, Peer, RequestContext};
 use rmcp::{
     handler::server::router::{prompt::PromptRouter, tool::ToolRouter},
     handler::server::wrapper::Parameters,
     model::{
         AnnotateAble, CallToolResult, Content, GetPromptRequestParams, GetPromptResult,
-        InitializeRequestParams, ListPromptsResult, ListResourceTemplatesResult, ListResourcesResult,
-        PaginatedRequestParams, PromptMessage, PromptMessageRole, RawResource,
-        ReadResourceRequestParams, ReadResourceResult, Resource, ResourceContents, ServerCapabilities,
-        ServerInfo,
+        InitializeRequestParams, ListPromptsResult, ListResourceTemplatesResult,
+        ListResourcesResult, PaginatedRequestParams, PromptMessage, PromptMessageRole, RawResource,
+        ReadResourceRequestParams, ReadResourceResult, Resource, ResourceContents,
+        ServerCapabilities, ServerInfo,
     },
     prompt, prompt_handler, prompt_router, tool, tool_handler, tool_router, ErrorData as McpError,
     RoleServer, ServerHandler, ServiceExt,
 };
-use rmcp::service::{NotificationContext, Peer, RequestContext};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::Value;
@@ -33,7 +33,9 @@ use super::context::{
 };
 use super::convert::{envelope_to_value, generate_report_value};
 use super::resources::{list_static_resources, read_resource};
-use super::validate_logic::{describe_templates, entity_json_to_temp_path, preview_entity_structure};
+use super::validate_logic::{
+    describe_templates, entity_json_to_temp_path, preview_entity_structure,
+};
 
 /**
  * MCP server state: tool/prompt routers plus lazily resolved project context.
@@ -94,19 +96,17 @@ impl CrudMcpServer {
         }
 
         let start = self.resolve_start_path(peer).await;
-        let result = match tokio::task::spawn_blocking(move || {
-            load_project_context_from_start(start)
-        })
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => Err(ErrorEnvelope::user_error(
-                format!("project resolve task: {e}"),
-                None,
-                None,
-                "internal error while loading the project",
-            )),
-        };
+        let result =
+            match tokio::task::spawn_blocking(move || load_project_context_from_start(start)).await
+            {
+                Ok(r) => r,
+                Err(e) => Err(ErrorEnvelope::user_error(
+                    format!("project resolve task: {e}"),
+                    None,
+                    None,
+                    "internal error while loading the project",
+                )),
+            };
         *self.resolved.write().await = Some(result);
     }
 
@@ -121,7 +121,9 @@ impl CrudMcpServer {
                         return file_uri_to_path(&roots.roots[0].uri);
                     }
                     Ok(Ok(_)) => {
-                        tracing::warn!("roots/list returned no roots; falling back to process cwd.");
+                        tracing::warn!(
+                            "roots/list returned no roots; falling back to process cwd."
+                        );
                     }
                     Ok(Err(e)) => {
                         tracing::warn!("roots/list failed ({e}); falling back to process cwd.");
@@ -373,10 +375,8 @@ impl ServerHandler for CrudMcpServer {
         if context.peer.peer_info().is_none() {
             context.peer.set_peer_info(request.clone());
         }
-        self.supports_roots.store(
-            request.capabilities.roots.is_some(),
-            Ordering::Relaxed,
-        );
+        self.supports_roots
+            .store(request.capabilities.roots.is_some(), Ordering::Relaxed);
         Ok(self.get_info())
     }
 
@@ -421,9 +421,11 @@ impl ServerHandler for CrudMcpServer {
                 Some(serde_json::json!({ "msg": msg })),
             )
         })?;
-        Ok(ReadResourceResult::new(vec![
-            ResourceContents::text(text, &request.uri).with_mime_type(mime),
-        ]))
+        Ok(ReadResourceResult::new(vec![ResourceContents::text(
+            text,
+            &request.uri,
+        )
+        .with_mime_type(mime)]))
     }
 
     async fn list_resource_templates(

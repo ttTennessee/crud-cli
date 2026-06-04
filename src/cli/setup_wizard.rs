@@ -15,7 +15,9 @@ use crate::core::git_info;
 use crate::core::global_config::{lang_env_override, GlobalConfig};
 use crate::core::i18n::{self, keys, Lang};
 use crate::core::paths::global_config_toml;
-use crate::core::template_meta_global::{find_template, list_installed_templates, InstalledTemplate};
+use crate::core::template_meta_global::{
+    find_template, list_installed_templates, InstalledTemplate,
+};
 use crate::core::type_map::Fallback;
 
 use super::agent_mode::is_agent_active;
@@ -188,10 +190,13 @@ fn prompt_backend() -> Result<Backend, ErrorEnvelope> {
     ];
     let mut labels: Vec<String> = options.iter().map(|(l, _)| (*l).to_string()).collect();
     labels.push(custom.clone());
-    let choice = Select::new(i18n::t(keys::WIZARD_TEMPLATE_CHOOSE_BACKEND), labels.clone())
-        .with_help_message(i18n::t(keys::WIZARD_HELP_BACKEND))
-        .prompt()
-        .map_err(inquire_to_user_error)?;
+    let choice = Select::new(
+        i18n::t(keys::WIZARD_TEMPLATE_CHOOSE_BACKEND),
+        labels.clone(),
+    )
+    .with_help_message(i18n::t(keys::WIZARD_HELP_BACKEND))
+    .prompt()
+    .map_err(inquire_to_user_error)?;
     if choice == custom {
         let raw = Text::new("backend")
             .with_validator(non_empty_validator())
@@ -215,9 +220,12 @@ fn prompt_frontend() -> Result<Frontend, ErrorEnvelope> {
     ];
     let mut labels: Vec<String> = options.iter().map(|(l, _)| (*l).to_string()).collect();
     labels.push(custom.clone());
-    let choice = Select::new(i18n::t(keys::WIZARD_TEMPLATE_CHOOSE_FRONTEND), labels.clone())
-        .prompt()
-        .map_err(inquire_to_user_error)?;
+    let choice = Select::new(
+        i18n::t(keys::WIZARD_TEMPLATE_CHOOSE_FRONTEND),
+        labels.clone(),
+    )
+    .prompt()
+    .map_err(inquire_to_user_error)?;
     if choice == custom {
         let raw = Text::new("frontend")
             .with_validator(non_empty_validator())
@@ -320,9 +328,10 @@ fn invalid_lang_name(value: &str) -> ErrorEnvelope {
 
 fn inquire_to_user_error(err: InquireError) -> ErrorEnvelope {
     let (msg, value) = match &err {
-        InquireError::OperationCanceled | InquireError::OperationInterrupted => {
-            (i18n::t(keys::WIZARD_CANCELLED_MSG).to_string(), None::<String>)
-        }
+        InquireError::OperationCanceled | InquireError::OperationInterrupted => (
+            i18n::t(keys::WIZARD_CANCELLED_MSG).to_string(),
+            None::<String>,
+        ),
         other => (other.to_string(), None::<String>),
     };
     ErrorEnvelope::user_error(

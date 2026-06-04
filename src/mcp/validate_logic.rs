@@ -179,7 +179,11 @@ pub fn preview_entity_structure(
     let input = &loaded.input;
 
     let (field_rows, fields_md) = build_field_section(&input.fields, &loaded.field_specs);
-    let pk = input.fields.iter().find(|f| f.is_pk).map(|f| f.name.clone());
+    let pk = input
+        .fields
+        .iter()
+        .find(|f| f.is_pk)
+        .map(|f| f.name.clone());
 
     let mut md = format!("## {} ({})\n\n", input.name, input.table);
     if !input.table_comment.is_empty() {

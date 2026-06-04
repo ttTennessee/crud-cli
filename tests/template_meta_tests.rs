@@ -8,14 +8,8 @@ use crud_cli::core::template_meta::split_front_matter;
 fn front_matter_parses_base_path_and_filename() {
     let src = "---\nbasePath: \"out/{{model_kebab}}\"\nfilename: \"{{model_pascal}}.java\"\noverwrite: never\n---\nbody line\n";
     let (meta, body) = split_front_matter(src).expect("ok");
-    assert_eq!(
-        meta.base_path.as_deref(),
-        Some("out/{{model_kebab}}")
-    );
-    assert_eq!(
-        meta.filename.as_deref(),
-        Some("{{model_pascal}}.java")
-    );
+    assert_eq!(meta.base_path.as_deref(), Some("out/{{model_kebab}}"));
+    assert_eq!(meta.filename.as_deref(), Some("{{model_pascal}}.java"));
     assert_eq!(meta.overwrite, Some(OverwritePolicy::Never));
     assert!(body.contains("body line"));
     assert!(!body.starts_with("---"));

@@ -166,7 +166,10 @@ fn build_context_surfaces_field_comment_length_unique_default_from_json_spec() {
     .expect("context");
     let obj = ctx.as_object().expect("object");
 
-    let fields = obj.get("fields").and_then(|v| v.as_array()).expect("fields");
+    let fields = obj
+        .get("fields")
+        .and_then(|v| v.as_array())
+        .expect("fields");
     let f0 = fields[0].as_object().expect("f0");
     assert_eq!(f0.get("comment").and_then(|v| v.as_str()), Some("主键"));
     assert_eq!(f0.get("length"), Some(&serde_json::Value::Null));
@@ -248,7 +251,10 @@ fn build_context_derives_pk_and_sub_builtins() {
     .expect("context");
     let obj = ctx.as_object().expect("object");
 
-    assert_eq!(obj.get("pk_field").and_then(|v| v.as_str()), Some("orderId"));
+    assert_eq!(
+        obj.get("pk_field").and_then(|v| v.as_str()),
+        Some("orderId")
+    );
     assert_eq!(
         obj.get("pk_field_type").and_then(|v| v.as_str()),
         Some("Long")

@@ -148,10 +148,7 @@ fn user_setup_gitignore_is_idempotent() {
         .output()
         .expect("second run with force");
     let gi = fs::read_to_string(gitignore_path(dir.path())).unwrap();
-    let count = gi
-        .lines()
-        .filter(|l| l.trim() == "setup.user.toml")
-        .count();
+    let count = gi.lines().filter(|l| l.trim() == "setup.user.toml").count();
     assert_eq!(count, 1, "duplicate gitignore line: {gi}");
 }
 

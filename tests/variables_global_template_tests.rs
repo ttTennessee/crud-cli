@@ -112,5 +112,8 @@ fn global_template_variables_schema_used_without_project_local_schema() {
         "gen should accept schema from ~/.crud/templates/<name>/<version>/"
     );
     let out = fs::read_to_string(project_dir.path().join("Out.txt")).unwrap();
-    assert!(out.contains("import=false"), "schema default should apply: {out}");
+    assert!(
+        out.contains("import=false"),
+        "schema default should apply: {out}"
+    );
 }

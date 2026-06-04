@@ -32,7 +32,11 @@ fn type_filter_java_only() {
     let _lock = cwd_guard();
     let prev = std::env::current_dir().unwrap();
     std::env::set_current_dir(dir.path()).unwrap();
-    let entries = discover_templates(&dir.path().join(".crud/templates"), Some(&["java".to_string()])).unwrap();
+    let entries = discover_templates(
+        &dir.path().join(".crud/templates"),
+        Some(&["java".to_string()]),
+    )
+    .unwrap();
     std::env::set_current_dir(prev).unwrap();
     assert_eq!(entries.len(), 1);
     let rp = entries[0].rel_path.to_string_lossy().replace('\\', "/");
@@ -62,7 +66,11 @@ fn unknown_type_lists_available() {
     let _lock = cwd_guard();
     let prev = std::env::current_dir().unwrap();
     std::env::set_current_dir(dir.path()).unwrap();
-    let err = discover_templates(&dir.path().join(".crud/templates"), Some(&["python".to_string()])).unwrap_err();
+    let err = discover_templates(
+        &dir.path().join(".crud/templates"),
+        Some(&["python".to_string()]),
+    )
+    .unwrap_err();
     std::env::set_current_dir(prev).unwrap();
     assert_eq!(err.kind, Kind::UserError);
     assert_eq!(

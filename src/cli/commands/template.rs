@@ -58,7 +58,12 @@ fn cmd_install(
         }
     };
     let repo = RepoSpec::parse(&raw_repo).map_err(|e| {
-        ErrorEnvelope::user_error(format!("invalid --repo: {e}"), Some("repo"), Some(&raw_repo), "")
+        ErrorEnvelope::user_error(
+            format!("invalid --repo: {e}"),
+            Some("repo"),
+            Some(&raw_repo),
+            "",
+        )
     })?;
 
     // 2. Parse the optional name@version. We need this BEFORE downloading so
@@ -127,14 +132,12 @@ fn cmd_install(
         )?;
         if let Some(cat) = picked {
             snapshot.copy_shared_category(&installed.path, kind, &cat)?;
-            record_bundle_categories(&installed.path, kind, &[cat]).map_err(|e| {
-                ErrorEnvelope {
-                    kind: Kind::ConfigError,
-                    msg: format!("record {kind} category: {e}"),
-                    exit_code: Kind::ConfigError.exit_code(),
-                    hint: String::new(),
-                    details: serde_json::Map::new(),
-                }
+            record_bundle_categories(&installed.path, kind, &[cat]).map_err(|e| ErrorEnvelope {
+                kind: Kind::ConfigError,
+                msg: format!("record {kind} category: {e}"),
+                exit_code: Kind::ConfigError.exit_code(),
+                hint: String::new(),
+                details: serde_json::Map::new(),
             })?;
         }
     }
@@ -202,9 +205,10 @@ fn resolve_name_and_version(
             require_interactive("template version")?;
             let labels = label_versions_with_status(snapshot, &name, &versions, dest_root);
             let prompt = i18n::tf(keys::TEMPLATE_INSTALL_PROMPT_VERSION, &[("name", &name)]);
-            let chosen_label = Select::new(&prompt, labels.iter().map(|(l, _)| l.clone()).collect())
-                .prompt()
-                .map_err(prompt_to_user_error)?;
+            let chosen_label =
+                Select::new(&prompt, labels.iter().map(|(l, _)| l.clone()).collect())
+                    .prompt()
+                    .map_err(prompt_to_user_error)?;
             let chosen_idx = labels
                 .iter()
                 .position(|(l, _)| l == &chosen_label)
@@ -220,9 +224,7 @@ fn resolve_name_and_version(
             let v = versions[chosen_idx].clone();
             let force_flag = match status {
                 VersionStatus::NotInstalled => false,
-                VersionStatus::Installed
-                | VersionStatus::Modified
-                | VersionStatus::Outdated => {
+                VersionStatus::Installed | VersionStatus::Modified | VersionStatus::Outdated => {
                     let prompt = i18n::tf(
                         keys::TEMPLATE_INSTALL_CONFIRM_OVERWRITE,
                         &[("name", &name), ("version", &v)],
@@ -274,7 +276,10 @@ fn label_versions_with_status(
             let label = match status {
                 VersionStatus::NotInstalled => v.clone(),
                 VersionStatus::Installed => {
-                    format!("{v}  [{}]", i18n::t(keys::TEMPLATE_INSTALL_STATUS_INSTALLED))
+                    format!(
+                        "{v}  [{}]",
+                        i18n::t(keys::TEMPLATE_INSTALL_STATUS_INSTALLED)
+                    )
                 }
                 VersionStatus::Modified => {
                     format!("{v}  [{}]", i18n::t(keys::TEMPLATE_INSTALL_STATUS_MODIFIED))
@@ -419,7 +424,12 @@ fn cmd_list() -> Result<(), ErrorEnvelope> {
 
 fn cmd_use(spec: &str, yes: bool) -> Result<(), ErrorEnvelope> {
     let target_ref = TemplateRef::parse(spec).map_err(|e| {
-        ErrorEnvelope::user_error(format!("invalid template: {e}"), Some("template"), Some(spec), "")
+        ErrorEnvelope::user_error(
+            format!("invalid template: {e}"),
+            Some("template"),
+            Some(spec),
+            "",
+        )
     })?;
     let installed = find_template(&target_ref.name, target_ref.version.as_deref())?;
 

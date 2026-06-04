@@ -124,7 +124,10 @@ fn seed_with_import_schema(root: &std::path::Path) {
     .unwrap();
 }
 
-fn run_with_has_import(root: &std::path::Path, has_import: Option<bool>) -> crud_cli::core::gen_report::GenReport {
+fn run_with_has_import(
+    root: &std::path::Path,
+    has_import: Option<bool>,
+) -> crud_cli::core::gen_report::GenReport {
     let mut cli_vars = std::collections::BTreeMap::new();
     if let Some(v) = has_import {
         cli_vars.insert("has_import".to_string(), serde_json::Value::Bool(v));

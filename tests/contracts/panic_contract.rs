@@ -36,8 +36,7 @@ fn panic_contract() {
 #[test]
 fn handlebars_no_escape_contract() {
     let data = serde_json::json!({ "body": "<div>&\"</div>" });
-    let out =
-        crud_cli::core::template_engine::render_template("{{body}}", &data).expect("render");
+    let out = crud_cli::core::template_engine::render_template("{{body}}", &data).expect("render");
     assert_eq!(out, "<div>&\"</div>");
     assert!(!out.contains("&lt;"));
     assert!(!out.contains("&gt;"));

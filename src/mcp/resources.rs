@@ -22,8 +22,16 @@ pub type ResourceDescriptor = (&'static str, &'static str, &'static str);
 /// All static resource descriptors for `list_resources`.
 pub fn list_static_resources() -> Vec<ResourceDescriptor> {
     vec![
-        (URI_ENTITY_SCHEMA, "entity.json input specification for code generation", MIME_MARKDOWN),
-        (URI_BUILTINS, "Built-in template context names and reserved identifiers", MIME_JSON),
+        (
+            URI_ENTITY_SCHEMA,
+            "entity.json input specification for code generation",
+            MIME_MARKDOWN,
+        ),
+        (
+            URI_BUILTINS,
+            "Built-in template context names and reserved identifiers",
+            MIME_JSON,
+        ),
     ]
 }
 
@@ -35,9 +43,10 @@ pub fn read_resource(
     _templates_root: &std::path::Path,
 ) -> Result<(String, &'static str), String> {
     match uri {
-        URI_ENTITY_SCHEMA => {
-            Ok((include_str!("../../docs/json-entity-input.md").to_string(), MIME_MARKDOWN))
-        }
+        URI_ENTITY_SCHEMA => Ok((
+            include_str!("../../docs/json-entity-input.md").to_string(),
+            MIME_MARKDOWN,
+        )),
         URI_BUILTINS => Ok((builtins_json(), MIME_JSON)),
         _ => Err(format!("unknown resource uri: {uri}")),
     }

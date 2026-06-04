@@ -119,31 +119,29 @@ fn hex_digit(b: u8) -> Option<u8> {
  * [`find_nearest_crud_root`], then loads setup + templates.
  */
 pub fn load_project_context(start: Option<PathBuf>) -> Result<ProjectContext, ErrorEnvelope> {
-    let searched_from = start.unwrap_or_else(|| {
-        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-    });
+    let searched_from =
+        start.unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
     load_project_context_from_start(searched_from)
 }
 
 /**
  * Same as [`load_project_context`] but `start` is always explicit (tool override).
  */
-pub fn load_project_context_from_start(searched_from: PathBuf) -> Result<ProjectContext, ErrorEnvelope> {
+pub fn load_project_context_from_start(
+    searched_from: PathBuf,
+) -> Result<ProjectContext, ErrorEnvelope> {
     let display_start = searched_from.display().to_string();
     let normalized = normalize_search_start(&searched_from);
 
-    let project_root = find_nearest_crud_root(&normalized).ok_or_else(|| {
-        mcp_project_not_found_error(&display_start, &normalized)
-    })?;
+    let project_root = find_nearest_crud_root(&normalized)
+        .ok_or_else(|| mcp_project_not_found_error(&display_start, &normalized))?;
 
     let setup_path = project_setup_toml(&project_root);
     let runtime = RuntimeConfig::load(&setup_path, &project_setup_user_toml(&project_root))
         .map_err(|e| mcp_setup_load_error(&display_start, &project_root, &setup_path, e))?;
 
-    let templates_root =
-        template_loader::resolve_templates_root(&project_root, &runtime.project).map_err(|e| {
-            mcp_templates_root_error(&project_root, e)
-        })?;
+    let templates_root = template_loader::resolve_templates_root(&project_root, &runtime.project)
+        .map_err(|e| mcp_templates_root_error(&project_root, e))?;
 
     Ok(ProjectContext {
         cwd: project_root,
@@ -162,10 +160,7 @@ fn path_is_within(path: &Path, prefix: &Path) -> bool {
     path.starts_with(&prefix)
 }
 
-fn mcp_project_not_found_error(
-    searched_from: &str,
-    normalized: &Path,
-) -> ErrorEnvelope {
+fn mcp_project_not_found_error(searched_from: &str, normalized: &Path) -> ErrorEnvelope {
     let mut details = serde_json::Map::new();
     details.insert(
         "searched_from".into(),

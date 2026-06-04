@@ -3,9 +3,7 @@
 
 use crud_cli::cli::args::GenArgs;
 use crud_cli::cli::commands::gen::run_gen;
-use crud_cli::core::config::{
-    Backend, Frontend, SetupConfig, SetupSelections,
-};
+use crud_cli::core::config::{Backend, Frontend, SetupConfig, SetupSelections};
 use std::fs;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};

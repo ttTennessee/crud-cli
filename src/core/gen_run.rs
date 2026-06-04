@@ -6,8 +6,7 @@ use std::path::PathBuf;
 use serde_json::Value;
 
 /// Inputs for `gen_pipeline::run` without a `clap` dependency.
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct GenRunParams {
     pub name: Option<String>,
     pub fields_src: Option<String>,
@@ -24,4 +23,3 @@ pub struct GenRunParams {
     /// Parsed `--var key=value` entries. Declared in `_variables.toml`.
     pub cli_vars: BTreeMap<String, Value>,
 }
-

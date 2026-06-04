@@ -56,11 +56,13 @@ pub fn load_schema(templates_root: &Path) -> Result<FieldTypeSchema, ErrorEnvelo
     if !path.exists() {
         return Ok(FieldTypeSchema::default());
     }
-    let raw = std::fs::read_to_string(&path).map_err(|e| {
-        schema_error(format!("read {}: {e}", path.display()), "schema_read_error")
-    })?;
+    let raw = std::fs::read_to_string(&path)
+        .map_err(|e| schema_error(format!("read {}: {e}", path.display()), "schema_read_error"))?;
     let parsed: BTreeMap<String, FieldTypeDef> = toml::from_str(&raw).map_err(|e| {
-        schema_error(format!("parse {}: {e}", path.display()), "schema_parse_error")
+        schema_error(
+            format!("parse {}: {e}", path.display()),
+            "schema_parse_error",
+        )
     })?;
 
     let mut alias_to_canonical = BTreeMap::new();
@@ -87,15 +89,15 @@ pub fn load_schema(templates_root: &Path) -> Result<FieldTypeSchema, ErrorEnvelo
             }
             if parsed.contains_key(alias) {
                 return Err(schema_error(
-                    format!("field type {canonical}: alias `{alias}` collides with a canonical name"),
+                    format!(
+                        "field type {canonical}: alias `{alias}` collides with a canonical name"
+                    ),
                     "schema_duplicate_alias",
                 ));
             }
             if let Some(prev) = alias_to_canonical.insert(alias.clone(), canonical.clone()) {
                 return Err(schema_error(
-                    format!(
-                        "alias `{alias}` is declared for both {prev} and {canonical}"
-                    ),
+                    format!("alias `{alias}` is declared for both {prev} and {canonical}"),
                     "schema_duplicate_alias",
                 ));
             }
@@ -140,9 +142,8 @@ pub fn normalize_and_validate(
     let allowed: Vec<&str> = schema.canonical_names().collect();
     for field in fields.iter_mut() {
         let raw = field.ty.clone();
-        let canonical = resolve_canonical(schema, &raw).ok_or_else(|| {
-            unsupported_type_error(&field.name, &raw, &allowed)
-        })?;
+        let canonical = resolve_canonical(schema, &raw)
+            .ok_or_else(|| unsupported_type_error(&field.name, &raw, &allowed))?;
         field.ty = canonical;
     }
     Ok(())
@@ -177,11 +178,20 @@ fn unsupported_type_error(field_name: &str, ty: &str, allowed: &[&str]) -> Error
     let hint = match did_you_mean(ty, allowed) {
         Some(cand) => i18n::tf(
             keys::ERROR_FIELD_TYPE_UNSUPPORTED_DID_YOU_MEAN,
-            &[("name", field_name), ("type", ty), ("candidate", &cand), ("allowed", &allowed_list)],
+            &[
+                ("name", field_name),
+                ("type", ty),
+                ("candidate", &cand),
+                ("allowed", &allowed_list),
+            ],
         ),
         None => i18n::tf(
             keys::ERROR_FIELD_TYPE_UNSUPPORTED,
-            &[("name", field_name), ("type", ty), ("allowed", &allowed_list)],
+            &[
+                ("name", field_name),
+                ("type", ty),
+                ("allowed", &allowed_list),
+            ],
         ),
     };
 
@@ -247,10 +257,7 @@ pub fn type_map_coverage_issues(
             let bundles: Vec<&str> = bundle_maps.iter().map(|(b, _)| b.as_str()).collect();
             issues.push(i18n::tf(
                 keys::ERROR_FIELD_TYPE_UNMAPPED_IN_BUNDLES,
-                &[
-                    ("type", canonical),
-                    ("bundles", &bundles.join(", ")),
-                ],
+                &[("type", canonical), ("bundles", &bundles.join(", "))],
             ));
         }
     }
@@ -260,9 +267,7 @@ pub fn type_map_coverage_issues(
 /// One bundle directory and its optional parsed `type_map.toml`.
 type BundleTypeMap = (String, Option<BTreeMap<String, String>>);
 
-fn load_bundle_type_maps(
-    templates_root: &Path,
-) -> Result<Vec<BundleTypeMap>, ErrorEnvelope> {
+fn load_bundle_type_maps(templates_root: &Path) -> Result<Vec<BundleTypeMap>, ErrorEnvelope> {
     let mut out = Vec::new();
     let Ok(entries) = std::fs::read_dir(templates_root) else {
         return Ok(out);
@@ -320,7 +325,10 @@ mod tests {
         .expect("write");
         let schema = load_schema(dir.path()).expect("load");
         assert!(schema.types.contains_key("Long"));
-        assert_eq!(schema.alias_to_canonical.get("int").map(String::as_str), Some("Integer"));
+        assert_eq!(
+            schema.alias_to_canonical.get("int").map(String::as_str),
+            Some("Integer")
+        );
     }
 
     #[test]

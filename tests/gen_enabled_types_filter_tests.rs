@@ -3,8 +3,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use crud_cli::core::config::{
-    Backend, EnabledTypes, Frontend, OverwritePolicy, SetupConfig,
-    SetupSelections, SetupUserConfig, UserSelections,
+    Backend, EnabledTypes, Frontend, OverwritePolicy, SetupConfig, SetupSelections,
+    SetupUserConfig, UserSelections,
 };
 use crud_cli::core::gen_pipeline::run;
 use crud_cli::core::gen_run::GenRunParams;
@@ -39,11 +39,7 @@ fn seed(root: &std::path::Path, enabled: EnabledTypes) {
         overwrite_policy: OverwritePolicy::Always,
         enabled_types: enabled,
     });
-    fs::write(
-        crud.join("setup.user.toml"),
-        user.to_toml_pretty().unwrap(),
-    )
-    .unwrap();
+    fs::write(crud.join("setup.user.toml"), user.to_toml_pretty().unwrap()).unwrap();
 }
 
 fn run_in(root: &std::path::Path, type_filter: Option<Vec<String>>) -> Vec<String> {
@@ -80,8 +76,14 @@ fn enabled_types_backend_restricts_to_java_prefix() {
     let dir = TempDir::new().unwrap();
     seed(dir.path(), EnabledTypes::Backend);
     let written = run_in(dir.path(), None);
-    assert!(written.iter().any(|p| p.contains("Entity.java")), "{written:?}");
-    assert!(!written.iter().any(|p| p.contains("Entity.vue")), "{written:?}");
+    assert!(
+        written.iter().any(|p| p.contains("Entity.java")),
+        "{written:?}"
+    );
+    assert!(
+        !written.iter().any(|p| p.contains("Entity.vue")),
+        "{written:?}"
+    );
 }
 
 #[test]
@@ -89,8 +91,14 @@ fn enabled_types_frontend_restricts_to_vue_prefix() {
     let dir = TempDir::new().unwrap();
     seed(dir.path(), EnabledTypes::Frontend);
     let written = run_in(dir.path(), None);
-    assert!(written.iter().any(|p| p.contains("Entity.vue")), "{written:?}");
-    assert!(!written.iter().any(|p| p.contains("Entity.java")), "{written:?}");
+    assert!(
+        written.iter().any(|p| p.contains("Entity.vue")),
+        "{written:?}"
+    );
+    assert!(
+        !written.iter().any(|p| p.contains("Entity.java")),
+        "{written:?}"
+    );
 }
 
 #[test]
@@ -98,8 +106,14 @@ fn enabled_types_all_renders_both() {
     let dir = TempDir::new().unwrap();
     seed(dir.path(), EnabledTypes::All);
     let written = run_in(dir.path(), None);
-    assert!(written.iter().any(|p| p.contains("Entity.java")), "{written:?}");
-    assert!(written.iter().any(|p| p.contains("Entity.vue")), "{written:?}");
+    assert!(
+        written.iter().any(|p| p.contains("Entity.java")),
+        "{written:?}"
+    );
+    assert!(
+        written.iter().any(|p| p.contains("Entity.vue")),
+        "{written:?}"
+    );
 }
 
 #[test]
@@ -107,6 +121,12 @@ fn explicit_type_filter_overrides_enabled_types() {
     let dir = TempDir::new().unwrap();
     seed(dir.path(), EnabledTypes::Backend);
     let written = run_in(dir.path(), Some(vec!["vue".into()]));
-    assert!(written.iter().any(|p| p.contains("Entity.vue")), "{written:?}");
-    assert!(!written.iter().any(|p| p.contains("Entity.java")), "{written:?}");
+    assert!(
+        written.iter().any(|p| p.contains("Entity.vue")),
+        "{written:?}"
+    );
+    assert!(
+        !written.iter().any(|p| p.contains("Entity.java")),
+        "{written:?}"
+    );
 }

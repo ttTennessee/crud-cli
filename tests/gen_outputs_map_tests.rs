@@ -3,9 +3,9 @@
 
 use crud_cli::cli::args::GenArgs;
 use crud_cli::cli::commands::gen::run_gen;
+use crud_cli::core::field_dsl::Field;
 use crud_cli::core::gen_context::build_context_from_input;
 use crud_cli::core::gen_input::GenInput;
-use crud_cli::core::field_dsl::Field;
 use crud_cli::core::git_info::GitInfo;
 use crud_cli::core::template_engine::render_template;
 use std::fs;
@@ -40,12 +40,15 @@ fn outputs_map_handlebars_template_renders() {
             template: None,
         },
     );
-    let ctx = build_context_from_input(&input, &setup, &GitInfo::default(), &crud_cli::core::gen_context::UserIdentity::default()).unwrap();
-    let out = render_template(
-        "src/main/java/{{package_path}}/{{model_pascal}}.java",
-        &ctx,
+    let ctx = build_context_from_input(
+        &input,
+        &setup,
+        &GitInfo::default(),
+        &crud_cli::core::gen_context::UserIdentity::default(),
     )
     .unwrap();
+    let out =
+        render_template("src/main/java/{{package_path}}/{{model_pascal}}.java", &ctx).unwrap();
     assert_eq!(out, "src/main/java/com/x/User.java");
 }
 

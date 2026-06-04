@@ -16,9 +16,9 @@ pub use args::{
     exit_with_envelope, try_parse_cli, try_parse_cli_or_help, Cli, Commands, GenArgs, SetupArgs,
     TemplateArgs, TemplateCommand, ValidateArgs,
 };
-pub use commands::{run_gen, run_setup, run_template, run_validate};
 #[cfg(feature = "mcp")]
 pub use commands::run_mcp;
+pub use commands::{run_gen, run_setup, run_template, run_validate};
 pub use output::{emit_failure, emit_success, panic_hook_handler};
 pub use setup_wizard::{
     ensure_language_preference, prompt_language, run_project_wizard, run_user_wizard,

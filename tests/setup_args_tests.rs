@@ -35,14 +35,7 @@ fn setup_args_accept_valid_languages() {
 
 #[test]
 fn setup_args_accept_custom_language() {
-    let argv = vec![
-        "crud-cli",
-        "setup",
-        "--backend",
-        "php",
-        "--frontend",
-        "vue",
-    ];
+    let argv = vec!["crud-cli", "setup", "--backend", "php", "--frontend", "vue"];
     let cli = try_parse_cli(argv).expect("custom backend parses");
     let setup = match cli.command {
         Some(crud_cli::cli::Commands::Setup(s)) => s,
@@ -116,9 +109,7 @@ fn cli_help_version_smoke() {
     assert!(root_help.contains("setup"));
     assert!(root_help.contains("template"));
 
-    let setup_cmd = cmd
-        .find_subcommand_mut("setup")
-        .expect("setup subcommand");
+    let setup_cmd = cmd.find_subcommand_mut("setup").expect("setup subcommand");
     let setup_help = setup_cmd.render_help().to_string();
     assert!(setup_help.contains("--backend"));
     assert!(setup_help.contains("--overwrite-policy"));

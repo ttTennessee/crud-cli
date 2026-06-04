@@ -8,13 +8,13 @@ use handlebars::{Path as HbPath, PathSeg, Template, TemplateError};
 use serde::Serialize;
 
 use super::config::{EnabledTypes, RuntimeConfig, SetupConfig};
-use super::paths::{project_setup_toml, project_setup_user_toml};
 use super::error::ErrorEnvelope;
-use super::i18n::{self, keys};
 use super::field_dsl::Field;
 use super::field_types;
 use super::gen_context::{self, AsContextField, UserIdentity};
 use super::git_info::GitInfo;
+use super::i18n::{self, keys};
+use super::paths::{project_setup_toml, project_setup_user_toml};
 use super::template_engine;
 use super::template_loader;
 use super::template_meta;
@@ -126,14 +126,10 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
             i18n::t(keys::ERROR_VALIDATE_CWD),
         )
     })?;
-    let runtime = RuntimeConfig::load(
-        &project_setup_toml(&cwd),
-        &project_setup_user_toml(&cwd),
-    )?;
+    let runtime = RuntimeConfig::load(&project_setup_toml(&cwd), &project_setup_user_toml(&cwd))?;
     let setup = &runtime.project;
 
-    let templates_root =
-        crate::core::template_loader::resolve_templates_root(&cwd, setup)?;
+    let templates_root = crate::core::template_loader::resolve_templates_root(&cwd, setup)?;
     let schema = template_variables::load_schema(&templates_root)?;
     let field_type_schema = field_types::load_schema(&templates_root)?;
 
@@ -141,8 +137,7 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
         .type_filter
         .clone()
         .or_else(|| implicit_type_prefixes(setup, runtime.enabled_types()));
-    let entries =
-        template_loader::discover_templates(&templates_root, implicit_filter.as_deref())?;
+    let entries = template_loader::discover_templates(&templates_root, implicit_filter.as_deref())?;
     let templates_checked = entries.len();
 
     let mut base_allow = build_base_allow_set(setup);
@@ -223,7 +218,8 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
             }
         };
 
-        if let Some(issue) = first_unknown_variable_issue(&template, &base_allow, &suggest_pool, &rel)
+        if let Some(issue) =
+            first_unknown_variable_issue(&template, &base_allow, &suggest_pool, &rel)
         {
             issues.push(issue);
             continue;
@@ -263,9 +259,8 @@ pub fn run(params: ValidateParams) -> Result<ValidateReport, ErrorEnvelope> {
         "templates_with_issues": templates_with_issues,
         "issue_count": issue_count,
     });
-    let issues_json = serde_json::to_value(&issues).map_err(|e| {
-        ErrorEnvelope::template_error(format!("serialize validate issues: {e}"))
-    })?;
+    let issues_json = serde_json::to_value(&issues)
+        .map_err(|e| ErrorEnvelope::template_error(format!("serialize validate issues: {e}")))?;
     Err(ErrorEnvelope::template_error_with_issues(
         issues_json,
         summary,
@@ -664,11 +659,7 @@ fn base_path_has_traversal(rendered: &str) -> bool {
     normalized.split('/').any(|seg| seg == "..")
 }
 
-fn render_issue(
-    body: &str,
-    ctx: &serde_json::Value,
-    rel: &str,
-) -> Option<ValidateIssue> {
+fn render_issue(body: &str, ctx: &serde_json::Value, rel: &str) -> Option<ValidateIssue> {
     match template_engine::render_template(body, ctx) {
         Ok(rendered) => {
             if let Some(tail) = find_unrendered_handlebars_residue(&rendered) {
@@ -760,7 +751,9 @@ fn is_intentional_vue_mustache(text: &str) -> bool {
     };
     let inner = trimmed[..end].trim();
     !inner.is_empty()
-        && inner.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
+        && inner
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
         && inner
             .chars()
             .next()

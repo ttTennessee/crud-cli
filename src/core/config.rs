@@ -291,12 +291,7 @@ impl PathsSection {
     /// Used by `gen` to default the `--type` filter and by `validate` to know
     /// which subdirectories to scan.
     pub fn enabled_prefixes(&self) -> Vec<String> {
-        let mut out: Vec<String> = self
-            .lang
-            .keys()
-            .chain(self.aux.keys())
-            .cloned()
-            .collect();
+        let mut out: Vec<String> = self.lang.keys().chain(self.aux.keys()).cloned().collect();
         out.sort();
         out.dedup();
         out
@@ -399,7 +394,11 @@ pub struct SetupConfig {
     pub variables: VariablesSection,
     #[serde(default, skip_serializing_if = "is_empty_templates_parent")]
     pub templates: TemplatesParent,
-    #[serde(rename = "type_map", default, skip_serializing_if = "is_default_type_map")]
+    #[serde(
+        rename = "type_map",
+        default,
+        skip_serializing_if = "is_default_type_map"
+    )]
     pub type_map: TypeMapSection,
 }
 
@@ -635,9 +634,8 @@ fn detect_legacy_schema(raw: &str) -> Result<(), ErrorEnvelope> {
 
 /// Parses an on-disk project setup file with unknown-field rejection.
 pub fn load_setup_file(path: &Path) -> Result<SetupConfig, ErrorEnvelope> {
-    let raw = std::fs::read_to_string(path).map_err(|e| {
-        config_error(format!("read {}: {e}", path.display()))
-    })?;
+    let raw = std::fs::read_to_string(path)
+        .map_err(|e| config_error(format!("read {}: {e}", path.display())))?;
     detect_legacy_schema(&raw)?;
     let config: SetupConfig =
         toml::from_str(&raw).map_err(|e| config_error(format!("parse setup: {e}")))?;
@@ -658,9 +656,8 @@ pub fn load_setup_file(path: &Path) -> Result<SetupConfig, ErrorEnvelope> {
 
 /// Parses an on-disk user setup file with unknown-field rejection.
 pub fn load_user_setup_file(path: &Path) -> Result<SetupUserConfig, ErrorEnvelope> {
-    let raw = std::fs::read_to_string(path).map_err(|e| {
-        config_error(format!("read {}: {e}", path.display()))
-    })?;
+    let raw = std::fs::read_to_string(path)
+        .map_err(|e| config_error(format!("read {}: {e}", path.display())))?;
     let config: SetupUserConfig =
         toml::from_str(&raw).map_err(|e| config_error(format!("parse user setup: {e}")))?;
     if config.user.name.trim().is_empty() {
@@ -683,7 +680,13 @@ mod tests {
 
     #[test]
     fn backend_round_trip_known() {
-        for b in [Backend::Java, Backend::TypeScript, Backend::Go, Backend::Python, Backend::None] {
+        for b in [
+            Backend::Java,
+            Backend::TypeScript,
+            Backend::Go,
+            Backend::Python,
+            Backend::None,
+        ] {
             let toml_str = toml::to_string(&Wrap { v: b.clone() }).expect("serialize");
             let decoded: Wrap<Backend> = toml::from_str(&toml_str).expect("deserialize");
             assert_eq!(decoded.v, b);

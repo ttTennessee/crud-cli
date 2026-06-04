@@ -15,10 +15,7 @@ use super::template_meta_global;
 /// `~/.crud/templates/<name>/<version>/`; otherwise `.crud/templates/` under `cwd`.
 pub fn resolve_templates_root(cwd: &Path, setup: &SetupConfig) -> Result<PathBuf, ErrorEnvelope> {
     if let Some(tref) = &setup.project.template {
-        let installed = template_meta_global::find_template(
-            &tref.name,
-            tref.version.as_deref(),
-        )?;
+        let installed = template_meta_global::find_template(&tref.name, tref.version.as_deref())?;
         return Ok(installed.path);
     }
     Ok(cwd.join(".crud").join("templates"))
