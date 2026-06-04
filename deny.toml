@@ -1,0 +1,78 @@
+# cargo-deny configuration. See https://embarkstudios.github.io/cargo-deny/.
+#
+# Run locally:
+#   cargo deny check
+# CI invokes the same command via EmbarkStudios/cargo-deny-action.
+
+[graph]
+# Check all targets we actually build on, not just the host triple.
+targets = [
+    { triple = "x86_64-unknown-linux-gnu" },
+    { triple = "aarch64-unknown-linux-gnu" },
+    { triple = "x86_64-apple-darwin" },
+    { triple = "aarch64-apple-darwin" },
+    { triple = "x86_64-pc-windows-msvc" },
+]
+# Include all Cargo features so we audit the mcp path too.
+all-features = true
+
+# ─── Security advisories ──────────────────────────────────────────────────
+# Fail on any known vulnerability in the RustSec advisory database.
+[advisories]
+version = 2
+yanked = "deny"
+ignore = []
+
+# ─── Licenses ─────────────────────────────────────────────────────────────
+# Allowlist approach: deny anything not listed. Update as new deps come in.
+[licenses]
+version = 2
+confidence-threshold = 0.8
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "MPL-2.0",
+    "0BSD",
+]
+# Per-crate license exceptions. Each entry should explain *why* the license is
+# acceptable for this specific dependency rather than being added to the global
+# allow-list.
+exceptions = [
+    # Mozilla's root CA bundle, packaged as Rust data. CDLA-Permissive-2.0 is a
+    # data license (no copyleft, commercial use allowed); we accept it for this
+    # crate only rather than globally trusting CDLA, since CDLA-Sharing-1.0 is
+    # copyleft and we don't want a future bump to silently switch variants.
+    { allow = ["CDLA-Permissive-2.0"], name = "webpki-roots" },
+]
+
+# ─── Bans (forbidden / discouraged crates) ────────────────────────────────
+[bans]
+# Multiple versions of the same crate bloat the binary. Start at warn so this
+# doesn't block CI on day one; flip to "deny" once the graph is clean.
+multiple-versions = "warn"
+wildcards = "deny"
+# Crates we deliberately keep out of the dependency graph.
+deny = [
+    # Stick to rustls; no OpenSSL C link.
+    { name = "openssl" },
+    { name = "openssl-sys" },
+    { name = "native-tls" },
+    # Long-deprecated error crates that CLAUDE.md explicitly forbids.
+    { name = "failure" },
+    { name = "error-chain" },
+]
+skip = []
+skip-tree = []
+
+# ─── Sources (where deps may come from) ───────────────────────────────────
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
