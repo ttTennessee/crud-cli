@@ -1,6 +1,6 @@
 # crud-cli JSON entity input spec
 
-Schema for the `entity.json` accepted by `crud-cli gen --file <path>` and by the MCP `crud_preview` / `crud_generate` tools.
+Schema for the `entity.json` accepted by `crud-cli gen --file <path>` and by the MCP `crud_validate` / `crud_generate` tools.
 
 ## Before you write the JSON
 
@@ -12,6 +12,7 @@ Resolve the following points **before** emitting `entity.json`. Only ask the use
 4. **Required / unique constraints.** Confirm `required` and `unique` only when the business meaning is ambiguous. The PK is obviously required; a column literally named `email` or `username` is almost certainly unique — do not ask.
 5. **Numeric precision.** For money / decimal / large-integer fields, confirm precision and scale (or the canonical type alias) when the template offers more than one numeric option. Default integer / string types do not need confirmation.
 6. **Template variables.** If the active template's `_variables.toml` declares switches (e.g. `module_name`, `permission_prefix`, `has_import`), confirm the values when they cannot be inferred from the entity name or package.
+7. **String field length.** For every string-typed field, always set the `length` property. Do not omit it — a missing length produces an incomplete DDL column definition.
 
 Rule of thumb: **silence on the obvious, one consolidated question on the grey areas.** Never ask the user to re-state information already present in the prompt (entity name, package, table name, plainly-typed columns).
 
@@ -65,11 +66,17 @@ Top-level switches declared by the active template's `_variables.toml` (also ret
 
 ## `extra` object (per field)
 
-Free-form per-field flags consumed by template extensions (e.g. RuoYi-style bundles use `query`, `list`, `insert`, `dict_type`, `ts_type`). Keys the active template does not consume are passed through and ignored.
+Template-specific per-field flags. Before filling `extra`, call `crud_describe_templates` and read its `field_extra` map:
+
+- **Keys** listed there are declared by the active template; supply values according to their `type`.
+- **`required_for`** lists field types that require a given key — if your field's `type` appears there, the key is mandatory.
+- `crud_validate` returns a `warnings` array when an unknown or missing-required extra key is detected (non-blocking).
 
 ```json
 { "name": "status", "type": "int", "extra": { "query": true, "dict_type": "sys_normal_disable" } }
 ```
+
+If `_field_extra.toml` is absent (no `field_extra` keys in `crud_describe_templates` response), the template accepts any extra keys without validation.
 
 ## Examples
 

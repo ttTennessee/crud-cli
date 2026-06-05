@@ -73,6 +73,11 @@ pub const ERROR_FIELD_DUPLICATE: &str = "error.field.duplicate";
 pub const ERROR_FIELD_NO_FIELDS: &str = "error.field.no_fields";
 pub const ERROR_FIELD_RESERVED: &str = "error.field.reserved";
 
+// ── field extra schema error hints ──────────────────────────────────────────
+pub const ERROR_FIELD_EXTRA_SCHEMA_FIX: &str = "error.field_extra.schema_fix";
+pub const ERROR_FIELD_EXTRA_UNKNOWN_KEY: &str = "error.field_extra.unknown_key";
+pub const ERROR_FIELD_EXTRA_MISSING_REQUIRED: &str = "error.field_extra.missing_required";
+
 // ── field type schema error hints ───────────────────────────────────────────
 pub const ERROR_FIELD_TYPE_UNSUPPORTED: &str = "error.field_type.unsupported";
 pub const ERROR_FIELD_TYPE_UNSUPPORTED_DID_YOU_MEAN: &str =
@@ -203,6 +208,9 @@ pub const ALL_KEYS: &[&str] = &[
     ERROR_FIELD_DUPLICATE,
     ERROR_FIELD_NO_FIELDS,
     ERROR_FIELD_RESERVED,
+    ERROR_FIELD_EXTRA_SCHEMA_FIX,
+    ERROR_FIELD_EXTRA_UNKNOWN_KEY,
+    ERROR_FIELD_EXTRA_MISSING_REQUIRED,
     ERROR_FIELD_TYPE_UNSUPPORTED,
     ERROR_FIELD_TYPE_UNSUPPORTED_DID_YOU_MEAN,
     ERROR_FIELD_TYPE_SCHEMA_FIX,

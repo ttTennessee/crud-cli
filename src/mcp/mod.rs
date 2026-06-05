@@ -2,7 +2,7 @@
 
 mod context;
 mod convert;
-mod resources;
+mod entity_schema;
 mod server;
 mod validate_logic;
 

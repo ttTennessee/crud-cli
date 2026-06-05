@@ -81,6 +81,11 @@ duplicate = "字段名重复：每个字段必须唯一"
 no_fields = "--fields 不能为空，至少提供一个 name:Type"
 reserved = "字段名与内置变量冲突：避开 model/table/fields/pk_field/is_sub/sub_* 等内置名"
 
+[error.field_extra]
+schema_fix = "检查 `_field_extra.toml` 语法：每个键需要非空 description 和合法 type"
+unknown_key = "字段 `{field}` 的 extra 中包含未声明的键 `{key}`；请在 `_field_extra.toml` 中添加，或从 entity.json 中删除"
+missing_required = "字段 `{field}`（类型 `{field_type}`）缺少必填 extra 键 `{key}`；见 `_field_extra.toml`"
+
 [error.field_type]
 unsupported = "字段 `{name}` 的类型 `{type}` 不在模板允许列表中；允许：{allowed}；见 `_field_types.toml`"
 unsupported_did_you_mean = "字段 `{name}` 的类型 `{type}` 无效；是否指 `{candidate}`？允许：{allowed}"

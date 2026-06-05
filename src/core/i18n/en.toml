@@ -81,6 +81,11 @@ duplicate = "duplicate field name: each field must be unique"
 no_fields = "--fields must not be empty; provide at least one name:Type"
 reserved = "field name collides with a built-in variable: avoid model/table/fields/pk_field/is_sub/sub_* and other built-ins"
 
+[error.field_extra]
+schema_fix = "fix `_field_extra.toml`: each key needs a non-empty description and a valid type"
+unknown_key = "field `{field}` has undeclared extra key `{key}`; add it to `_field_extra.toml` or remove it"
+missing_required = "field `{field}` (type `{field_type}`) is missing required extra key `{key}`; see `_field_extra.toml`"
+
 [error.field_type]
 unsupported = "field `{name}` has unsupported type `{type}`; allowed: {allowed}; see `_field_types.toml`"
 unsupported_did_you_mean = "field `{name}` has invalid type `{type}`; did you mean `{candidate}`? allowed: {allowed}"

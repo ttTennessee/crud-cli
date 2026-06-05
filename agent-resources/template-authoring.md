@@ -11,6 +11,7 @@ A typical bundle contains:
 | `**/*.hbs` | Handlebars templates; optional YAML front-matter for output paths and conditional generation |
 | `_variables.toml` | Declares **per-invocation** extended top-level variables; read by agents and the validator |
 | `_field_types.toml` | Declares allowed field type names |
+| `_field_extra.toml` | Optional; declares valid keys for `fields[].extra` with type and `required_for` |
 | `<bundle>/type_map.toml` | Optional; used with the `ty_map` helper for type mapping |
 | `.crudignore` | Excludes templates from generation |
 
@@ -184,7 +185,33 @@ Example: a bundle defines `query` (bool) and `dict_type` (string):
 {{/each}}
 ```
 
-Semantics of extended keys are defined by the **template author** and documented alongside the bundle (e.g. near `_field_types.toml`) so agents know what to pass when building gen commands. `validate` static checks recognize default property names only; if an extended key triggers `unknown variable`, verify spelling against the bundle contract.
+Semantics of extended keys are defined by the **template author** in `_field_extra.toml` (bundle root). Agents query them via `crud_describe_templates` (`field_extra` key in the response) rather than relying on inline documentation.
+
+```toml
+# _field_extra.toml
+[options]
+description  = "Enum option list; each item is {label, value}"
+type         = "array"
+required_for = ["enum", "radio"]
+
+[dict_type]
+description  = "Dictionary code binding for select/radio fields"
+type         = "string"
+
+[query]
+description  = "Include this field as a query condition in list pages"
+type         = "bool"
+```
+
+`_field_extra.toml` schema per key:
+
+| Field | Required | Notes |
+|---|---|---|
+| `description` | yes | Human/agent-readable purpose |
+| `type` | yes | `string` \| `number` \| `bool` \| `array` \| `object` |
+| `required_for` | no | Field types that require this key (empty = always optional) |
+
+`validate` static checks recognise default property names only; if an extended key triggers `unknown variable`, verify spelling against `_field_extra.toml`.
 
 ## Extended top-level variables
 
@@ -388,10 +415,10 @@ Templates should make generated code **byte-identical** to the host project's st
 
 ### Recommended agent workflow
 
-1. Read `.crud/setup.toml` and the bundle's `_variables.toml`, `_field_types.toml`.
+1. Read `.crud/setup.toml` and the bundle's `_variables.toml`, `_field_types.toml`, `_field_extra.toml`.
 2. Locate **existing implementations** of the same feature in the target project (controller + service + frontend list page, as applicable).
 3. List differences from generic scaffolds (return types, base classes, annotations, path prefixes, permission strings).
-4. Write or edit `.hbs` files; align output paths via front-matter; declare extended top-level variables in `_variables.toml` and document extended field properties in the bundle docs if any.
+4. Write or edit `.hbs` files; align output paths via front-matter; declare extended top-level variables in `_variables.toml`; declare extended field keys in `_field_extra.toml`.
 5. Run `crud-cli validate`, then compare output with `--dry-run` / `--stdout` against the gold standard.
 6. Close gaps by **changing templates**, not by hand-editing generated code afterward.
 
