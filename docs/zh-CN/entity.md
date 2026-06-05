@@ -54,11 +54,13 @@
 
 ## `extra` 对象（字段级）
 
-自由形式的字段级 flag，由模板扩展消费（例如 RuoYi 风格的模板包用 `query`、`list`、`insert`、`dict_type`、`ts_type`）。当前模板不消费的键会被透传并忽略。
+模板特定的字段级 flag。合法键由当前模板的 `_field_extra.toml` 声明；调用 MCP `crud_describe_templates` 工具并读取其 `field_extra` 字段，可以了解有哪些键、值类型，以及哪些字段类型要求必填。
 
 ```json
 { "name": "status", "type": "int", "extra": { "query": true, "dict_type": "sys_normal_disable" } }
 ```
+
+`_field_extra.toml` 存在时，`crud_preview` 会对未知或缺少必填 extra 键的情况在返回结果的 `warnings` 数组中给出提示（非阻断——仍会继续生成）。
 
 ## 示例
 

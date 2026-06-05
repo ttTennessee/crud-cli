@@ -11,6 +11,7 @@ Authoritative reference for writing Handlebars (`.hbs`) template bundles for `cr
   **/*.hbs                       # templates; optional YAML front-matter
   _variables.toml                # per-invocation extended top-level variable schema
   _field_types.toml              # allowed field type names
+  _field_extra.toml              # optional; declares valid keys for fields[].extra
   type_map.toml                  # optional; consumed by the ty_map helper
   .crudignore                    # exclude files from discovery
 ```
@@ -117,7 +118,33 @@ Default properties — present on every field:
 
 The `--fields` DSL populates only `name`, `type`, `is_pk`. For full metadata, use JSON input (see `entity` resource).
 
-**Extended field properties**: a bundle's caller can pass extra key/value pairs that are flattened into each field object — accessible inside `{{#each fields}}` at the same level as defaults. Document extension keys alongside the bundle so callers know to pass them. `validate` does not statically recognise extension keys; a bundle-defined key triggering `unknown variable` is a spelling mismatch.
+**Extended field properties**: a bundle's caller can pass extra key/value pairs in `fields[].extra` that are flattened into each field object — accessible inside `{{#each fields}}` at the same level as defaults.
+
+Template authors declare these keys in `_field_extra.toml` (bundle root). Agents query them via the MCP `crud_describe_templates` tool (`field_extra` key in the response). `validate` does not statically recognise extension keys; a bundle-defined key triggering `unknown variable` is a spelling mismatch.
+
+```toml
+# _field_extra.toml
+[options]
+description = "Enum option list; each item is {label, value}"
+type        = "array"
+required_for = ["enum", "radio"]   # required when field type is enum or radio
+
+[dict_type]
+description = "Dictionary code binding for select/radio fields"
+type        = "string"
+
+[query]
+description = "Include this field as a query condition in list pages"
+type        = "bool"
+```
+
+`_field_extra.toml` fields per key:
+
+| Field | Required | Notes |
+|---|---|---|
+| `description` | yes | Human/agent-readable purpose |
+| `type` | yes | `string` \| `number` \| `bool` \| `array` \| `object` |
+| `required_for` | no | Field types that require this key (empty = always optional) |
 
 ## Extended top-level variables
 

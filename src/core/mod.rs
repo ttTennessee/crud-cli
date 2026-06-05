@@ -4,6 +4,7 @@ pub mod config;
 pub mod default_paths;
 pub mod error;
 pub mod field_dsl;
+pub mod field_extra;
 pub mod field_types;
 pub mod fs_writer;
 pub mod gen_context;

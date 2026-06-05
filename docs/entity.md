@@ -54,11 +54,13 @@ Top-level switches declared by the active template's `_variables.toml` (also ret
 
 ## `extra` object (per field)
 
-Free-form per-field flags consumed by template extensions (e.g. RuoYi-style bundles use `query`, `list`, `insert`, `dict_type`, `ts_type`). Keys the active template does not consume are passed through and ignored.
+Template-specific per-field flags. Valid keys are declared by the active template's `_field_extra.toml`; call the MCP `crud_describe_templates` tool and read its `field_extra` map to learn what keys exist, their types, and which field types require them.
 
 ```json
 { "name": "status", "type": "int", "extra": { "query": true, "dict_type": "sys_normal_disable" } }
 ```
+
+When `_field_extra.toml` is present, `crud_preview` returns a `warnings` array for unknown or missing-required extra keys (non-blocking — generation still proceeds).
 
 ## Examples
 

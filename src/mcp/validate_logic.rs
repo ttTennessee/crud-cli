@@ -11,6 +11,7 @@ use tempfile::NamedTempFile;
 use crate::core::config::RuntimeConfig;
 use crate::core::error::ErrorEnvelope;
 use crate::core::field_dsl::Field;
+use crate::core::field_extra;
 use crate::core::field_types;
 use crate::core::gen_input::{
     load_gen_input_with_specs_from_json, FieldSpec, GenCliOverrides, JsonLoadResult,
@@ -149,6 +150,7 @@ fn build_field_section(norms: &[Field], specs: &[FieldSpec]) -> (Vec<Value>, Str
             "unique": spec.unique,
             "comment": spec.comment,
             "tags": tags,
+            "extra": spec.extra,
         }));
         md.push_str(&format!(
             "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
@@ -220,6 +222,21 @@ pub fn preview_entity_structure(
             "fk_field": sub.fk_field,
             "fields": sub_rows,
         });
+    }
+
+    let field_extra_schema = field_extra::load_schema(&ctx.templates_root)?;
+    let mut extra_warnings: Vec<String> =
+        field_extra::validate_extra_keys(&field_extra_schema, &loaded.field_specs);
+    if let Some(sub_specs) = loaded.sub_field_specs.as_deref() {
+        extra_warnings.extend(field_extra::validate_extra_keys(&field_extra_schema, sub_specs));
+    }
+    if !extra_warnings.is_empty() {
+        out["warnings"] = Value::Array(
+            extra_warnings
+                .into_iter()
+                .map(Value::String)
+                .collect(),
+        );
     }
 
     out["table_markdown"] = Value::String(md.clone());
@@ -301,6 +318,7 @@ fn schema_to_json<T: serde::Serialize>(value: &T) -> Result<Value, ErrorEnvelope
 pub fn describe_templates(ctx: &ProjectContext) -> Result<Value, ErrorEnvelope> {
     let variables_schema = template_variables::load_schema(&ctx.templates_root)?;
     let field_types_schema = field_types::load_schema(&ctx.templates_root)?;
+    let field_extra_schema = field_extra::load_schema(&ctx.templates_root)?;
     let prefixes = list_type_prefixes(&ctx.templates_root)?;
 
     let runtime = RuntimeConfig::load(
@@ -313,6 +331,7 @@ pub fn describe_templates(ctx: &ProjectContext) -> Result<Value, ErrorEnvelope> 
         "type_prefixes": prefixes,
         "variables": schema_to_json(&variables_schema.0)?,
         "field_types": schema_to_json(&field_types_schema.types)?,
+        "field_extra": schema_to_json(&field_extra_schema.0)?,
         "paths": {
             "lang": runtime.project.paths.lang,
             "aux": runtime.project.paths.aux,

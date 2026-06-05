@@ -11,6 +11,7 @@
   **/*.hbs                       # 模板；可选 YAML front-matter
   _variables.toml                # 每次调用的扩展顶层变量 schema
   _field_types.toml              # 允许的字段类型名
+  _field_extra.toml              # 可选；声明 fields[].extra 的合法键
   type_map.toml                  # 可选；供 ty_map helper 使用
   .crudignore                    # 把文件排除在发现之外
 ```
@@ -117,7 +118,33 @@ front-matter 里包含 `{{` 的值要加引号，避免 YAML 解析失败。
 
 `--fields` DSL 只会填充 `name`、`type`、`is_pk`。需要完整元数据时使用 JSON 输入（见 `entity` 资源）。
 
-**扩展字段属性**：模板包的调用方可以传额外的 key/value，会被**展平**到每个字段对象上 —— 在 `{{#each fields}}` 中与默认属性同级访问。`validate` 静态检查不识别扩展键；如果某个模板包定义的扩展键触发 `unknown variable`，那就是和模板包契约的拼写不一致。
+**扩展字段属性**：调用方在 `fields[].extra` 中传入的额外 key/value，会被**展平**到每个字段对象上 —— 在 `{{#each fields}}` 中与默认属性同级访问。
+
+模板作者在 `_field_extra.toml`（bundle 根目录）中声明这些键。Agent 通过 MCP `crud_describe_templates` 工具查询（响应中的 `field_extra` 字段）。`validate` 静态检查不识别扩展键；如果某个扩展键触发 `unknown variable`，请对照 `_field_extra.toml` 确认拼写。
+
+```toml
+# _field_extra.toml
+[options]
+description  = "枚举选项列表，每项格式为 {label, value}"
+type         = "array"
+required_for = ["enum", "radio"]   # 字段类型为 enum 或 radio 时必填
+
+[dict_type]
+description  = "字典编码绑定，用于下拉/单选字段"
+type         = "string"
+
+[query]
+description  = "在列表页将该字段作为查询条件"
+type         = "bool"
+```
+
+`_field_extra.toml` 各字段说明：
+
+| 字段 | 必填 | 说明 |
+|---|---|---|
+| `description` | 是 | 供人和 Agent 阅读的用途说明 |
+| `type` | 是 | `string` \| `number` \| `bool` \| `array` \| `object` |
+| `required_for` | 否 | 要求此键必填的字段类型列表（空 = 始终可选） |
 
 ## 扩展顶层变量
 
