@@ -81,7 +81,7 @@ Parameter and return-value schemas are surfaced via MCP `tools/list` — refer t
 
 | URI | MIME | Content |
 |---|---|---|
-| `crud://schema/entity` | `text/markdown` | The `entity.json` schema spec as a single markdown document. Same source as [`agent-resources/entity-json-guide.md`](../agent-resources/entity-json-guide.md). |
+| `crud://schema/entity_guide` | `text/markdown` | The `entity.json` schema spec as a single markdown document. Same source as [`agent-resources/entity-json-guide.md`](../agent-resources/entity-json-guide.md). |
 | `crud://schema/builtins` | `application/json` | Reserved variable / field identifier names that templates inject automatically. Useful for clients that want to validate `entity.json` locally before calling `crud_preview`. |
 
 ## Prompts
@@ -95,7 +95,7 @@ Parameter and return-value schemas are surfaced via MCP `tools/list` — refer t
 For generating code into an existing project:
 
 1. **`crud_describe_templates`** → learn the active bundle's variables, field types, and the project's path layout.
-2. **(optional) Read `crud://schema/entity`** if the agent isn't already familiar with the `entity.json` shape.
+2. **(optional) Read `crud://schema/entity_guide`** if the agent isn't already familiar with the `entity.json` shape.
 3. **Compose `entity.json`** based on the user's intent and the schema from step 1.
 4. **`crud_preview`** → show the user the normalized field table for confirmation. Iterate if needed.
 5. **`crud_generate`** → write files.
@@ -129,5 +129,5 @@ Hard failures — server can't find the project root, can't read `setup.toml`, e
 ## See also
 
 - [`agent-resources/template-authoring.md`](../agent-resources/template-authoring.md) — spec served by the `crud_template_authoring` prompt
-- [`agent-resources/entity-json-guide.md`](../agent-resources/entity-json-guide.md) — spec served at `crud://schema/entity`
+- [`agent-resources/entity-json-guide.md`](../agent-resources/entity-json-guide.md) — spec served at `crud://schema/entity_guide`
 - [Main README](../README.md) — project overview, install, basic CLI usage

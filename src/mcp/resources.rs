@@ -8,7 +8,7 @@ use crate::core::field_dsl::RESERVED_VARIABLE_NAMES;
 use serde_json::json;
 
 /// Resource URI for entity.json input documentation.
-pub const URI_ENTITY_SCHEMA: &str = "crud://schema/entity";
+pub const URI_ENTITY_SCHEMA: &str = "crud://schema/entity_guide";
 
 /// Resource URI for built-in / reserved template variable names.
 pub const URI_BUILTINS: &str = "crud://schema/builtins";
