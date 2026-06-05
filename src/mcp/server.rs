@@ -32,7 +32,7 @@ use super::context::{
     file_uri_to_path, load_project_context_from_start, ProjectContext, ROOTS_LIST_TIMEOUT,
 };
 use super::convert::{envelope_to_value, generate_report_value};
-use super::resources::{list_static_resources, read_resource};
+use super::resources::{list_resources, read_resource};
 use super::validate_logic::{
     describe_templates, entity_json_to_temp_path, preview_entity_structure,
 };
@@ -394,10 +394,12 @@ impl ServerHandler for CrudMcpServer {
         _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, McpError> {
-        let resources: Vec<Resource> = list_static_resources()
+        let ctx = self.ensure_project(None).await?;
+        let resources: Vec<Resource> = list_resources(&ctx.templates_root)
             .into_iter()
-            .map(|(uri, name, mime)| {
+            .map(|(uri, name, description, mime)| {
                 RawResource::new(uri, name)
+                    .with_description(description)
                     .with_mime_type(mime)
                     .no_annotation()
             })
