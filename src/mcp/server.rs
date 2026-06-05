@@ -32,7 +32,7 @@ use super::context::{
 use super::convert::{envelope_to_value, generate_report_value};
 use super::entity_schema::read_entity_schema;
 use super::validate_logic::{
-    describe_templates, entity_json_to_temp_path, preview_entity_structure,
+    describe_templates, entity_json_to_temp_path, validate_entity_structure,
 };
 
 /**
@@ -140,7 +140,7 @@ impl CrudMcpServer {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-struct PreviewParams {
+struct ValidateParams {
     /// Full entity.json document (UTF-8).
     #[schemars(description = "entity.json content")]
     entity_json: String,
@@ -201,25 +201,6 @@ fn tool_json_result(value: Value) -> Result<CallToolResult, McpError> {
     Ok(CallToolResult::success(vec![Content::text(text)]))
 }
 
-/**
- * Returns markdown first (for direct user display), then JSON payload.
- */
-fn tool_preview_result(value: Value) -> Result<CallToolResult, McpError> {
-    let text = serde_json::to_string_pretty(&value).map_err(|e| internal_err(e.to_string()))?;
-    let markdown = value
-        .get("display_markdown")
-        .or_else(|| value.get("table_markdown"))
-        .and_then(Value::as_str)
-        .map(str::to_string)
-        .unwrap_or_default();
-    if markdown.is_empty() {
-        return Ok(CallToolResult::success(vec![Content::text(text)]));
-    }
-    Ok(CallToolResult::success(vec![
-        Content::text(markdown),
-        Content::text(text),
-    ]))
-}
 
 fn tool_error_result(value: Value) -> Result<CallToolResult, McpError> {
     let text = serde_json::to_string_pretty(&value).map_err(|e| internal_err(e.to_string()))?;
@@ -304,26 +285,27 @@ impl CrudMcpServer {
     }
 
     /**
-     * Validates entity.json and returns its normalized structure as a confirmation
-     * table (no template code is rendered or written).
+     * Validates entity.json against the active template schemas (no file writes).
+     * Returns {"ok": true} on success, {"ok": true, "warnings": [...]} when
+     * extra-key warnings are present, or an error result on failure.
      */
     #[tool(
-        name = "crud_preview",
-        description = "Validate entity.json and preview its normalized field structure as a table"
+        name = "crud_validate",
+        description = "Validate entity.json against the active template schemas. Returns ok=true on success (with optional warnings), or an error describing what is wrong."
     )]
-    async fn preview(
+    async fn validate(
         &self,
-        Parameters(p): Parameters<PreviewParams>,
+        Parameters(p): Parameters<ValidateParams>,
     ) -> Result<CallToolResult, McpError> {
         let ctx = self.ensure_project(None).await?;
         let cli_vars = vars_from_optional(p.variables);
         let json = p.entity_json;
         let result =
-            tokio::task::spawn_blocking(move || preview_entity_structure(&ctx, &json, &cli_vars))
+            tokio::task::spawn_blocking(move || validate_entity_structure(&ctx, &json, &cli_vars))
                 .await
                 .map_err(|e| internal_err(e.to_string()))?;
         match result {
-            Ok(v) => tool_preview_result(v),
+            Ok(v) => tool_json_result(v),
             Err(envelope) => tool_error_result(envelope_to_value(&envelope)),
         }
     }
