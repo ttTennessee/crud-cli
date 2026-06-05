@@ -131,9 +131,7 @@ pub fn validate_extra_keys(schema: &FieldExtraSchema, specs: &[FieldSpec]) -> Ve
 
         // required_for keys that are missing
         for (key, def) in &schema.0 {
-            if def.required_for.contains(&spec.ty)
-                && !spec.extra.contains_key(key.as_str())
-            {
+            if def.required_for.contains(&spec.ty) && !spec.extra.contains_key(key.as_str()) {
                 problems.push(i18n::tf(
                     keys::ERROR_FIELD_EXTRA_MISSING_REQUIRED,
                     &[

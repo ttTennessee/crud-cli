@@ -201,7 +201,6 @@ fn tool_json_result(value: Value) -> Result<CallToolResult, McpError> {
     Ok(CallToolResult::success(vec![Content::text(text)]))
 }
 
-
 fn tool_error_result(value: Value) -> Result<CallToolResult, McpError> {
     let text = serde_json::to_string_pretty(&value).map_err(|e| internal_err(e.to_string()))?;
     Ok(CallToolResult::error(vec![Content::text(text)]))
@@ -253,11 +252,10 @@ impl CrudMcpServer {
     ) -> Result<CallToolResult, McpError> {
         let ctx = self.ensure_project(None).await?;
         let name = p.name;
-        let result = tokio::task::spawn_blocking(move || {
-            read_entity_schema(&name, &ctx.templates_root)
-        })
-        .await
-        .map_err(|e| internal_err(e.to_string()))?;
+        let result =
+            tokio::task::spawn_blocking(move || read_entity_schema(&name, &ctx.templates_root))
+                .await
+                .map_err(|e| internal_err(e.to_string()))?;
         match result {
             Ok(text) => Ok(CallToolResult::success(vec![Content::text(text)])),
             Err(msg) => Ok(CallToolResult::error(vec![Content::text(msg)])),
@@ -402,7 +400,6 @@ impl ServerHandler for CrudMcpServer {
         *self.resolved.write().await = None;
         self.resolve_and_store(Some(&context.peer), true).await;
     }
-
 }
 
 fn internal_err(msg: impl Into<String>) -> McpError {

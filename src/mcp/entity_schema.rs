@@ -42,10 +42,10 @@ fn load_examples_json(templates_root: &Path) -> Result<String, String> {
     let mut examples = Vec::new();
     for entry in entries {
         let path = entry.path();
-        let raw = std::fs::read_to_string(&path)
-            .map_err(|e| format!("read {}: {e}", path.display()))?;
-        let value: serde_json::Value = serde_json::from_str(&raw)
-            .map_err(|e| format!("parse {}: {e}", path.display()))?;
+        let raw =
+            std::fs::read_to_string(&path).map_err(|e| format!("read {}: {e}", path.display()))?;
+        let value: serde_json::Value =
+            serde_json::from_str(&raw).map_err(|e| format!("parse {}: {e}", path.display()))?;
         examples.push(value);
     }
 

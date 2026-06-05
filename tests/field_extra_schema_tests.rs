@@ -112,10 +112,7 @@ fn describe_templates_includes_field_extra_schema() {
     let options = fe.get("options").expect("options key");
     assert_eq!(options["description"], "Enum options");
     assert_eq!(options["type"], "array");
-    assert_eq!(
-        options["required_for"],
-        Value::Array(vec!["enum".into()])
-    );
+    assert_eq!(options["required_for"], Value::Array(vec!["enum".into()]));
 
     let accept = fe.get("accept").expect("accept key");
     assert_eq!(accept["type"], "string");
@@ -123,7 +120,11 @@ fn describe_templates_includes_field_extra_schema() {
 
 // ── validate_extra_keys logic ────────────────────────────────────────────────
 
-fn make_spec(name: &str, ty: &str, extra: serde_json::Map<String, Value>) -> crud_cli::core::gen_input::FieldSpec {
+fn make_spec(
+    name: &str,
+    ty: &str,
+    extra: serde_json::Map<String, Value>,
+) -> crud_cli::core::gen_input::FieldSpec {
     crud_cli::core::gen_input::FieldSpec {
         name: name.to_string(),
         ty: ty.to_string(),

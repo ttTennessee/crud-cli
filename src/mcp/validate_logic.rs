@@ -72,7 +72,6 @@ pub fn validate_entity_json(
     load_validated(ctx, entity_json, cli_vars).map(|_| ())
 }
 
-
 /**
  * Validates `entity_json` against the active template schemas and returns
  * `{"ok": true}` on success, or `{"ok": false, "warnings": [...]}` when
@@ -89,7 +88,10 @@ pub fn validate_entity_structure(
     let mut warnings: Vec<String> =
         field_extra::validate_extra_keys(&field_extra_schema, &loaded.field_specs);
     if let Some(sub_specs) = loaded.sub_field_specs.as_deref() {
-        warnings.extend(field_extra::validate_extra_keys(&field_extra_schema, sub_specs));
+        warnings.extend(field_extra::validate_extra_keys(
+            &field_extra_schema,
+            sub_specs,
+        ));
     }
 
     if warnings.is_empty() {
