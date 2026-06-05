@@ -9,6 +9,17 @@ While the project is on the 0.x line, breaking changes to agent-facing surfaces
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-06-06
+
+### Fixed
+- **Released binaries now include the `mcp` subcommand.** v0.1.2 artifacts
+  built via `cargo-dist` shipped with crate default features (`cli` only), so
+  `crud-cli mcp` was unavailable to users who installed via the shell /
+  powershell installer. `dist-workspace.toml` now sets
+  `features = ["full"]` + `default-features = false` so released binaries
+  match what CI exercises under `--all-features`. Source installs that passed
+  `--features full` were unaffected.
+
 ## [0.1.2] - 2026-06-06
 
 ### Added
