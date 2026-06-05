@@ -72,17 +72,13 @@ server 通过 **stdio** 通信 —— 它不是常驻的网络守护进程。由
 | 名称 | 用途 |
 |---|---|
 | `crud_describe_templates` | 返回当前模板包的 `_variables.toml` schema、`_field_types.toml` 别名、项目路径（`paths.lang` / `paths.aux`）以及解析后的项目元数据。编写 `entity.json` 时**先调它**。 |
+| `crud_entity_schema` | 拉取 entity.json 编写所需的参考文档。`name=guide` 返回完整 `entity.json` 规范（markdown，源同 [`agent-resources/entity-json-guide.md`](../../agent-resources/entity-json-guide.md)）；`name=example` 返回当前模板包附带的 entity.json 示例（JSON 数组，模板若不附带 `_example*.json` 则报错）；`name=builtins` 返回保留变量名 / 字段标识符（JSON）。 |
 | `crud_preview` | 校验 `entity.json` 并返回字段级归一化结构表供用户确认。不渲染、不落盘。 |
 | `crud_generate` | 校验并把生成的文件写到项目目录。支持 `type` 过滤器（如 `ddl`）和 `force` 来绕过 overwrite 策略。使用与 `crud-cli gen` 同一套事务式写盘。 |
 
 各工具的入参 / 返回 schema 通过 MCP `tools/list` 暴露给客户端 —— 实时 JSON schema 看客户端的工具检查器。
 
-## 资源
-
-| URI | MIME | 内容 |
-|---|---|---|
-| `crud://schema/entity_guide` | `text/markdown` | `entity.json` 规范，单 markdown 文档。源同 [`agent-resources/entity-json-guide.md`](../../agent-resources/entity-json-guide.md)。 |
-| `crud://schema/builtins` | `application/json` | 模板自动注入的保留变量名与字段标识符。适合需要在调 `crud_preview` 之前本地校验 `entity.json` 的客户端。 |
+早期版本把 `crud://schema/entity_guide`、`crud://schema/entity_example`、`crud://schema/builtins` 作为 MCP **resource** 暴露；为了兼容只支持 tool 的客户端（opencode、cursor-cli 等），现已合并到 `crud_entity_schema` 工具。
 
 ## Prompts
 
@@ -95,7 +91,7 @@ server 通过 **stdio** 通信 —— 它不是常驻的网络守护进程。由
 针对**生成代码到现有项目**：
 
 1. **`crud_describe_templates`** → 拿到当前模板包的变量、字段类型、以及项目的路径布局。
-2. **（可选）读 `crud://schema/entity_guide`**，如果 Agent 对 `entity.json` 的结构不熟。
+2. **（可选）`crud_entity_schema { name: "guide" }`**，如果 Agent 对 `entity.json` 的结构不熟。模板包附带示例时可用 `name: "example"` 拉取具体样例。
 3. **撰写 `entity.json`**，依据用户意图 + 第 1 步拿到的 schema。
 4. **`crud_preview`** → 给用户展示归一化后的字段表用于确认。需要时迭代。
 5. **`crud_generate`** → 写文件。
@@ -129,5 +125,5 @@ Agent 可以原样回喂给模型；`remediation` 字段刻意写得可执行。
 ## 参见
 
 - [`agent-resources/template-authoring.md`](../../agent-resources/template-authoring.md) —— `crud_template_authoring` prompt 的源文档
-- [`agent-resources/entity-json-guide.md`](../../agent-resources/entity-json-guide.md) —— `crud://schema/entity_guide` 的源文档
+- [`agent-resources/entity-json-guide.md`](../../agent-resources/entity-json-guide.md) —— `crud_entity_schema { name: "guide" }` 的源文档
 - [主 README](../../README.zh.md) —— 项目概览、安装、基本 CLI 用法

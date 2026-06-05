@@ -2,7 +2,7 @@
 
 Markdown in this directory is **embedded into the `crud-cli` binary via
 `include_str!`** and served to LLM agents through the MCP server
-(`src/mcp/server.rs`, `src/mcp/resources.rs`).
+(`src/mcp/server.rs`, `src/mcp/entity_schema.rs`).
 
 ## Writing rules
 
@@ -21,6 +21,6 @@ Markdown in this directory is **embedded into the `crud-cli` binary via
 | File | MCP surface |
 |---|---|
 | `template-authoring.md` | Prompt `crud_template_authoring` |
-| `entity-json-guide.md` | Resource `URI_ENTITY_SCHEMA` |
+| `entity-json-guide.md` | Tool `crud_entity_schema { name: "guide" }` |
 
 Human-facing documentation lives in `docs/`.

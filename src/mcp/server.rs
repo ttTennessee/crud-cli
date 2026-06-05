@@ -10,10 +10,8 @@ use rmcp::{
     handler::server::router::{prompt::PromptRouter, tool::ToolRouter},
     handler::server::wrapper::Parameters,
     model::{
-        AnnotateAble, CallToolResult, Content, GetPromptRequestParams, GetPromptResult,
-        InitializeRequestParams, ListPromptsResult, ListResourceTemplatesResult,
-        ListResourcesResult, PaginatedRequestParams, PromptMessage, PromptMessageRole, RawResource,
-        ReadResourceRequestParams, ReadResourceResult, Resource, ResourceContents,
+        CallToolResult, Content, GetPromptRequestParams, GetPromptResult, InitializeRequestParams,
+        ListPromptsResult, PaginatedRequestParams, PromptMessage, PromptMessageRole,
         ServerCapabilities, ServerInfo,
     },
     prompt, prompt_handler, prompt_router, tool, tool_handler, tool_router, ErrorData as McpError,
@@ -32,7 +30,7 @@ use super::context::{
     file_uri_to_path, load_project_context_from_start, ProjectContext, ROOTS_LIST_TIMEOUT,
 };
 use super::convert::{envelope_to_value, generate_report_value};
-use super::resources::{list_resources, read_resource};
+use super::entity_schema::read_entity_schema;
 use super::validate_logic::{
     describe_templates, entity_json_to_temp_path, preview_entity_structure,
 };
@@ -165,6 +163,16 @@ struct GenerateParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+struct EntitySchemaParams {
+    /// Which reference to return: `guide` (full entity.json spec, markdown),
+    /// `example` (concrete entity.json samples shipped with the active template
+    /// bundle, JSON array — may be unavailable), or `builtins` (reserved
+    /// variable / field identifier names, JSON).
+    #[schemars(description = "One of: guide | example | builtins")]
+    name: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 struct DescribeParams {
     /// Optional project root; overrides the server default for this call only.
     #[schemars(description = "Project root directory")]
@@ -251,6 +259,30 @@ fn run_gen_blocking(
 
 #[tool_router]
 impl CrudMcpServer {
+    /**
+     * Returns an entity.json reference body by short name.
+     */
+    #[tool(
+        name = "crud_entity_schema",
+        description = "Fetch entity.json authoring reference. name=guide returns the full entity.json spec (markdown). name=example returns concrete entity.json samples shipped with the active template bundle (JSON array; errors if the bundle has none). name=builtins returns reserved variable/field identifier names (JSON). Call this when writing entity.json; do NOT call it for template-bundle authoring."
+    )]
+    async fn entity_schema(
+        &self,
+        Parameters(p): Parameters<EntitySchemaParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let ctx = self.ensure_project(None).await?;
+        let name = p.name;
+        let result = tokio::task::spawn_blocking(move || {
+            read_entity_schema(&name, &ctx.templates_root)
+        })
+        .await
+        .map_err(|e| internal_err(e.to_string()))?;
+        match result {
+            Ok(text) => Ok(CallToolResult::success(vec![Content::text(text)])),
+            Err(msg) => Ok(CallToolResult::error(vec![Content::text(msg)])),
+        }
+    }
+
     /**
      * Returns variables/field-types schemas as JSON, type prefixes, and path mappings.
      */
@@ -354,16 +386,16 @@ impl ServerHandler for CrudMcpServer {
         ServerInfo::new(
             ServerCapabilities::builder()
                 .enable_tools()
-                .enable_resources()
                 .enable_prompts()
                 .build(),
         )
         .with_instructions(
             "crud-cli MCP: call crud_describe_templates for the active bundle schemas, \
-             read crud:// resources for entity.json docs, then crud_preview (validates \
-             entity.json and returns its normalized field table for user confirmation), \
-             then crud_generate. Prefer launching with `crud-cli mcp --path <project>` \
-             or MCP roots when the process cwd is not the repo root.",
+             crud_entity_schema (name=guide|example|builtins) for entity.json authoring \
+             references, then crud_preview (validates entity.json and returns its \
+             normalized field table for user confirmation), then crud_generate. Prefer \
+             launching with `crud-cli mcp --path <project>` or MCP roots when the \
+             process cwd is not the repo root.",
         )
     }
 
@@ -389,58 +421,6 @@ impl ServerHandler for CrudMcpServer {
         self.resolve_and_store(Some(&context.peer), true).await;
     }
 
-    async fn list_resources(
-        &self,
-        _request: Option<PaginatedRequestParams>,
-        _context: RequestContext<RoleServer>,
-    ) -> Result<ListResourcesResult, McpError> {
-        let ctx = self.ensure_project(None).await?;
-        let resources: Vec<Resource> = list_resources(&ctx.templates_root)
-            .into_iter()
-            .map(|(uri, name, description, mime)| {
-                RawResource::new(uri, name)
-                    .with_description(description)
-                    .with_mime_type(mime)
-                    .no_annotation()
-            })
-            .collect();
-        Ok(ListResourcesResult {
-            resources,
-            next_cursor: None,
-            meta: None,
-        })
-    }
-
-    async fn read_resource(
-        &self,
-        request: ReadResourceRequestParams,
-        _context: RequestContext<RoleServer>,
-    ) -> Result<ReadResourceResult, McpError> {
-        let ctx = self.ensure_project(None).await?;
-        let (text, mime) = read_resource(&request.uri, &ctx.templates_root).map_err(|msg| {
-            McpError::resource_not_found(
-                "resource_not_found",
-                Some(serde_json::json!({ "msg": msg })),
-            )
-        })?;
-        Ok(ReadResourceResult::new(vec![ResourceContents::text(
-            text,
-            &request.uri,
-        )
-        .with_mime_type(mime)]))
-    }
-
-    async fn list_resource_templates(
-        &self,
-        _request: Option<PaginatedRequestParams>,
-        _context: RequestContext<RoleServer>,
-    ) -> Result<ListResourceTemplatesResult, McpError> {
-        Ok(ListResourceTemplatesResult {
-            resource_templates: vec![],
-            next_cursor: None,
-            meta: None,
-        })
-    }
 }
 
 fn internal_err(msg: impl Into<String>) -> McpError {
