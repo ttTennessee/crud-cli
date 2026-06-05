@@ -10,7 +10,7 @@ Compared to having the agent run `crud-cli gen ...` in a terminal:
 
 - **Structured input / output.** Tools take JSON parameters and return JSON results; no need to parse human-readable CLI output.
 - **Cheaper round-trips.** `crud_describe_templates` returns the variable / field-type schema of the active bundle in one call, so the agent doesn't have to discover it by reading files.
-- **Preview before write.** `crud_preview` validates an `entity.json` and returns its normalized field table — the user can confirm field types and required flags before any file is written.
+- **Validate before write.** `crud_validate` checks an `entity.json` against the active template schemas and returns `ok=true` (with optional warnings) before any file is written.
 - **Same write guarantees.** `crud_generate` uses the same transactional two-phase write as the CLI; on conflict, nothing lands on disk.
 
 ## Build and launch
@@ -73,7 +73,7 @@ Same shape — point `command` at the `crud-cli` binary on `PATH` and pass `["mc
 |---|---|
 | `crud_describe_templates` | Return the active bundle's `_variables.toml` schema, `_field_types.toml` aliases, project paths (`paths.lang` / `paths.aux`), and resolved project metadata. Call this **first** when authoring an `entity.json`. |
 | `crud_entity_schema` | Fetch entity.json authoring references. `name=guide` returns the full `entity.json` spec (markdown; same source as [`agent-resources/entity-json-guide.md`](../agent-resources/entity-json-guide.md)). `name=example` returns concrete entity.json samples shipped with the active template bundle (JSON array; errors if the bundle ships no `_example*.json`). `name=builtins` returns reserved variable / field identifier names (JSON). |
-| `crud_preview` | Validate an `entity.json` and return its normalized field-by-field structure as a confirmation table. No files are rendered or written. |
+| `crud_validate` | Validate an `entity.json` against the active template schemas. Returns `{"ok": true}` on success, `{"ok": true, "warnings": [...]}` when extra-key warnings are present, or an error result on failure. No files are rendered or written. |
 | `crud_generate` | Validate and write generated files into the project tree. Supports a `type` filter (e.g. `ddl`) and `force` to bypass overwrite policy. Uses the same transactional write as `crud-cli gen`. |
 
 Parameter and return-value schemas are surfaced via MCP `tools/list` — refer to your client's tool inspector for the live JSON schema.
@@ -93,7 +93,7 @@ For generating code into an existing project:
 1. **`crud_describe_templates`** → learn the active bundle's variables, field types, and the project's path layout.
 2. **(optional) `crud_entity_schema { name: "guide" }`** if the agent isn't already familiar with the `entity.json` shape. Use `name: "example"` to pull concrete samples from the active bundle when present.
 3. **Compose `entity.json`** based on the user's intent and the schema from step 1.
-4. **`crud_preview`** → show the user the normalized field table for confirmation. Iterate if needed.
+4. **(optional) `crud_validate`** → confirm the `entity.json` is valid before writing. Check `warnings` if present.
 5. **`crud_generate`** → write files.
 
 For authoring or adapting a template bundle:

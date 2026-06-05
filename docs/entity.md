@@ -2,7 +2,7 @@
 
 **Languages:** English · [简体中文](zh-CN/entity.md)
 
-Schema for the `entity.json` accepted by `crud-cli gen --file <path>` and by the MCP `crud_preview` / `crud_generate` tools.
+Schema for the `entity.json` accepted by `crud-cli gen --file <path>` and by the MCP `crud_validate` / `crud_generate` tools.
 
 All objects use `deny_unknown_fields` — any key not listed below is rejected.
 
@@ -60,7 +60,7 @@ Template-specific per-field flags. Valid keys are declared by the active templat
 { "name": "status", "type": "int", "extra": { "query": true, "dict_type": "sys_normal_disable" } }
 ```
 
-When `_field_extra.toml` is present, `crud_preview` returns a `warnings` array for unknown or missing-required extra keys (non-blocking — generation still proceeds).
+When `_field_extra.toml` is present, `crud_validate` returns a `warnings` array for unknown or missing-required extra keys (non-blocking — generation still proceeds).
 
 ## Examples
 

@@ -2,7 +2,7 @@
 
 **Languages:** [English](../entity.md) · 简体中文
 
-`crud-cli gen --file <path>` 和 MCP 的 `crud_preview` / `crud_generate` 工具接收的 `entity.json` 的 schema。
+`crud-cli gen --file <path>` 和 MCP 的 `crud_validate` / `crud_generate` 工具接收的 `entity.json` 的 schema。
 
 所有对象都使用 `deny_unknown_fields` —— 凡是下表未列出的键都会被拒绝。
 
@@ -60,7 +60,7 @@
 { "name": "status", "type": "int", "extra": { "query": true, "dict_type": "sys_normal_disable" } }
 ```
 
-`_field_extra.toml` 存在时，`crud_preview` 会对未知或缺少必填 extra 键的情况在返回结果的 `warnings` 数组中给出提示（非阻断——仍会继续生成）。
+`_field_extra.toml` 存在时，`crud_validate` 会对未知或缺少必填 extra 键的情况在返回结果的 `warnings` 数组中给出提示（非阻断——仍会继续生成）。
 
 ## 示例
 

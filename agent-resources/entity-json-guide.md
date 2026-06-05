@@ -1,6 +1,6 @@
 # crud-cli JSON entity input spec
 
-Schema for the `entity.json` accepted by `crud-cli gen --file <path>` and by the MCP `crud_preview` / `crud_generate` tools.
+Schema for the `entity.json` accepted by `crud-cli gen --file <path>` and by the MCP `crud_validate` / `crud_generate` tools.
 
 ## Before you write the JSON
 
@@ -70,7 +70,7 @@ Template-specific per-field flags. Before filling `extra`, call `crud_describe_t
 
 - **Keys** listed there are declared by the active template; supply values according to their `type`.
 - **`required_for`** lists field types that require a given key — if your field's `type` appears there, the key is mandatory.
-- `crud_preview` returns a `warnings` array when an unknown or missing-required extra key is detected (non-blocking).
+- `crud_validate` returns a `warnings` array when an unknown or missing-required extra key is detected (non-blocking).
 
 ```json
 { "name": "status", "type": "int", "extra": { "query": true, "dict_type": "sys_normal_disable" } }
